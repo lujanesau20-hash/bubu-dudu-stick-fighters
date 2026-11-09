@@ -49,6 +49,8 @@ const Menus = {
   seleccion(modo) {
     const ids = Object.keys(CONFIG.personajes);
     let elegido = 'bubu';
+    // Nivel: por defecto el primero que aún no se ha superado
+    let nivel = ORDEN_NIVELES.find((n) => !Guardado.datos.nivelesSuperados.includes(n) && !ESCENARIOS[n].pendiente) || 'isla';
     const titulos = { solo: 'Niveles en solitario', pareja: 'Niveles en pareja', versus: 'Versus' };
     const tactil = esDispositivoTactil();
     const ayuda = modo === 'solo'
@@ -69,6 +71,12 @@ const Menus = {
           <h2>${titulos[modo]}</h2>
           <p>${modo === 'solo' ? 'Elige tu personaje' : 'Toca un personaje para que sea el Jugador 1'}</p>
           <div class="tarjetas">${tarjetas}</div>
+          ${modo === 'versus' ? '' : `<p>Elige el nivel:</p><div class="selector-niveles">${ORDEN_NIVELES.map((id, i) => {
+            const e = ESCENARIOS[id];
+            const hecho = Guardado.datos.nivelesSuperados.includes(id);
+            return `<button class="btn-nivel ${id === nivel ? 'activo' : ''}" data-nivel="${id}" ${e.pendiente ? 'disabled' : ''}>`
+              + `<b>${i + 1}</b> ${e.nombre}${hecho ? ' ✓' : ''}</button>`;
+          }).join('')}</div>`}
           <p class="ayuda">${ayuda}</p>
           <div class="fila-botones">
             <button class="btn" data-ir="volver">Volver</button>
@@ -76,6 +84,7 @@ const Menus = {
           </div>
         </div>`);
       this.cont.querySelectorAll('.tarjeta').forEach((t) => t.onclick = () => { elegido = t.dataset.id; pintar(); });
+      this.cont.querySelectorAll('.btn-nivel').forEach((b) => b.onclick = () => { nivel = b.dataset.nivel; pintar(); });
       this.conectar({
         volver: () => this.principal(),
         jugar: () => {
@@ -85,11 +94,11 @@ const Menus = {
           if (!Guardado.datos.vioComoJugar) {
             this.comoJugar(() => {
               Guardado.datos.vioComoJugar = true; Guardado.guardar();
-              this.juego.iniciarPartida(modo, personajes);
+              this.juego.iniciarPartida(modo, personajes, nivel);
             }, '¡A jugar!');
             return;
           }
-          this.juego.iniciarPartida(modo, personajes);
+          this.juego.iniciarPartida(modo, personajes, nivel);
         },
       });
     };
@@ -124,18 +133,22 @@ const Menus = {
     this.conectar({ reintentar: () => this.juego.reiniciar(), menu: () => this.juego.irAlMenu() });
   },
 
-  victoria(monedas, hayMas) {
+  // siguiente = id del próximo nivel (o null si era el último)
+  victoria(monedas, siguiente) {
+    const sig = siguiente && ESCENARIOS[siguiente];
     this.mostrarHTML(`
       <div class="panel">
         <h2 class="dorado">¡NIVEL SUPERADO!</h2>
         <p>Monedas ganadas: 🪙 ${monedas} · Total: 🪙 ${Guardado.datos.monedas}</p>
-        <button class="btn grande verde" data-ir="tienda">🛍 Ir a la tienda</button>
-        ${hayMas ? '' : '<p class="ayuda">Los siguientes escenarios (Cielo, Espacio y Ciudad) llegarán pronto.</p>'}
+        ${sig ? `<button class="btn grande verde" data-ir="siguiente">➜ Siguiente nivel: ${sig.nombre}</button>`
+          : '<p class="dorado"><b>🏆 ¡Completaste todos los niveles!</b></p>'}
+        <button class="btn grande" data-ir="tienda">🛍 Ir a la tienda</button>
         <button class="btn" data-ir="otra">Jugar otra vez</button>
         <button class="btn" data-ir="menu">Menú principal</button>
       </div>`);
     this.conectar({
-      tienda: () => this.tienda.abrir(() => this.victoria(monedas, hayMas)),
+      siguiente: () => this.juego.siguienteNivel(),
+      tienda: () => this.tienda.abrir(() => this.victoria(monedas, siguiente)),
       otra: () => this.juego.reiniciar(),
       menu: () => this.juego.irAlMenu(),
     });

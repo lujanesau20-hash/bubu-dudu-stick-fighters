@@ -15,7 +15,7 @@ function simularPeleaJefe(cantidad = 20, opciones = {}) {
   for (let n = 0; n < cantidad; n++) {
     const semilla = 1000 + n * 7919;
     const azar = U.crearAleatorio(semilla + 1); // decisiones del jugador
-    const m = new Mundo({ modo: 'solo', personajes: ['bubu'], escenario: 'isla', semilla });
+    const m = new Mundo({ modo: 'solo', personajes: ['bubu'], escenario: opciones.escenario || 'isla', semilla });
     const esc = m.escenario;
     m.indiceOleada = esc.oleadas.length; // saltar las oleadas: directo al jefe
     const j = m.jugadores[0];
@@ -133,7 +133,8 @@ function simularPeleaJefe(cantidad = 20, opciones = {}) {
     curadoPromedio: prom('curado'),
     vidaFinalPromedio: prom('vidaFinal'),
     corazonesPromedio: prom('corazones'),
-    vidaJefe: BALANCE.vidaJefe(1),
+    nivel: opciones.escenario || 'isla',
+    vidaJefe: BALANCE.vidaJefe(Math.max(1, ORDEN_NIVELES.indexOf(opciones.escenario || 'isla') + 1)),
   };
   if (!opciones.silencio) { console.table(resultados.map((r) => ({ ...r, usos: JSON.stringify(r.usos) }))); console.log(resumen); }
   return { resumen, resultados };

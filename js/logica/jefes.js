@@ -44,13 +44,18 @@ class Jefe extends Enemigo {
       m.emitir('banner', { texto: '¡FURIA!', sub: this.nombre, color: '#ff4d4d' });
       m.emitir('sacudir', { fuerza: 14 });
     }
+    // Acciones programadas (lluvia de flechas, meteoritos...)
+    if (this.pendientes) {
+      for (const p of this.pendientes) { p.t -= dt; if (p.t <= 0) p.hacer(); }
+      this.pendientes = this.pendientes.filter((p) => p.t > 0);
+    }
     (IA_JEFES[this.tipo] || IA_JEFES.gigante)(this, dt, m);
     m.moverCuerpo(this, dt);
     if (Math.abs(this.vx) > 10) this.anim.fase += dt * Math.abs(this.vx) * 0.03;
   }
 
   recibirDanio(cantidad, info) {
-    if (!this.vivo || this.estado === 'entrando') return false;
+    if (!this.vivo || this.estado === 'entrando' || this.estado === 'oculto') return false;
     this.vida -= cantidad;
     this.anim.flash = 1;
     // Empuje muy pequeño (es enorme)

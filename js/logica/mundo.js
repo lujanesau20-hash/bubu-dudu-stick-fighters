@@ -64,8 +64,10 @@ class Mundo {
     if (!sinGravedad) e.vy = Math.min(e.vy + f.gravedad * dt, f.velocidadCaidaMax);
 
     e.x += e.vx * dt;
-    const izq = e.esJugador ? this.limiteIzq : 0;
-    const der = e.esJugador ? this.limiteDer : this.ancho;
+    // Jugadores y enemigos (tienen cfg) se quedan dentro de la zona cerrada de la oleada o del jefe
+    const enZona = e.esJugador || !!e.cfg;
+    const izq = enZona ? this.limiteIzq : 0;
+    const der = enZona ? this.limiteDer : this.ancho;
     const medio = e.ancho / 2;
     if (e.x < izq + medio) { e.x = izq + medio; if (e.vx < 0) e.vx = 0; }
     if (e.x > der - medio) { e.x = der - medio; if (e.vx > 0) e.vx = 0; }

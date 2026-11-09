@@ -67,12 +67,14 @@ const Juego = {
     Menus.principal();
   },
 
-  iniciarPartida(modo, personajes) {
+  iniciarPartida(modo, personajes, escenario = this.escenario || 'isla') {
     this.modo = modo;
     this.personajes = personajes;
+    // Nivel elegido (versus siempre usa la arena de la isla)
+    this.escenario = ESCENARIOS[escenario] && !ESCENARIOS[escenario].pendiente ? escenario : 'isla';
     const c = CONFIG.controles;
     this.entrada.configurar(modo === 'solo' ? [c.solo] : [c.j1, c.j2]);
-    this.mundo = new Mundo({ modo, personajes, escenario: 'isla', semilla: Math.floor(Math.random() * 1e9) });
+    this.mundo = new Mundo({ modo, personajes, escenario: modo === 'versus' ? 'isla' : this.escenario, semilla: Math.floor(Math.random() * 1e9) });
     this.efectos.reiniciar();
     this.hud.reiniciar();
     this.camara.saltarA(this.mundo, this.render.anchoBase);
@@ -82,7 +84,7 @@ const Juego = {
     // Pantalla de carga corta con un consejo antes de empezar el nivel
     this.estado = 'carga';
     this.tactil.mostrar(false);
-    const esc = this.modo === 'versus' ? ARENAS_VERSUS.isla : ESCENARIOS.isla;
+    const esc = this.modo === 'versus' ? ARENAS_VERSUS.isla : ESCENARIOS[this.escenario];
     Menus.carga(this.modo === 'versus' ? esc.nombre : `Nivel ${this.mundo.nivel} · ${esc.nombre}`);
     clearTimeout(this.tCarga);
     this.tCarga = setTimeout(() => {
@@ -95,7 +97,13 @@ const Juego = {
     }, 1600);
   },
 
-  reiniciar() { this.iniciarPartida(this.modo, this.personajes); },
+  reiniciar() { this.iniciarPartida(this.modo, this.personajes, this.escenario); },
+
+  // Pasar al siguiente nivel de la campaña
+  siguienteNivel() {
+    const sig = ORDEN_NIVELES[ORDEN_NIVELES.indexOf(this.escenario) + 1];
+    if (sig) this.iniciarPartida(this.modo, this.personajes, sig);
+  },
 
   pausar() {
     if (this.estado !== 'jugando') return;
@@ -179,7 +187,7 @@ const Juego = {
         Guardado.guardar();
       }
       const siguiente = ORDEN_NIVELES[ORDEN_NIVELES.indexOf(m.escenarioId) + 1];
-      Menus.victoria(m.monedasGanadas, siguiente && !ESCENARIOS[siguiente].pendiente);
+      Menus.victoria(m.monedasGanadas, siguiente && !ESCENARIOS[siguiente].pendiente ? siguiente : null);
     }
     if (tipo === 'versus') Menus.finVersus(CONFIG.personajes[m.jugadores[m.ganador].personaje].nombre);
   },

@@ -36,18 +36,96 @@ const ESCENARIOS = {
     zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
   },
 
-  // ---------- PREPARADOS (faltan fondo y enemigos propios) ----------
+  // ---------- NIVEL 2: CIELO ----------
   cielo: {
-    nombre: 'Cielo con Nubes', fondo: 'cielo', pendiente: true, enemigo: 'arquero', jefe: 'arqueroMaestro',
-    ancho: 4700, sueloY: 620, inicio: [180, 260], plataformas: [], oleadas: [], zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
+    nombre: 'Cielo con Nubes',
+    fondo: 'cielo',
+    ancho: 4700,
+    sueloY: 620,
+    enemigo: 'arquero',
+    jefe: 'arqueroMaestro',
+    inicio: [180, 260],
+    plataformas: [
+      { x: 560, y: 480, w: 200 },
+      { x: 860, y: 370, w: 180 },
+      { x: 1180, y: 460, w: 220 },
+      { x: 1560, y: 340, w: 200 },
+      { x: 1900, y: 450, w: 240 },
+      { x: 2300, y: 360, w: 180 },
+      { x: 2650, y: 470, w: 220 },
+      { x: 3000, y: 350, w: 200 },
+      // arena del jefe: escalones de nubes
+      { x: 3560, y: 470, w: 180 },
+      { x: 3900, y: 360, w: 200 },
+      { x: 4300, y: 470, w: 180 },
+    ],
+    oleadas: [
+      { gatillo: 520, zona: [0, 1500], grupos: [{ tipo: 'arquero', cantidad: 2, retraso: 0 }, { tipo: 'normal', cantidad: 2, retraso: 2 }] },
+      { gatillo: 1500, zona: [800, 2400], grupos: [{ tipo: 'normal', cantidad: 2, retraso: 0 }, { tipo: 'arquero', cantidad: 2, retraso: 2.5 }, { tipo: 'arquero', cantidad: 1, retraso: 5 }] },
+      { gatillo: 2500, zona: [1800, 3350], grupos: [{ tipo: 'arquero', cantidad: 3, retraso: 0 }, { tipo: 'normal', cantidad: 3, retraso: 4 }] },
+    ],
+    zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
   },
+
+  // ---------- NIVEL 3: ESPACIO ----------
   espacio: {
-    nombre: 'Espacio', fondo: 'espacio', pendiente: true, enemigo: 'mago', jefe: 'magoCosmico',
-    ancho: 4700, sueloY: 620, inicio: [180, 260], plataformas: [], oleadas: [], zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
+    nombre: 'Espacio',
+    fondo: 'espacio',
+    ancho: 4700,
+    sueloY: 620,
+    enemigo: 'mago',
+    jefe: 'magoCosmico',
+    inicio: [180, 260],
+    plataformas: [
+      { x: 620, y: 450, w: 220 },
+      { x: 980, y: 340, w: 160 },
+      { x: 1320, y: 470, w: 240 },
+      { x: 1700, y: 370, w: 200 },
+      { x: 2050, y: 470, w: 180 },
+      { x: 2380, y: 330, w: 220 },
+      { x: 2800, y: 450, w: 200 },
+      { x: 3120, y: 340, w: 160 },
+      // arena del jefe: plataformas en los extremos y una alta en el centro
+      { x: 3480, y: 450, w: 200 },
+      { x: 3920, y: 330, w: 220 },
+      { x: 4380, y: 450, w: 200 },
+    ],
+    oleadas: [
+      { gatillo: 520, zona: [0, 1500], grupos: [{ tipo: 'mago', cantidad: 2, retraso: 0 }, { tipo: 'normal', cantidad: 2, retraso: 2 }] },
+      { gatillo: 1500, zona: [800, 2400], grupos: [{ tipo: 'mago', cantidad: 2, retraso: 0 }, { tipo: 'arquero', cantidad: 2, retraso: 3 }] },
+      { gatillo: 2500, zona: [1800, 3350], grupos: [{ tipo: 'mago', cantidad: 3, retraso: 0 }, { tipo: 'normal', cantidad: 2, retraso: 3 }, { tipo: 'arquero', cantidad: 1, retraso: 5 }] },
+    ],
+    zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
   },
+
+  // ---------- NIVEL 4: CALLE DE CIUDAD ----------
   ciudad: {
-    nombre: 'Calle de Ciudad', fondo: 'ciudad', pendiente: true, enemigo: 'ninja', jefe: 'ninjaSombra',
-    ancho: 4700, sueloY: 620, inicio: [180, 260], plataformas: [], oleadas: [], zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
+    nombre: 'Calle de Ciudad',
+    fondo: 'ciudad',
+    ancho: 4700,
+    sueloY: 620,
+    enemigo: 'ninja',
+    jefe: 'ninjaSombra',
+    inicio: [180, 260],
+    plataformas: [
+      { x: 600, y: 470, w: 240 },
+      { x: 950, y: 380, w: 200 },
+      { x: 1350, y: 470, w: 260 },
+      { x: 1750, y: 360, w: 220 },
+      { x: 2150, y: 470, w: 240 },
+      { x: 2550, y: 380, w: 200 },
+      { x: 2950, y: 470, w: 260 },
+      // arena del jefe
+      { x: 3600, y: 460, w: 220 },
+      { x: 4000, y: 360, w: 200 },
+      { x: 4350, y: 460, w: 220 },
+    ],
+    oleadas: [
+      { gatillo: 520, zona: [0, 1500], grupos: [{ tipo: 'ninja', cantidad: 2, retraso: 0 }, { tipo: 'normal', cantidad: 2, retraso: 2 }] },
+      { gatillo: 1500, zona: [800, 2400], grupos: [{ tipo: 'ninja', cantidad: 3, retraso: 0 }, { tipo: 'arquero', cantidad: 1, retraso: 3 }] },
+      { gatillo: 2500, zona: [1800, 3350], grupos: [{ tipo: 'ninja', cantidad: 3, retraso: 0 }, { tipo: 'mago', cantidad: 2, retraso: 3 }, { tipo: 'ninja', cantidad: 2, retraso: 6 }] },
+    ],
+    zonaJefe: { gatillo: 3550, zona: [3300, 4700] },
   },
 };
 

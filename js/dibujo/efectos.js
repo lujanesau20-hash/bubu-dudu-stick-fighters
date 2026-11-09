@@ -89,6 +89,14 @@ class Efectos {
           this.texto(e.x, e.y - 110, '¡REVIVIDO!', '#7dff9b', true);
           break;
         case 'avanzar': break;
+        // Aviso en el suelo antes de un ataque de área (lluvia de flechas, meteoritos)
+        case 'avisoSuelo':
+          this.anillos.push({ x: e.x, y: e.y, r: e.radio, rMax: e.radio, t: 0, dur: e.duracion, color: e.color, ancho: 5, plano: true, aviso: true });
+          break;
+        case 'teletransporte':
+          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 70, t: 0, dur: 0.35, color: e.color || '#b197fc', ancho: 6 });
+          for (let i = 0; i < 14; i++) this.particulas.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y + (Math.random() - 0.5) * 80, vx: (Math.random() - 0.5) * 120, vy: -60 - Math.random() * 160, t: 0, dur: 0.5, color: e.color || '#b197fc', tam: 4 });
+          break;
         case 'oleada': this.banners.push({ texto: `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
       }
     }
@@ -141,7 +149,8 @@ class Efectos {
       const k = a.t / a.dur;
       const r = a.r + (a.rMax - a.r) * U.easeOutCubic(k);
       ctx.save();
-      ctx.globalAlpha = 1 - k;
+      ctx.globalAlpha = a.aviso ? 0.45 + Math.abs(Math.sin(a.t * 14)) * 0.5 : 1 - k;
+      if (a.aviso) { ctx.fillStyle = a.color; ctx.globalAlpha *= 0.35; ctx.beginPath(); ctx.ellipse(a.x, a.y, r * k, r * k * 0.28, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha /= 0.35; }
       ctx.strokeStyle = a.color;
       ctx.lineWidth = a.ancho * (1 - k) + 1;
       ctx.beginPath();

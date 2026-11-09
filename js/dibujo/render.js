@@ -133,6 +133,52 @@ class Render {
         }
         break;
       }
+      case 'flecha': {
+        // Apunta hacia donde va
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(12, 0); ctx.stroke();
+        ctx.fillStyle = '#dee2e6';
+        ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(10, -5); ctx.lineTo(10, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e03131';
+        ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(-28, -5); ctx.lineTo(-18, 0); ctx.lineTo(-28, 5); ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'orbe': {
+        const pulso = 1 + Math.sin(t * 14 + p.x) * 0.12;
+        ctx.shadowColor = p.color; ctx.shadowBlur = 18;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(0, 0, p.radio * pulso, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(-p.radio * 0.3, -p.radio * 0.3, p.radio * 0.4, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'meteoro': {
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        const gc = ctx.createLinearGradient(-90, 0, 0, 0);
+        gc.addColorStop(0, 'rgba(255,146,43,0)'); gc.addColorStop(1, 'rgba(255,212,59,0.9)');
+        ctx.fillStyle = gc;
+        ctx.beginPath(); ctx.moveTo(-100, 0); ctx.lineTo(0, -p.radio); ctx.lineTo(0, p.radio); ctx.closePath(); ctx.fill();
+        ctx.shadowColor = '#ff922b'; ctx.shadowBlur = 24;
+        ctx.fillStyle = '#6c4a3a';
+        ctx.beginPath(); ctx.arc(0, 0, p.radio, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ff922b';
+        ctx.beginPath(); ctx.arc(p.radio * 0.3, 0, p.radio * 0.55, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'shuriken': {
+        ctx.rotate(p.rot * 1.5);
+        ctx.fillStyle = '#ced4da'; ctx.strokeStyle = '#343a40'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * Math.PI * 2;
+          ctx.lineTo(Math.cos(a) * 13, Math.sin(a) * 13);
+          ctx.lineTo(Math.cos(a + Math.PI / 4) * 4, Math.sin(a + Math.PI / 4) * 4);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#343a40'; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
       default:
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(0, 0, p.radio, 0, Math.PI * 2); ctx.fill();

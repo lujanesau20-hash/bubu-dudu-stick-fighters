@@ -152,7 +152,7 @@ const CONFIG = {
       alcance: 520, preparacion: 0.6, ancho: 34, alto: 82, monedas: 4 },
     mago: { nombre: 'Mago', color: '#8a4fd8', vida: 38, velocidad: 100, danio: 9,
       alcance: 460, preparacion: 0.7, ancho: 34, alto: 82, monedas: 5 },
-    ninja: { nombre: 'Ninja', color: '#222831', vida: 36, velocidad: 230, danio: 9,
+    ninja: { nombre: 'Ninja', color: '#5c677d', vida: 36, velocidad: 230, danio: 9,
       alcance: 64, preparacion: 0.25, ancho: 32, alto: 80, monedas: 5 },
   },
 
@@ -160,9 +160,13 @@ const CONFIG = {
   jefes: {
     gigante: { nombre: 'EL GIGANTE', color: '#5b3a8c', vida: 1100, velocidad: 75, ancho: 96,
       alto: 235, monedas: 80, danioPunio: 18, danioPisoton: 15, danioEmbestida: 22 },
-    arqueroMaestro: { nombre: 'ARQUERO MAESTRO', color: '#1f6b2c', vida: 900, pendiente: true },
-    magoCosmico: { nombre: 'MAGO CÓSMICO', color: '#4b1fa8', vida: 1000, pendiente: true },
-    ninjaSombra: { nombre: 'NINJA SOMBRA', color: '#0b0b10', vida: 950, pendiente: true },
+    // Jefes de los niveles 2, 3 y 4 (su vida y daño se ajustan en config/balance.js)
+    arqueroMaestro: { nombre: 'ARQUERO MAESTRO', color: '#1f6b2c', vida: 900, velocidad: 130, ancho: 56,
+      alto: 150, monedas: 90, danioFlecha: 7, danioLluvia: 9 },
+    magoCosmico: { nombre: 'MAGO CÓSMICO', color: '#6a3fd1', vida: 1000, velocidad: 95, ancho: 58,
+      alto: 160, monedas: 100, danioOrbe: 6, danioMeteoro: 11 },
+    ninjaSombra: { nombre: 'NINJA SOMBRA', color: '#7d8597', vida: 950, velocidad: 250, ancho: 46,
+      alto: 140, monedas: 110, danioCorte: 9, danioShuriken: 4 },
   },
   multiplicadorPareja: { enemigos: 1.5, vidaJefe: 1.6 },
 

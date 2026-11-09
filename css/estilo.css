@@ -133,3 +133,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
   .tecla-num { height: 46px; font-size: 22px; }
   .campo-codigo .digito { width: 44px; height: 50px; font-size: 28px; }
 }
+
+/* ---------- Selector de niveles ---------- */
+.selector-niveles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(460px, 100%); }
+.btn-nivel { font: inherit; font-weight: bold; font-size: 15px; padding: 9px 10px; border-radius: 12px; border: 2px solid rgba(255,216,77,0.6); background: rgba(255,255,255,0.06); color: #fff; cursor: pointer; text-align: left; }
+.btn-nivel b { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: #ffd84d; color: #1a1a2e; text-align: center; line-height: 22px; margin-right: 4px; }
+.btn-nivel.activo { background: #ffd84d; color: #1a1a2e; }
+.btn-nivel.activo b { background: #1a1a2e; color: #ffd84d; }
+.btn-nivel:disabled { opacity: 0.4; cursor: default; }

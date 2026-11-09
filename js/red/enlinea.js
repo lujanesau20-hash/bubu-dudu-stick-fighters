@@ -79,7 +79,7 @@ const EnLinea = {
   iniciar(escenario = 'isla') {
     this.escenario = escenario;
     this.enPartida = true;
-    Juego.iniciarPartida('pareja', ['bubu', 'dudu']);
+    Juego.iniciarPartida('pareja', ['bubu', 'dudu'], escenario);
   },
 
   // Llamado desde Juego.iniciarPartida (anfitrión)

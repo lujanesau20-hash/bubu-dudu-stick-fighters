@@ -78,19 +78,39 @@ class Proyectil {
     this.color = o.color || '#fff';
     this.escala = o.escala || 1;
     this.chocaSuelo = o.chocaSuelo ?? true;
+    this.teledirigido = o.teledirigido || 0;   // >0: gira hacia el jugador más cercano (rad/s)
+    this.alChocarSuelo = o.alChocarSuelo || null; // función (mundo, proyectil) al tocar el suelo
     this.golpeados = new Set();
     this.rot = 0;
     this.vivo = true;
   }
 
   actualizar(dt, mundo) {
+    if (this.teledirigido) {
+      const obj = mundo.jugadorMasCercano(this.x, this.y);
+      if (obj) {
+        const vel = Math.hypot(this.vx, this.vy);
+        const actual = Math.atan2(this.vy, this.vx);
+        const deseado = Math.atan2(obj.y - obj.alto / 2 - this.y, obj.x - this.x);
+        let dif = deseado - actual;
+        while (dif > Math.PI) dif -= Math.PI * 2;
+        while (dif < -Math.PI) dif += Math.PI * 2;
+        const nuevo = actual + U.clamp(dif, -this.teledirigido * dt, this.teledirigido * dt);
+        this.vx = Math.cos(nuevo) * vel; this.vy = Math.sin(nuevo) * vel;
+      }
+    }
     this.vy += this.gravedad * dt;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.rot += dt * 18;
     this.vida -= dt;
     if (this.vida <= 0 || this.x < -200 || this.x > mundo.ancho + 200) { this.vivo = false; return; }
-    if (this.chocaSuelo && this.y > mundo.sueloY) { this.vivo = false; mundo.emitir('chispa', { x: this.x, y: mundo.sueloY, color: this.color }); return; }
+    if (this.chocaSuelo && this.y > mundo.sueloY) {
+      this.vivo = false;
+      mundo.emitir('chispa', { x: this.x, y: mundo.sueloY, color: this.color });
+      if (this.alChocarSuelo) this.alChocarSuelo(mundo, this);
+      return;
+    }
 
     for (const obj of mundo.objetivosDe(this.duenio)) {
       if (this.golpeados.has(obj)) continue;

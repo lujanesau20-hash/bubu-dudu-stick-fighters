@@ -45,6 +45,10 @@ const BALANCE = {
   danioEnemigos: {
     normal: 8, arquero: 7, mago: 9, ninja: 9,
     gigante: { punio: 18, pisoton: 15, embestida: 22 },
+    // Jefes de los niveles 2, 3 y 4
+    arqueroMaestro: { flecha: 7, lluvia: 9 },
+    magoCosmico: { orbe: 6, meteoro: 11 },
+    ninjaSombra: { corte: 9, shuriken: 4 },
   },
 
   // ---------- 4. Corazones de curación ----------
@@ -91,6 +95,10 @@ BALANCE.tablaVidas = [1, 2, 3, 4].map((n) => ({ nivel: n, enemigo: BALANCE.vidaE
   for (const tipo of Object.keys(CONFIG.jefes)) CONFIG.jefes[tipo].vida = b.vidaJefe(1);
   const g = b.danioEnemigos.gigante;
   Object.assign(CONFIG.jefes.gigante, { danioPunio: g.punio, danioPisoton: g.pisoton, danioEmbestida: g.embestida });
+  const am = b.danioEnemigos.arqueroMaestro, mc = b.danioEnemigos.magoCosmico, ns = b.danioEnemigos.ninjaSombra;
+  Object.assign(CONFIG.jefes.arqueroMaestro, { danioFlecha: am.flecha, danioLluvia: am.lluvia });
+  Object.assign(CONFIG.jefes.magoCosmico, { danioOrbe: mc.orbe, danioMeteoro: mc.meteoro });
+  Object.assign(CONFIG.jefes.ninjaSombra, { danioCorte: ns.corte, danioShuriken: ns.shuriken });
   CONFIG.multiplicadorPareja.enemigos = b.enemigos.parejaCantidad;
   CONFIG.multiplicadorPareja.vidaJefe = b.enemigos.parejaVidaJefe;
 })();
