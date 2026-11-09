@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: rendimiento con muchos enemigos y habilidades grandes; ver la sección 10).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: reloj de envío del líder, snapshots "solo cambios" y panel de rendimiento; ver la sección 11).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`
 
 ---
 
@@ -573,4 +573,62 @@ npx wrangler deploy
 **Límites**
 - Las mediciones de tiempo se hicieron en una laptop; en el celular solo se puede comparar con el panel (FPS mínimo y cuadro más largo).
 - En celular los brillos (sombras borrosas) de combos, orbes y bolas de fuego no se ven, y hay la mitad de chispas.
+
+---
+
+## 11. Reloj de envío del líder, snapshots "solo cambios" y panel de rendimiento
+
+**Lo que mostraba la grabación del invitado:** 45–60 FPS; en peleas grandes los snapshots recibidos bajaban de 20 a 11–13 por segundo y subían a 1100–1250 bytes; el ping de los mensajes subía a 130–590 ms mientras el ida y vuelta real de WebRTC era de 14–69 ms (conexión directa UDP, cola vacía).
+
+**Qué se encontró**
+- **11–13 snapshots/s:** lo causaba una regla de la sección 10 ("líder atrasado"). Cuando un cuadro del líder pasaba de 34 ms, bajaba el envío a **12 por segundo** durante 1 s y además saltaba el envío de ese cuadro. En peleas grandes eso coincide exactamente con lo medido. El envío iba atado al dibujo.
+- **Ping alto con la red bien:** el ping ya se respondía en el manejador de mensajes (no en el bucle), pero el navegador solo atiende un mensaje cuando el hilo principal está libre. Si el juego ocupa el hilo (dibujo, simulación, recolección de basura), el mensaje espera. Por eso el ping de los mensajes subía y el de WebRTC no. Ahora el panel muestra ese **bloqueo del hilo** de cada lado.
+- **Snapshots grandes:** se mandaban todos los campos de cada enemigo y jugador en cada snapshot, aunque no cambiaran (dirección, estado, vida, tipo, vida máxima, animación…).
+- **Mensaje de efectos enorme:** en un Cataclismo con 15 enemigos, el mensaje de efectos (canal fiable) llegaba a **3269 bytes**: coordenadas con decimales, nombres largos y hasta 17 sacudidas de cámara por envío.
+- **Objetos nuevos en cada cuadro del invitado:** al dibujar, el invitado creaba listas y objetos nuevos para enemigos, proyectiles, monedas y corazones, y buscaba cada enemigo en una lista (`find`) en cada cuadro. Esto genera pausas de recolección de basura en el celular.
+- **Simulación del líder** con 15 enemigos + Cataclismo: 0.03 ms de media y 1.5 ms de máximo por paso. El cálculo de daño no es el problema.
+
+**Qué se cambió (sin tocar la jugabilidad)**
+- **Reloj de envío propio** (`config/red.js` → `relojEnvio.activo`): un temporizador a 20 Hz exactos avanza la simulación hasta "ahora" y manda el snapshot, sin esperar al dibujo. El dibujo también avanza la simulación hasta "ahora" (lo que llegue primero). Con la pestaña del líder oculta el juego queda quieto, como antes.
+- **Omitir dibujo antes que envío** (`omitirDibujo`): si el líder baja de 40 FPS, dibuja un cuadro sí y uno no; los snapshots siguen a 20 por segundo. Las reglas viejas `liderLento` y `liderAtrasado` ya no se usan con el reloj.
+- **Snapshots "solo cambios"** (`compacto.repetirCambios: 3`, `cadaClave: 20`): cada cosa manda un mapa de bits y solo los campos que cambiaron. Cada cambio se repite en 3 snapshots seguidos (por si se pierde uno) y cada cosa va completa una vez por segundo, repartida en snapshots distintos. Las velocidades se redondean de 10 en 10 (solo se usan para la pose). Un snapshot viejo que llega tarde se descarta.
+- **Efectos en formato corto:** números enteros, nombres de 1–2 letras, tipo como número y una sola sacudida (la más fuerte) por envío.
+- **Invitado sin objetos nuevos por cuadro:** reutiliza las listas y los objetos de enemigos, proyectiles, monedas y corazones; las búsquedas por id se arman una vez por snapshot.
+- **Ping:** se sigue respondiendo enseguida en el manejador de mensajes, por su canal propio. Cada respuesta incluye el **bloqueo del hilo** del que responde.
+
+**Panel de depuración** (ahora en dos columnas; F3 o 5 toques en la esquina superior izquierda)
+- **RED:** rol, ping de los mensajes, ida y vuelta de WebRTC, **bloqueo del hilo del otro**, **snapshots ENVIADOS/s (líder) o RECIBIDOS/s (invitado)**, tamaño, conexión, canal rápido, TURN, colas, descartados y modo de envío.
+- **RENDIMIENTO (prom / máx por cuadro):** FPS, **simulación**, **dibujo**, **armado y envío de snapshots** (ms), **bloqueo del hilo** de este equipo, **cuadros sin dibujar/s**, enemigos y efectos de ahora.
+- **PEOR MOMENTO:** FPS mínimo, cuadro más largo con sim/dibujo/red de ese cuadro y cuántos enemigos y efectos había, bloqueo máximo del hilo, snapshot más grande, mínimo de snapshots/s y cola máxima.
+- **Cómo leerlo:** si el líder dice ~20 enviados/s y el invitado recibe 11–13, se pierden en la red. Si el líder ya envía 11–13, el líder se atrasa. Si el ping de mensajes es mucho mayor que el de WebRTC, mira el "bloqueo del hilo" de cada lado: ese es el que tarda.
+
+**Antes → después (medido en el navegador)**
+| | Antes | Después |
+|---|---|---|
+| Snapshots/s en peleas grandes | 12 (por la regla "líder atrasado") | **20** (reloj propio; probado incluso sin dibujar nada) |
+| Snapshot típico, 12 enemigos peleando | 987 bytes | **492 bytes** (95% por debajo de 743) |
+| Snapshot más grande (después del primer segundo) | 1407 bytes | **1072 bytes** (los 3 primeros de una partida pesan ~1450 porque todo es nuevo) |
+| Mensaje de efectos, Cataclismo con 15 enemigos | 3269 bytes (promedio 583) | **1421 bytes (promedio 267)** |
+| Sacudidas de cámara por envío | hasta 17 | **1** |
+| Armado + envío de un snapshot (líder) | — | 0.05–0.18 ms |
+| Simulación del líder por paso (15 enemigos + Cataclismo) | 0.03 ms prom., 1.5 ms máx. | igual (no era el problema) |
+| Objetos y listas nuevas por cuadro en el invitado | 4 listas + 1 objeto por proyectil/moneda/corazón + búsquedas `find` | **0** (se reutilizan) |
+| Pérdida del 10% de snapshots | — | el invitado reconstruye todo (errores momentáneos que se corrigen solos en ≤1 s) |
+
+**Nuevos valores (`config/red.js`)**
+- `relojEnvio: { activo: true }`
+- `omitirDibujo: { activo: true, fpsMinimo: 40 }`
+- `compacto: { activo: true, repetirCambios: 3, cadaClave: 20, avisoBytes: 1500 }` (reemplaza a `repetirFijosNuevos`)
+
+**Cómo probar**
+1. Subir los cambios a la web y abrir el juego en los dos dispositivos.
+2. Abrir el panel en los dos y jugar un nivel alto con muchos enemigos, usando Cataclismo y Torbellino.
+3. Comparar los **snapshots ENVIADOS/s** del líder con los **RECIBIDOS/s** del invitado, y el **bloqueo del hilo** de cada lado con la diferencia entre el ping de mensajes y el de WebRTC.
+4. Mirar en el líder el "PEOR MOMENTO": qué parte (sim, dibujo o red) pesa en el cuadro más largo.
+- Para volver al sistema anterior: `relojEnvio.activo: false` (y `compacto.activo: false` para el formato completo).
+
+**Límites**
+- Con pérdidas muy altas (30% o más) algún dato puede verse viejo hasta 1 s, hasta que esa cosa vuelve a ir completa.
+- El ping de los mensajes siempre incluye la espera del hilo principal de los dos lados (así funciona el navegador). La medida "solo red" es la de WebRTC; el panel muestra las dos y el bloqueo de cada lado.
+- La pestaña del líder debe seguir visible: si se oculta, el juego queda quieto para los dos (igual que antes).
 

@@ -1,10 +1,13 @@
 /* =====================================================================
    PANEL DE DEPURACIÓN (oculto)
    Se abre/cierra con F3 o tocando 5 veces la esquina superior izquierda.
-   Muestra: rol (líder/invitado), ping, ida y vuelta real de la red (WebRTC),
-   snapshots por segundo, tamaño promedio de cada snapshot, FPS, tipo de
-   conexión (directa en la red local / directa por el router / TURN) y si el
-   canal rápido (sin reenvíos) está activo. Valores en config/red.js.
+   Columna izquierda (RED): rol, ping de los mensajes, ida y vuelta real de la
+   red (WebRTC), snapshots enviados (líder) o recibidos (invitado) por segundo,
+   tamaño, conexión (directa / TURN), canal rápido, TURN y colas.
+   Columna derecha (RENDIMIENTO): FPS, tiempo por cuadro de simulación, dibujo
+   y armado/envío de snapshots, bloqueo del hilo principal, cuadros sin
+   dibujar, enemigos y efectos, y el PEOR MOMENTO de la partida.
+   Valores en config/red.js.
    ===================================================================== */
 const Depuracion = {
   visible: false,
@@ -13,7 +16,10 @@ const Depuracion = {
   bytesPromedio: 0,
   tipoConexion: '…',
   rttRed: null,
-  _cuadros: 0, _snaps: 0, _bytes: 0, _toques: [], _tSeg: 0,
+  bloqueoSeg: 0,            // cuánto se atrasó el hilo principal en el último segundo (ms)
+  omitidosPorSeg: 0,        // cuadros de dibujo omitidos por el líder en el último segundo
+  med: {},                  // tiempos por cuadro del último segundo: { sim, dibujo, red } -> { prom, max }
+  _cuadros: 0, _snaps: 0, _bytes: 0, _toques: [], _omitidos: 0, _bloq: 0, _med: {},
   peor: null,               // el peor momento de la partida actual (se reinicia con cada partida)
 
   init() {
@@ -30,17 +36,35 @@ const Depuracion = {
       if (this._toques.length >= cfg.toques) { this._toques = []; this.alternar(); }
     }, { capture: true, passive: true });
     setInterval(() => this.cadaSegundo(), 1000);
+    // Bloqueo del hilo principal: un temporizador cada 50 ms mide cuánto llega tarde.
+    // Si el juego ocupa el hilo, los mensajes (y el ping) también esperan ese tiempo.
+    let esperado = performance.now() + 50;
+    setInterval(() => {
+      const ahora = performance.now();
+      this._bloq = Math.max(this._bloq, ahora - esperado);
+      esperado = ahora + 50;
+    }, 50);
   },
 
   alternar() { this.visible = !this.visible; if (this.visible) this.leerConexion(); },
 
+  // Tiempo (ms) de una parte del trabajo: 'sim', 'dibujo' o 'red' (armado y envío de snapshots)
+  medir(etq, ms) {
+    const m = this._med[etq] || (this._med[etq] = { suma: 0, n: 0, max: 0 });
+    m.suma += ms; m.n++; if (ms > m.max) m.max = ms;
+    this.ultimo = this.ultimo || {};
+    this.ultimo[etq] = ms;
+  },
+  cuadroOmitido() { this._omitidos++; },
+
   // ---------- Peor momento de la partida ----------
   reiniciarPeor(mundo) {
-    this.peor = { mundo, fpsMin: null, cuadroMaxMs: 0, enemigos: 0, efectos: 0, snapMaxBytes: 0, snapsMinPorSeg: null, colaMax: 0, segundos: 0 };
+    this.peor = { mundo, fpsMin: null, cuadroMaxMs: 0, enemigos: 0, efectos: 0, sim: 0, dibujo: 0, red: 0,
+      bloqueoMax: 0, snapMaxBytes: 0, snapsMinPorSeg: null, colaMax: 0, segundos: 0 };
   },
   jugando() { return typeof Juego !== 'undefined' && Juego.estado === 'jugando' && !!Juego.mundo; },
   efectosVivos() {
-    const ef = Juego.efectos;
+    const ef = typeof Juego !== 'undefined' && Juego.efectos;
     return ef ? ef.particulas.length + ef.textos.length + ef.anillos.length + ef.arcos.length : 0;
   },
   colaActual() {
@@ -53,16 +77,18 @@ const Depuracion = {
   cuadro() {
     this._cuadros++;
     const ahora = performance.now();
-    const dt = this._ultimo ? ahora - this._ultimo : 0;
-    this._ultimo = ahora;
+    const dt = this._ultimoCuadro ? ahora - this._ultimoCuadro : 0;
+    this._ultimoCuadro = ahora;
     if (!this.jugando()) { this._seguido = false; return; }
     if (!this.peor || this.peor.mundo !== Juego.mundo) this.reiniciarPeor(Juego.mundo);
     const p = this.peor;
     // El primer cuadro después de una pausa o carga no cuenta (su tiempo incluye la espera)
     if (this._seguido && dt > p.cuadroMaxMs) {
+      const u = this.ultimo || {};
       p.cuadroMaxMs = Math.round(dt);
       p.enemigos = Juego.mundo.enemigos.length + (Juego.mundo.jefe ? 1 : 0);
       p.efectos = this.efectosVivos();
+      p.sim = u.sim || 0; p.dibujo = u.dibujo || 0; p.red = u.red || 0;
     }
     p.colaMax = Math.max(p.colaMax, this.colaActual());
     this._seguido = true;
@@ -77,6 +103,12 @@ const Depuracion = {
   cadaSegundo() {
     this.fps = this._cuadros;
     this.snapsPorSeg = this._snaps;
+    this.omitidosPorSeg = this._omitidos;
+    this.bloqueoSeg = Math.round(this._bloq);
+    const med = {};
+    for (const k in this._med) { const m = this._med[k]; med[k] = { prom: m.n ? m.suma / m.n : 0, max: m.max }; }
+    this.med = med;
+    this._med = {};
     const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
     this.descartadosPorSeg = EL ? (EL.snapsDescartados || 0) - (this._descartadosAntes || 0) : 0;
     this._descartadosAntes = EL ? EL.snapsDescartados || 0 : 0;
@@ -87,10 +119,11 @@ const Depuracion = {
       p.segundos++;
       if (p.segundos >= 2) {
         p.fpsMin = p.fpsMin == null ? this.fps : Math.min(p.fpsMin, this.fps);
+        p.bloqueoMax = Math.max(p.bloqueoMax, this.bloqueoSeg);
         if (EL && EL.activo && EL.conectado) p.snapsMinPorSeg = p.snapsMinPorSeg == null ? this.snapsPorSeg : Math.min(p.snapsMinPorSeg, this.snapsPorSeg);
       }
     }
-    this._cuadros = 0; this._snaps = 0; this._bytes = 0;
+    this._cuadros = 0; this._snaps = 0; this._bytes = 0; this._omitidos = 0; this._bloq = 0;
     if (this.visible) this.leerConexion();
   },
 
@@ -98,7 +131,7 @@ const Depuracion = {
   async leerConexion() {
     const conn = typeof EnLinea !== 'undefined' && EnLinea.conn;
     const pc = conn && conn.peerConnection;
-    if (!pc || !pc.getStats) { this.tipoConexion = EnLinea && EnLinea.activo ? 'conectando…' : 'sin partida en línea'; this.rttRed = null; return; }
+    if (!pc || !pc.getStats) { this.tipoConexion = typeof EnLinea !== 'undefined' && EnLinea.activo ? 'conectando…' : 'sin partida en línea'; this.rttRed = null; return; }
     try {
       const stats = await pc.getStats();
       let par = null;
@@ -121,49 +154,77 @@ const Depuracion = {
     if (!this.visible) return;
     const s = U.clamp(H / 720, 0.7, 1.6);
     const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
-    const rol = !EL || !EL.activo ? 'sin red (local)' : EL.esAnfitrion ? 'LÍDER (anfitrión)' : 'INVITADO';
+    const lider = EL && EL.esAnfitrion;
+    const rol = !EL || !EL.activo ? 'sin red (local)' : lider ? 'LÍDER (anfitrión)' : 'INVITADO';
     const canal = EL && EL.canalRapido && EL.canalRapido.readyState === 'open' ? 'sí (sin reenvíos)' : 'no (canal fiable)';
-    const lineas = [
-      `Rol: ${rol}`,
-      `Ping: ${EL && EL.ping != null ? EL.ping + ' ms' + (EL.pingCanal ? ` (canal ${EL.pingCanal})` : '') : '—'}`,
-      `Ida y vuelta red (WebRTC): ${this.rttRed != null ? this.rttRed + ' ms' : '—'}`,
-      `Snapshots/s ${EL && EL.esAnfitrion ? 'enviados' : 'recibidos'}: ${this.snapsPorSeg}`,
-      `Tamaño promedio: ${this.bytesPromedio} bytes`,
-      `FPS: ${this.fps}`,
-      `Conexión: ${this.tipoConexion}`,
-      `Canal rápido: ${EL && EL.activo ? canal : '—'}`,
-      `TURN: ${EL && EL.estadoTurn ? EL.estadoTurn : '—'}`,
+    const f1 = (v) => (v == null ? '—' : (Math.round(v * 10) / 10).toFixed(1));
+    const avisoBytes = RED_CONFIG.compacto.avisoBytes;
+
+    // ---- Columna RED ----
+    const red = [
+      ['— RED —'],
+      [`Rol: ${rol}`],
+      [`Ping (mensajes): ${EL && EL.ping != null ? EL.ping + ' ms' : '—'}`],
+      [`Ida y vuelta red (WebRTC): ${this.rttRed != null ? this.rttRed + ' ms' : '—'}`],
+      [`Bloqueo del hilo del otro: ${EL && EL.activo && EL.bloqueoOtro != null ? EL.bloqueoOtro + ' ms' : '—'}`],
+      [`Snapshots/s ${lider ? 'ENVIADOS' : 'RECIBIDOS'}: ${this.snapsPorSeg}`],
+      [`Tamaño promedio: ${this.bytesPromedio} bytes`, this.bytesPromedio > avisoBytes],
+      [`Conexión: ${this.tipoConexion}`],
+      [`Canal rápido: ${EL && EL.activo ? canal : '—'}`],
+      [`TURN: ${EL && EL.estadoTurn ? EL.estadoTurn : '—'}`, !!(EL && EL.estadoTurn && EL.estadoTurn.startsWith('no disponible'))],
     ];
-    if (EL && EL.canalRapido) lineas.push(`Cola rápida: ${EL.canalRapido.bufferedAmount} bytes`);
-    if (EL && EL.esAnfitrion) lineas.push(`Snapshots descartados/s: ${this.descartadosPorSeg || 0}`);
-    if (EL && EL.esAnfitrion) lineas.push(`Ritmo de envío: ${EL.estadosPorSegundoActual || RED_CONFIG.estadosPorSegundo} Hz${EL.atrasado ? ' (líder atrasado)' : ''}`);
-    if (EL && EL.conn && EL.conn.dataChannel) lineas.push(`En cola (fiable): ${EL.conn.dataChannel.bufferedAmount} bytes`);
-    // Peor momento de la partida actual
+    if (EL && EL.canalRapido) red.push([`Cola rápida: ${EL.canalRapido.bufferedAmount} bytes`]);
+    if (EL && EL.conn && EL.conn.dataChannel) red.push([`Cola fiable: ${EL.conn.dataChannel.bufferedAmount} bytes`]);
+    if (lider) {
+      red.push([`Snapshots descartados/s: ${this.descartadosPorSeg || 0}`, this.descartadosPorSeg > 0]);
+      red.push([`Envío: ${RED_CONFIG.relojEnvio.activo ? `reloj propio ${RED_CONFIG.estadosPorSegundo} Hz` : `${EL.estadosPorSegundoActual || RED_CONFIG.estadosPorSegundo} Hz con el dibujo`}`]);
+    }
+
+    // ---- Columna RENDIMIENTO ----
+    const m = this.med;
+    const t = (k) => (m[k] ? `${f1(m[k].prom)} / ${f1(m[k].max)}` : '—');
+    const rend = [
+      ['— RENDIMIENTO (prom / máx por cuadro) —'],
+      [`FPS: ${this.fps}`],
+      [`Simulación: ${t('sim')} ms`],
+      [`Dibujo: ${t('dibujo')} ms`],
+      [`Armado y envío de snapshots: ${t('red')} ms`],
+      [`Bloqueo del hilo (este equipo): ${this.bloqueoSeg} ms`, this.bloqueoSeg > 100],
+      [`Cuadros sin dibujar/s: ${this.omitidosPorSeg}`],
+      [`Ahora: ${Juego.mundo ? Juego.mundo.enemigos.length : 0} enemigos, ${this.efectosVivos()} efectos`],
+      ['— PEOR MOMENTO (esta partida) —'],
+    ];
     const p = this.peor && Juego.mundo && this.peor.mundo === Juego.mundo ? this.peor : null;
-    lineas.push('— PEOR MOMENTO (esta partida) —');
     if (p) {
-      lineas.push(`FPS mínimo: ${p.fpsMin != null ? p.fpsMin : '…'}`);
-      lineas.push(`Cuadro más largo: ${p.cuadroMaxMs} ms (${p.enemigos} enemigos, ${p.efectos} efectos)`);
-      lineas.push(`Snapshot más grande: ${p.snapMaxBytes} bytes`);
-      lineas.push(`Mínimo snapshots/s: ${p.snapsMinPorSeg != null ? p.snapsMinPorSeg : '—'}`);
-      lineas.push(`Cola máxima: ${p.colaMax} bytes`);
-    } else lineas.push('(empieza al jugar un nivel)');
-    lineas.push(`Ahora: ${Juego.mundo ? Juego.mundo.enemigos.length : 0} enemigos, ${Juego.efectos ? this.efectosVivos() : 0} efectos`);
+      rend.push([`FPS mínimo: ${p.fpsMin != null ? p.fpsMin : '…'}`]);
+      rend.push([`Cuadro más largo: ${p.cuadroMaxMs} ms`]);
+      rend.push([`  en ese cuadro: sim ${f1(p.sim)} · dibujo ${f1(p.dibujo)} · red ${f1(p.red)} ms`]);
+      rend.push([`  ${p.enemigos} enemigos, ${p.efectos} efectos`]);
+      rend.push([`Bloqueo máximo del hilo: ${p.bloqueoMax} ms`]);
+      rend.push([`Snapshot más grande: ${p.snapMaxBytes} bytes`, p.snapMaxBytes > avisoBytes]);
+      rend.push([`Mínimo snapshots/s: ${p.snapsMinPorSeg != null ? p.snapsMinPorSeg : '—'}`]);
+      rend.push([`Cola máxima: ${p.colaMax} bytes`]);
+    } else rend.push(['(empieza al jugar un nivel)']);
+
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `bold ${13 * s}px Consolas, monospace`;
+    ctx.font = `bold ${12 * s}px Consolas, monospace`;
     ctx.textAlign = 'left';
-    const alto = 17 * s, ancho = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + 16 * s;
-    const x = 8 * s, y = Math.min(H * 0.34, H - alto * lineas.length - 14 * s); // debajo de las filas de habilidades y combos
-    ctx.fillStyle = 'rgba(0,0,0,0.72)';
-    ctx.fillRect(x, y, ancho, alto * lineas.length + 10 * s);
-    ctx.fillStyle = '#b2f2bb';
-    lineas.forEach((l, i) => {
-      // En rojo si el snapshot promedio pasa del tamaño de aviso (no cabe en un paquete de red)
-      const alerta = (i === 4 && this.bytesPromedio > RED_CONFIG.compacto.avisoBytes) || (l.startsWith('TURN: no disponible'));
-      ctx.fillStyle = alerta ? '#ff8787' : '#b2f2bb';
-      ctx.fillText(l, x + 8 * s, y + alto * (i + 1));
-    });
+    const alto = 15 * s;
+    const caja = (lineas, x, y) => {
+      const ancho = Math.max(...lineas.map((l) => ctx.measureText(l[0]).width)) + 14 * s;
+      ctx.fillStyle = 'rgba(0,0,0,0.74)';
+      ctx.fillRect(x, y, ancho, alto * lineas.length + 8 * s);
+      lineas.forEach(([texto, alerta], i) => {
+        ctx.fillStyle = alerta ? '#ff8787' : texto.startsWith('—') ? '#ffe066' : '#b2f2bb';
+        ctx.fillText(texto, x + 7 * s, y + alto * (i + 1));
+      });
+      return ancho;
+    };
+    const x = 8 * s;
+    const y = Math.max(8 * s, Math.min(H * 0.3, H - alto * Math.max(red.length, rend.length) - 12 * s));
+    const ancho = caja(red, x, y);
+    caja(rend, x + ancho + 6 * s, y);
     ctx.restore();
   },
 };

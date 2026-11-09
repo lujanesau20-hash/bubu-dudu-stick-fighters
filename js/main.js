@@ -92,6 +92,7 @@ const Juego = {
       if (this.estado !== 'carga') return;
       this.estado = 'jugando';
       this.ultimo = performance.now();
+      this.ultimoAvance = null;
       this.entrada.teclasPulsadas.clear();
       Menus.ocultar();
       this.tactil.mostrar(this.esTactil);
@@ -118,6 +119,7 @@ const Juego = {
   reanudar() {
     this.estado = 'jugando';
     this.ultimo = performance.now();
+    this.ultimoAvance = null;
     this.entrada.teclasPulsadas.clear();
     Menus.ocultar();
     this.tactil.mostrar(this.esTactil);
@@ -133,7 +135,8 @@ const Juego = {
       if (typeof EnLinea !== 'undefined' && EnLinea.esInvitado) EnLinea.actualizarInvitado(this, dt); // el invitado no simula
       else this.actualizarJuego(dt);
     }
-    else if (this.estado === 'pausa') {
+    if (this.estado !== 'jugando') this.ultimoAvance = null; // en pausa o carga el tiempo no se simula
+    if (this.estado === 'pausa') {
       if (this.entrada.consumir(CONFIG.controles.generales.pausa)) {
         if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.marcarListo(0); // en línea: Esc = mi check de "Reanudar"
         else this.reanudar();
@@ -142,8 +145,54 @@ const Juego = {
     // Botón "Pausa" visible solo mientras se juega
     Pausa.actualizarBoton(this.estado === 'jugando' && !!this.mundo && !(typeof EnLinea !== 'undefined' && EnLinea.esInvitado && EnLinea.pausadoPorAnfitrion));
 
-    this.dibujar(dt);
+    // Líder en línea atrasado: se omite un cuadro de dibujo antes que atrasar el envío
+    this.dtDibujo = (this.dtDibujo || 0) + dt;
+    if (this.omitirDibujo(dt)) {
+      if (typeof Depuracion !== 'undefined') Depuracion.cuadroOmitido();
+    } else {
+      const t0 = performance.now();
+      this.dibujar(Math.min(0.1, this.dtDibujo));
+      this.dtDibujo = 0;
+      if (typeof Depuracion !== 'undefined') Depuracion.medir('dibujo', performance.now() - t0);
+    }
     requestAnimationFrame((tt) => this.bucle(tt));
+  },
+
+  // ¿Omitir este cuadro de dibujo? Solo el líder en línea, cuando va a pocos FPS:
+  // dibuja uno sí y uno no para dejar tiempo a la simulación y al envío.
+  omitirDibujo(dt) {
+    const cfg = RED_CONFIG.omitirDibujo;
+    const lider = typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion && EnLinea.conectado && this.estado === 'jugando';
+    this.fpsEma = this.fpsEma ? this.fpsEma * 0.9 + (1 / Math.max(dt, 0.001)) * 0.1 : 60;
+    if (!cfg.activo || !lider || this.fpsEma >= cfg.fpsMinimo) { this._omitio = false; return false; }
+    this._omitio = !this._omitio;
+    return this._omitio;
+  },
+
+  // Avanza la simulación hasta "ahora" con pasos fijos. En línea, el líder la llama
+  // desde el dibujo y desde el reloj de envío (lo que llegue primero), así el
+  // snapshot siempre sale con el estado al día aunque el dibujo vaya lento.
+  avanzarSimulacion(ahora) {
+    const m = this.mundo;
+    if (!m) return;
+    if (this.ultimoAvance == null) { this.ultimoAvance = ahora; return; }
+    const dt = Math.min(0.1, Math.max(0, (ahora - this.ultimoAvance) / 1000));
+    this.ultimoAvance = ahora;
+    const t0 = performance.now();
+    this.acumulador += dt * m.escalaTiempo;
+    let pasos = 0;
+    while (this.acumulador >= PASO && pasos < 6) {
+      const controles = this.entrada.leer(m.jugadores.length);
+      m.actualizar(PASO, controles);
+      this.acumulador -= PASO;
+      pasos++;
+    }
+    if (m.eventos.length) {
+      EnLinea.recogerEventos(m);
+      this.efectos.procesar(m.eventos, m);
+      m.eventos.length = 0;
+    }
+    if (typeof Depuracion !== 'undefined') Depuracion.medir('sim', performance.now() - t0);
   },
 
   actualizarJuego(dt) {
@@ -154,17 +203,24 @@ const Juego = {
       return;
     }
 
-    this.acumulador += dt * m.escalaTiempo;
-    let pasos = 0;
-    while (this.acumulador >= PASO && pasos < 5) {
-      const controles = this.entrada.leer(m.jugadores.length);
-      m.actualizar(PASO, controles);
-      this.acumulador -= PASO;
-      pasos++;
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion && RED_CONFIG.relojEnvio.activo) {
+      // Líder en línea: simulación por reloj real; el envío lo hace su propio temporizador
+      this.avanzarSimulacion(performance.now());
+    } else {
+      const t0 = performance.now();
+      this.acumulador += dt * m.escalaTiempo;
+      let pasos = 0;
+      while (this.acumulador >= PASO && pasos < 5) {
+        const controles = this.entrada.leer(m.jugadores.length);
+        m.actualizar(PASO, controles);
+        this.acumulador -= PASO;
+        pasos++;
+      }
+      if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.trasPasos(m, dt); // enviar estado al invitado
+      this.efectos.procesar(m.eventos, m);
+      m.eventos.length = 0;
+      if (typeof Depuracion !== 'undefined') Depuracion.medir('sim', performance.now() - t0);
     }
-    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.trasPasos(m, dt); // enviar estado al invitado
-    this.efectos.procesar(m.eventos, m);
-    m.eventos.length = 0;
 
     // Botón de revivir en el táctil
     const j1 = m.jugadores[0];

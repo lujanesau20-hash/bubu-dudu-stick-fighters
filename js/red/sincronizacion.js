@@ -138,7 +138,9 @@ const Sincro = {
     this.desfase = null;
     this.variacion = 0;
     this.localPredicho = false;
-    this.fijosRecibidos = new Map(); // datos fijos (tipo, vida máxima...) por id, formato compacto
+    this.deltaRecibido = new Map();  // último valor de cada campo por id (formato "solo cambios")
+    this.ultimoWDecodificado = null; this.numRecibido = 0; this.ultimosJugadores = null;
+    this.proyEspejo = new Map(); this.monedasEspejo = new Map(); this.corazonesEspejo = new Map();
     this.eventosPendientes = [];     // efectos que llegan por el canal fiable
     return m;
   },
@@ -213,34 +215,52 @@ const Sincro = {
       j.vx = sb.vx; j.vy = sb.vy;
     });
 
-    // Enemigos y jefe (por id)
-    const vistos = new Set();
+    // Enemigos y jefe (por id). Se reutilizan las listas y los objetos: este código corre
+    // en cada cuadro del invitado y crear objetos nuevos aquí causaba pausas en el celular.
+    const marca = (this.marcaCuadro = (this.marcaCuadro || 0) + 1);
+    const idxA = this.indice(A, 'enemigos');
     const ponerEnemigo = (sb) => {
-      vistos.add(sb.id);
       let e = this.enemigosEspejo.get(sb.id);
       if (!e) {
         e = sb.jefe ? new Jefe(m, sb.tipo, sb.x, sb.y) : new Enemigo(m, sb.tipo, sb.x, sb.y);
         this.enemigosEspejo.set(sb.id, e);
       }
-      const sa = (A.jefe && A.jefe.id === sb.id ? A.jefe : A.enemigos.find((q) => q.id === sb.id)) || sb;
+      e._marca = marca;
+      const sa = idxA.get(sb.id) || sb;
       e.x = L(sa.x, sb.x); e.y = L(sa.y, sb.y);
-      Object.assign(e, { vx: sb.vx, vy: sb.vy, dir: sb.dir, estado: sb.estado, vida: sb.vida, vidaMax: sb.vidaMax, t: sb.t,
-        tiempoMuerto: sb.tMuerto, enSuelo: sb.suelo, fase2: sb.fase2 });
+      e.vx = sb.vx; e.vy = sb.vy; e.dir = sb.dir; e.estado = sb.estado; e.vida = sb.vida; e.vidaMax = sb.vidaMax; e.t = sb.t;
+      e.tiempoMuerto = sb.tMuerto; e.enSuelo = sb.suelo; e.fase2 = sb.fase2;
       e.anim.fase = L(sa.fase, sb.fase); e.anim.flash = sb.flash;
       return e;
     };
-    m.enemigos = B.enemigos.map(ponerEnemigo);
+    const lista = this._listaEnemigos || (this._listaEnemigos = []);
+    lista.length = 0;
+    for (const sb of B.enemigos) lista.push(ponerEnemigo(sb));
+    m.enemigos = lista;
     m.jefe = B.jefe ? ponerEnemigo(B.jefe) : null;
-    for (const id of [...this.enemigosEspejo.keys()]) if (!vistos.has(id)) this.enemigosEspejo.delete(id);
+    for (const [id, e] of this.enemigosEspejo) if (e._marca !== marca) this.enemigosEspejo.delete(id);
 
-    // Proyectiles, monedas y corazones (interpolados por id)
-    const interp = (listaB, listaA) => listaB.map((pb) => {
-      const pa = listaA.find((q) => q.id === pb.id) || pb;
-      return Object.assign({}, pb, { x: L(pa.x, pb.x), y: L(pa.y, pb.y) });
-    });
-    m.proyectiles = interp(B.proyectiles, A.proyectiles);
-    m.monedas = interp(B.monedas, A.monedas);
-    m.corazones = interp(B.corazones, A.corazones).map((c) => ({ ...c, enSuelo: c.suelo }));
+    // Proyectiles, monedas y corazones (interpolados por id, reutilizando objetos)
+    const interp = (campo, mapa, destino) => {
+      const idx = this.indice(A, campo);
+      const sal = destino || [];
+      sal.length = 0;
+      for (const pb of B[campo]) {
+        let o = mapa.get(pb.id);
+        if (!o) { o = {}; mapa.set(pb.id, o); }
+        Object.assign(o, pb);
+        const pa = idx.get(pb.id) || pb;
+        o.x = L(pa.x, pb.x); o.y = L(pa.y, pb.y);
+        o._marca = marca;
+        sal.push(o);
+      }
+      for (const [id, o] of mapa) if (o._marca !== marca) mapa.delete(id);
+      return sal;
+    };
+    m.proyectiles = interp('proyectiles', this.proyEspejo, this._listaProy || (this._listaProy = []));
+    m.monedas = interp('monedas', this.monedasEspejo, this._listaMonedas || (this._listaMonedas = []));
+    m.corazones = interp('corazones', this.corazonesEspejo, this._listaCorazones || (this._listaCorazones = []));
+    for (const c of m.corazones) c.enSuelo = c.suelo;
   },
 
   copiarJugador(j, s, localPredicho) {
@@ -337,95 +357,176 @@ const Sincro = {
 };
 
 // =====================================================================
-// FORMATO COMPACTO DE SNAPSHOTS (config/red.js -> compacto)
-// El líder convierte la instantánea en listas de números redondeados y el
-// invitado la vuelve a armar con la MISMA forma que Sincro.instantanea,
-// así el resto del código no cambia. Los datos fijos (tipo, vida máxima,
-// color, radio...) solo se mandan las primeras veces que aparece algo y en
-// cada snapshot "clave"; el invitado los recuerda por id.
+// FORMATO COMPACTO DE SNAPSHOTS, SOLO CON CAMBIOS (config/red.js -> compacto)
+// Cada cosa (jugador, enemigo, proyectil) es una lista de campos. El líder manda
+// en cada snapshot solo los campos que cambiaron, y un "mapa de bits" que dice
+// cuáles van. Un cambio se repite en "repetirCambios" snapshots seguidos, así un
+// snapshot perdido no deja datos viejos; y cada "cadaClave" snapshots va todo.
+// El invitado guarda el último valor de cada campo y vuelve a armar el estado con
+// la MISMA forma que Sincro.instantanea, así el resto del código no cambia.
 // =====================================================================
+const CAMPOS_RED = {
+  e: ['x', 'y', 'vx', 'vy', 'dir', 'estado', 'vida', 't', 'fase', 'flash', 'tMuerto', 'suelo', 'fase2', 'tipo', 'jefe', 'vidaMax'],
+  p: ['x', 'y', 'vx', 'vy', 'rot', 'vida', 'tipo', 'vidaMax', 'color', 'radio'],
+  j: ['x', 'y', 'vx', 'vy', 'dir', 'estado', 'alto', 'vida', 'vidaMax', 'energia', 'enf', 'enfC', 'bloq', 'inv', 'atur', 'agach',
+    'suelo', 'saltosAire', 'acc', 'disp', 'ultDanio', 'tCaido', 'prog', 'rev', 'ausente',
+    'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'estela'],
+};
+const ANIM_RED = ['inclinacion', 'flash', 'sx', 'sy', 'giro', 'volteo', 'rebote', 'ataque', 'fase'];
+const POT2_RED = Array.from({ length: 40 }, (_, i) => Math.pow(2, i));
+
+// Efectos (eventos) en formato corto: nombres de campo de 1-2 letras y tipo como número.
+// Lo que no está en estas listas viaja igual, con su nombre completo.
+const CLAVES_EV = { tipo: 'k', color: 'c', danio: 'd', aJugador: 'a', cantidad: 'n', fuerza: 'f', valor: 'v',
+  radio: 'r', nombre: 'nm', jugador: 'j', dir: 'o', duracion: 'u', texto: 'tx', grande: 'g', numero: 'nu', total: 'to' };
+const CLAVES_EV_INV = Object.fromEntries(Object.entries(CLAVES_EV).map(([a, b]) => [b, a]));
+const TIPOS_EV = ['impacto', 'chispa', 'polvo', 'dobleSalto', 'lanzar', 'arco', 'dash', 'torbellino', 'onda', 'explosion', 'combo',
+  'banner', 'sacudir', 'muerteEnemigo', 'muerteJefe', 'moneda', 'texto', 'sinEnergia', 'curar', 'caido', 'revivido', 'avanzar',
+  'avisoSuelo', 'teletransporte', 'oleada', 'tramo', 'refuerzo'];
+
+// ¿Dos valores son iguales? (números, textos, listas cortas u objetos pequeños)
+function igualRed(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 Object.assign(Sincro, {
   // ---------- LÍDER ----------
+  reiniciarDelta() { this.deltaEnviado = new Map(); this.numSnap = 0; },
+
+  // Lista de [mapa de bits, ...campos que van] para una cosa
+  codificar(clave, valores, esClave) {
+    const reps = RED_CONFIG.compacto.repetirCambios;
+    let est = this.deltaEnviado.get(clave);
+    if (!est) { est = { prev: new Array(valores.length), rep: new Array(valores.length).fill(0), nuevo: true }; this.deltaEnviado.set(clave, est); }
+    est.visto = this.numSnap;
+    const sal = [0];
+    let mapa = 0;
+    for (let i = 0; i < valores.length; i++) {
+      const v = valores[i];
+      if (est.nuevo || !igualRed(v, est.prev[i])) { est.prev[i] = v; est.rep[i] = reps; }
+      if (esClave || est.rep[i] > 0) {
+        mapa += POT2_RED[i];
+        sal.push(v);
+        if (est.rep[i] > 0) est.rep[i]--;
+      }
+    }
+    est.nuevo = false;
+    sal[0] = mapa;
+    return sal;
+  },
+
   comprimir(d) {
     const cfg = RED_CONFIG.compacto;
-    this.numSnap = (this.numSnap || 0) + 1;
+    if (!this.deltaEnviado) this.reiniciarDelta();
+    this.numSnap++;
     const clave = this.numSnap % cfg.cadaClave === 0;
-    const vistos = this.fijosEnviados || (this.fijosEnviados = new Map());
-    // ¿Mandar los datos fijos de este id?
-    const fijos = (id) => {
-      const n = vistos.get(id) || 0;
-      vistos.set(id, n + 1);
-      return clave || n < cfg.repetirFijosNuevos;
-    };
-    if (vistos.size > 3000) vistos.clear(); // limpieza ocasional
+    // Envío completo repartido: cada cosa va completa en un snapshot distinto (según su id),
+    // así no se juntan todas en uno solo y el tamaño no salta
+    const claveDe = (n) => (this.numSnap + n * 7) % cfg.cadaClave === 0;
     const r0 = Math.round, r1 = (v) => Math.round(v * 10) / 10, r2 = (v) => Math.round(v * 100) / 100;
+    const v10 = (v) => Math.round(v / 10) * 10; // velocidades: de 10 en 10 (solo se usan para la pose)
     const b = (v) => (v ? 1 : 0);
-    const jug = (j) => {
+    const jug = (j, i) => {
       const a = j.anim;
-      return [r0(j.x), r0(j.y), r0(j.vx), r0(j.vy), j.dir, j.estado, j.alto, r1(j.vida), j.vidaMax, r1(j.energia),
-        j.enf, j.enfC, r2(j.bloq), r2(j.inv), r2(j.atur), b(j.agach), b(j.suelo), j.saltosAire, j.acc, j.disp, r2(j.ultDanio),
-        r1(j.tCaido), r2(j.prog), b(j.rev), b(j.ausente),
-        [r2(a.inclinacion), r2(a.flash), r2(a.sx), r2(a.sy), r2(a.giro), r2(a.volteo), r2(a.rebote), r2(a.ataque), r2(a.fase)],
-        j.estela.flatMap((p) => [r0(p.x), r0(p.y), r2(p.t)])];
+      const vals = [r0(j.x), r0(j.y), v10(j.vx), v10(j.vy), j.dir, j.estado, j.alto, r1(j.vida), j.vidaMax, r0(j.energia),
+        j.enf.map(r1), j.enfC.map(r1), r2(j.bloq), r1(j.inv), r1(j.atur), b(j.agach), b(j.suelo), j.saltosAire, j.acc, j.disp, r2(j.ultDanio),
+        r1(j.tCaido), r2(j.prog), b(j.rev), b(j.ausente)];
+      for (const k of ANIM_RED) vals.push(r2(a[k]));
+      const est = [];
+      for (const p of j.estela) est.push(r0(p.x), r0(p.y), r2(p.t));
+      vals.push(est);
+      return this.codificar('j' + i, vals, claveDe(i));
     };
-    const ene = (e) => {
-      const v = [e.id, r0(e.x), r0(e.y), r0(e.vx), r0(e.vy), e.dir, e.estado, r1(e.vida), r2(e.t), r2(e.fase), r2(e.flash), r2(e.tMuerto), b(e.suelo), b(e.fase2)];
-      if (fijos('e' + e.id)) v.push(e.tipo, b(e.jefe), e.vidaMax);
-      return v;
-    };
-    const proy = (p) => {
-      const v = [p.id, r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), r2(p.rot), r2(p.vida)];
-      if (fijos('p' + p.id)) v.push(p.tipo, p.vidaMax, p.color, p.radio);
-      return v;
-    };
-    return {
+    const ene = (e) => [e.id, ...this.codificar('e' + e.id, [r0(e.x), r0(e.y), v10(e.vx), v10(e.vy), e.dir, e.estado, r1(e.vida), r2(e.t), r2(e.fase),
+      r1(e.flash), r2(e.tMuerto), b(e.suelo), b(e.fase2), e.tipo, b(e.jefe), e.vidaMax], claveDe(e.id))];
+    const proy = (p) => [p.id, ...this.codificar('p' + p.id, [r0(p.x), r0(p.y), v10(p.vx), v10(p.vy), r1(p.rot), r2(p.vida), p.tipo, p.vidaMax, p.color, p.radio], claveDe(p.id))];
+    const sal = {
       w: d.w, t: r2(d.t),
-      g: [d.estado, r2(d.tiempoFin || 0), d.escalaTiempo, r0(d.limIzq), r0(d.limDer), d.aviso, d.revivesUsados, d.monedasGanadas,
+      g: [d.estado, r2(d.tiempoFin || 0), d.escalaTiempo, r0(d.limIzq), r0(d.limDer), r1(d.aviso), d.revivesUsados, d.monedasGanadas,
         d.tramo, d.indiceOleada, b(d.enOleada), d.rondas, d.ronda, d.ganador],
       j: d.jugadores.map(jug),
       e: d.enemigos.map(ene),
       b: d.jefe ? ene(d.jefe) : 0,
       p: d.proyectiles.map(proy),
-      m: d.monedas.flatMap((c) => [c.id, r0(c.x), r0(c.y)]),
+      m: [],
       h: d.corazones.map((c) => [c.id, r0(c.x), r0(c.y), r1(c.t), b(c.suelo)]),
     };
+    for (const c of d.monedas) sal.m.push(c.id, r0(c.x), r0(c.y));
+    // Limpieza: lo que hace rato no aparece (murió, se recogió) se olvida
+    if (clave) for (const [k, est] of this.deltaEnviado) if (this.numSnap - est.visto > 60) this.deltaEnviado.delete(k);
+    return sal;
   },
 
   // ---------- INVITADO ----------
+  // Aplica un [mapa, ...campos] sobre lo guardado. Devuelve los valores completos o null si aún faltan.
+  decodificar(clave, lista, inicio, n) {
+    let est = this.deltaRecibido.get(clave);
+    if (!est) { est = { vals: new Array(n), tiene: new Array(n).fill(false), conocidos: 0 }; this.deltaRecibido.set(clave, est); }
+    const mapa = lista[inicio];
+    let k = inicio + 1;
+    for (let i = 0; i < n; i++) {
+      if (Math.floor(mapa / POT2_RED[i]) % 2 === 1) {
+        if (!est.tiene[i]) { est.tiene[i] = true; est.conocidos++; }
+        est.vals[i] = lista[k++];
+      }
+    }
+    est.visto = this.numRecibido;
+    return est.conocidos === n ? est.vals : null;
+  },
+
   descomprimir(c) {
-    const cache = this.fijosRecibidos || (this.fijosRecibidos = new Map());
-    if (cache.size > 3000) cache.clear();
+    if (!this.deltaRecibido) this.deltaRecibido = new Map();
+    // Con "solo cambios", un snapshot viejo que llega tarde no se aplica (pisaría datos nuevos)
+    if (this.ultimoWDecodificado != null && c.w <= this.ultimoWDecodificado) return null;
+    this.ultimoWDecodificado = c.w;
+    this.numRecibido = (this.numRecibido || 0) + 1;
     const g = c.g;
-    const jug = (v) => {
-      const a = v[25], est = [];
-      for (let i = 0; i < v[26].length; i += 3) est.push({ x: v[26][i], y: v[26][i + 1], t: v[26][i + 2] });
-      return { x: v[0], y: v[1], vx: v[2], vy: v[3], dir: v[4], estado: v[5], alto: v[6], vida: v[7], vidaMax: v[8], energia: v[9],
+    const nE = CAMPOS_RED.e.length, nP = CAMPOS_RED.p.length, nJ = CAMPOS_RED.j.length;
+    const jugadores = [];
+    c.j.forEach((lista, i) => {
+      const v = this.decodificar('j' + i, lista, 0, nJ);
+      if (!v) return;
+      const est = [], ev = v[34];
+      for (let q = 0; q < ev.length; q += 3) est.push({ x: ev[q], y: ev[q + 1], t: ev[q + 2] });
+      jugadores[i] = { x: v[0], y: v[1], vx: v[2], vy: v[3], dir: v[4], estado: v[5], alto: v[6], vida: v[7], vidaMax: v[8], energia: v[9],
         enf: v[10], enfC: v[11], bloq: v[12], inv: v[13], atur: v[14], agach: !!v[15], suelo: !!v[16], saltosAire: v[17],
         acc: v[18], disp: v[19], ultDanio: v[20], tCaido: v[21], prog: v[22], rev: !!v[23], ausente: !!v[24],
-        anim: { inclinacion: a[0], flash: a[1], sx: a[2], sy: a[3], giro: a[4], volteo: a[5], rebote: a[6], ataque: a[7], fase: a[8] },
+        anim: { inclinacion: v[25], flash: v[26], sx: v[27], sy: v[28], giro: v[29], volteo: v[30], rebote: v[31], ataque: v[32], fase: v[33] },
         estela: est };
+    });
+    if (jugadores.length < c.j.length || jugadores.includes(undefined)) {
+      // Aún no sabemos todo de algún jugador: usar lo último completo
+      const prev = this.ultimosJugadores || [];
+      for (let i = 0; i < c.j.length; i++) if (!jugadores[i]) jugadores[i] = prev[i];
+      if (jugadores.includes(undefined)) return null;
+    }
+    this.ultimosJugadores = jugadores;
+    const ene = (lista) => {
+      const v = this.decodificar('e' + lista[0], lista, 1, nE);
+      if (!v) return null; // todavía no sabemos qué es: se dibuja en el próximo snapshot
+      return { id: lista[0], x: v[0], y: v[1], vx: v[2], vy: v[3], dir: v[4], estado: v[5], vida: v[6], t: v[7], fase: v[8], flash: v[9],
+        tMuerto: v[10], suelo: !!v[11], fase2: !!v[12], tipo: v[13], jefe: !!v[14], vidaMax: v[15] };
     };
-    const ene = (v) => {
-      const k = 'e' + v[0];
-      if (v.length > 14) cache.set(k, { tipo: v[14], jefe: !!v[15], vidaMax: v[16] });
-      const f = cache.get(k);
-      if (!f) return null; // aún no sabemos qué es: se dibuja en el próximo snapshot
-      return { id: v[0], tipo: f.tipo, jefe: f.jefe, x: v[1], y: v[2], vx: v[3], vy: v[4], dir: v[5], estado: v[6], vida: v[7], vidaMax: f.vidaMax,
-        t: v[8], fase: v[9], flash: v[10], tMuerto: v[11], suelo: !!v[12], fase2: !!v[13] };
-    };
-    const proy = (v) => {
-      const k = 'p' + v[0];
-      if (v.length > 7) cache.set(k, { tipo: v[7], vidaMax: v[8], color: v[9], radio: v[10] });
-      const f = cache.get(k);
-      if (!f) return null;
-      return { id: v[0], tipo: f.tipo, x: v[1], y: v[2], vx: v[3], vy: v[4], rot: v[5], vida: v[6], vidaMax: f.vidaMax, color: f.color, radio: f.radio };
+    const proy = (lista) => {
+      const v = this.decodificar('p' + lista[0], lista, 1, nP);
+      if (!v) return null;
+      return { id: lista[0], x: v[0], y: v[1], vx: v[2], vy: v[3], rot: v[4], vida: v[5], tipo: v[6], vidaMax: v[7], color: v[8], radio: v[9] };
     };
     const monedas = [];
     for (let i = 0; i < c.m.length; i += 3) monedas.push({ id: c.m[i], x: c.m[i + 1], y: c.m[i + 2] });
+    // Limpieza de lo que ya no aparece
+    if (this.numRecibido % 20 === 0) for (const [k, est] of this.deltaRecibido) if (this.numRecibido - est.visto > 60) this.deltaRecibido.delete(k);
     return {
       w: c.w, t: c.t, estado: g[0], tiempoFin: g[1], escalaTiempo: g[2], limIzq: g[3], limDer: g[4], aviso: g[5], revivesUsados: g[6],
       monedasGanadas: g[7], tramo: g[8], indiceOleada: g[9], enOleada: !!g[10], rondas: g[11], ronda: g[12], ganador: g[13],
-      jugadores: c.j.map(jug),
+      jugadores,
       enemigos: c.e.map(ene).filter(Boolean),
       jefe: c.b ? ene(c.b) : null,
       proyectiles: c.p.map(proy).filter(Boolean),
@@ -435,9 +536,44 @@ Object.assign(Sincro, {
     };
   },
 
+  // Efecto -> formato corto (líder). Números enteros (o con 1 decimal si son pequeños).
+  efectoCorto(e) {
+    const o = {};
+    for (const k in e) {
+      let v = e[k];
+      if (v != null && typeof v === 'object' && !Array.isArray(v)) continue; // referencias a objetos: no se mandan
+      if (typeof v === 'number') v = Math.abs(v) >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+      if (typeof v === 'boolean') v = v ? 1 : 0;
+      if (k === 'tipo') { const i = TIPOS_EV.indexOf(v); if (i >= 0) v = i; }
+      o[CLAVES_EV[k] || k] = v;
+    }
+    return o;
+  },
+  // Formato corto -> efecto (invitado)
+  efectoLargo(o) {
+    const e = {};
+    for (const k in o) e[CLAVES_EV_INV[k] || k] = o[k];
+    if (typeof e.tipo === 'number') e.tipo = TIPOS_EV[e.tipo];
+    if (e.aJugador != null) e.aJugador = !!e.aJugador;
+    if (e.grande != null) e.grande = !!e.grande;
+    return e;
+  },
+
   // Efectos (eventos) que llegan por el canal fiable con la hora del líder
   recibirEventos(w, lista) {
     if (!this.eventosPendientes) this.eventosPendientes = [];
-    this.eventosPendientes.push({ w, lista });
+    this.eventosPendientes.push({ w, lista: lista.map((o) => (o.k != null ? this.efectoLargo(o) : o)) });
+  },
+
+  // Índice id -> cosa de un snapshot (se arma una sola vez por snapshot, no en cada cuadro)
+  indice(d, campo) {
+    const k = '_i' + campo;
+    if (!d[k]) {
+      const mapa = new Map();
+      for (const o of d[campo]) mapa.set(o.id, o);
+      if (campo === 'enemigos' && d.jefe) mapa.set(d.jefe.id, d.jefe);
+      Object.defineProperty(d, k, { value: mapa, enumerable: false });
+    }
+    return d[k];
   },
 });

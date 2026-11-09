@@ -74,7 +74,7 @@ const EnLinea = {
       this.conectado = true;
       this.ultimoMensaje = performance.now();
       this.abrirCanalRapido(conn);
-      Sincro.fijosEnviados = new Map(); // el invitado (nuevo o que volvió) no conoce ningún dato fijo
+      Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
       this.enviar({ t: 'hola', personaje: 'dudu' });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
@@ -101,12 +101,53 @@ const EnLinea = {
     juego.entrada.fuentesRemotas[1] = () => (this.controlRemoto ? this.controlRemoto.leer() : new EstadoControl());
     this.eventosPendientes = [];
     this.tEnvio = 0;
-    Sincro.fijosEnviados = new Map(); Sincro.numSnap = 0;
+    Sincro.reiniciarDelta();
+    this.iniciarRelojEnvio();
     this.enviar({ t: 'inicio', modo: m.modo, personajes: ['bubu', 'dudu'], escenario: m.escenarioId, semilla: 1, nivel: m.nivel });
     this.mantenerPantalla();
   },
 
-  // Llamado en cada cuadro después de simular (anfitrión)
+  // ---------- Reloj de envío del líder (20 Hz estables, separado del dibujo) ----------
+  // Un temporizador propio avanza la simulación hasta "ahora" y manda el snapshot.
+  // Así el envío no depende de cuándo se dibuja: si el líder se atrasa, se omiten
+  // cuadros de dibujo (ver Juego.bucle), no snapshots.
+  iniciarRelojEnvio() {
+    clearTimeout(this.tReloj);
+    if (!RED_CONFIG.relojEnvio.activo || !this.esAnfitrion) return;
+    const intervalo = 1000 / RED_CONFIG.estadosPorSegundo;
+    let proximo = performance.now() + intervalo;
+    const tic = () => {
+      if (!this.esAnfitrion) return;
+      const juego = Juego;
+      // Con la pestaña del líder oculta el juego queda quieto, como antes (no avanza a escondidas)
+      if (juego.estado === 'jugando' && juego.mundo && this.conectado && !document.hidden) {
+        juego.avanzarSimulacion(performance.now());
+        const t0 = performance.now();
+        this.enviarEstado(juego.mundo);
+        if (typeof Depuracion !== 'undefined') Depuracion.medir('red', performance.now() - t0);
+      }
+      proximo += intervalo;
+      const ahora = performance.now();
+      if (proximo < ahora - intervalo) proximo = ahora + intervalo; // muy atrasado: sin ráfagas
+      this.tReloj = setTimeout(tic, Math.max(0, proximo - ahora));
+    };
+    this.tReloj = setTimeout(tic, intervalo);
+  },
+
+  // Guarda los efectos del paso para mandarlos con el próximo snapshot, en formato corto.
+  // Las sacudidas de cámara se juntan en una sola (la más fuerte) por envío.
+  recogerEventos(m) {
+    if (!this.conectado) { this.eventosPendientes = []; this.sacudidaPendiente = null; return; }
+    for (const e of m.eventos) {
+      if (e.tipo === 'sacudir') {
+        if (!this.sacudidaPendiente || e.fuerza > this.sacudidaPendiente.fuerza) this.sacudidaPendiente = { tipo: 'sacudir', fuerza: e.fuerza };
+        continue;
+      }
+      this.eventosPendientes.push(Sincro.efectoCorto(e));
+    }
+  },
+
+  // Llamado en cada cuadro después de simular (anfitrión, sin reloj de envío)
   trasPasos(m, dt) {
     if (!this.conectado) { this.eventosPendientes = []; return; }
     for (const e of m.eventos) this.eventosPendientes.push(Object.assign({}, e));
@@ -151,6 +192,7 @@ const EnLinea = {
       return;
     }
     const snap = Sincro.instantanea(m, null);
+    if (this.sacudidaPendiente) { eventos.push(Sincro.efectoCorto(this.sacudidaPendiente)); this.sacudidaPendiente = null; }
     // Efectos visuales: por el canal fiable (no se pierden), con la hora del snapshot
     if (eventos.length) this.enviar({ t: 'ev', w: snap.w, v: eventos });
     const o = { t: 'e2', d: Sincro.comprimir(snap) };
@@ -413,11 +455,14 @@ const EnLinea = {
     }
     this.ultimoMensaje = performance.now();
     switch (d.t) {
-      case 'ping': // se responde por el mismo canal por el que llegó
-        if (canal && canal.readyState === 'open') { try { canal.send(JSON.stringify({ t: 'pong', ts: d.ts })); } catch (e) {} }
-        else this.enviar({ t: 'pong', ts: d.ts });
+      case 'ping': { // se responde enseguida, aquí mismo (no en el bucle del juego), por el mismo canal
+        // "b": cuánto se atrasó nuestro hilo principal en el último segundo (eso también suma al ping)
+        const r = { t: 'pong', ts: d.ts, b: typeof Depuracion !== 'undefined' ? Depuracion.bloqueoSeg : 0 };
+        if (canal && canal.readyState === 'open') { try { canal.send(JSON.stringify(r)); } catch (e) {} }
+        else this.enviar(r);
         break;
-      case 'pong': this.ping = Math.round(performance.now() - d.ts); this.pingCanal = canal ? 'propio' : 'fiable'; break;
+      }
+      case 'pong': this.ping = Math.round(performance.now() - d.ts); this.pingCanal = canal ? 'propio' : 'fiable'; this.bloqueoOtro = d.b || 0; break;
       // --- al invitado ---
       case 'hola': Menus.enLineaConectado(); break;
       case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
@@ -531,6 +576,7 @@ const EnLinea = {
     this.conn = null;
     setTimeout(() => { try { if (conn) conn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} }, 150);
     this.cerrarCanalRapido();
+    clearTimeout(this.tReloj);
     this.turnoSala = (this.turnoSala || 0) + 1; // anula una sala que aún esperaba credenciales TURN
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;

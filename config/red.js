@@ -35,7 +35,14 @@ const RED_CONFIG = {
   // Si el líder va lento (pocos FPS, p. ej. un celular), envía menos snapshots
   liderLento: { fpsMinimo: 40, estadosPorSegundo: 15, segundosParaCambiar: 2 },
 
-  // Si un cuadro del líder tarda más de "cuadroMs" (un pico, p. ej. Cataclismo con muchos
+  // Reloj de envío del líder: un temporizador propio manda los snapshots a "estadosPorSegundo"
+  // sin depender del dibujo. Con esto activo, liderLento y liderAtrasado NO se usan.
+  relojEnvio: { activo: true },
+
+  // Si el líder va a menos de "fpsMinimo" FPS, dibuja un cuadro sí y uno no (antes que atrasar el envío)
+  omitirDibujo: { activo: true, fpsMinimo: 40 },
+
+  // (Solo sin reloj de envío) Si un cuadro del líder tarda más de "cuadroMs" (un pico, p. ej. Cataclismo con muchos
   // enemigos), el envío de ese cuadro pasa al siguiente y durante "segundos" se envían
   // menos snapshots. Después vuelve solo a la frecuencia normal.
   liderAtrasado: { cuadroMs: 34, segundos: 1, estadosPorSegundo: 12 },
@@ -50,7 +57,9 @@ const RED_CONFIG = {
 
   // Formato compacto de snapshots: números redondeados y datos fijos (tipo, vida máxima,
   // color...) solo cuando aparece algo nuevo o cada "cadaClave" snapshots.
-  compacto: { activo: true, repetirFijosNuevos: 10, cadaClave: 20, avisoBytes: 1500 }, // avisoBytes: el panel lo marca en rojo si se pasa
+  // Formato "solo cambios": cada cambio se repite en "repetirCambios" snapshots (por si se pierde uno)
+  // y cada "cadaClave" snapshots va todo completo. avisoBytes: el panel lo marca en rojo si se pasa.
+  compacto: { activo: true, repetirCambios: 3, cadaClave: 20, avisoBytes: 1500 },
 
   // Panel de depuración oculto: F3 o 5 toques en la esquina superior izquierda
   depuracion: { tecla: 'F3', toques: 5, segundosToques: 2, esquinaPx: 70 },
