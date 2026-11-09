@@ -108,21 +108,21 @@ Object.assign(Menus, {
     const anfitrion = EnLinea.esAnfitrion;
     const tarjeta = (id, quien) => `<div class="tarjeta"><div class="etiqueta-j ${id === 'bubu' ? 'j1' : 'j2'}">${quien}</div>
       <img src="${CONFIG.personajes[id].sprite}" alt="${CONFIG.personajes[id].nombre}"><div class="nombre">${CONFIG.personajes[id].nombre}</div></div>`;
-    const niveles = ORDEN_NIVELES.map((id, i) => {
-      const e = ESCENARIOS[id];
-      return `<button class="btn ${i === 0 ? 'verde' : ''}" data-nivel="${id}" ${e.pendiente ? 'disabled' : ''}>Nivel ${i + 1} · ${e.nombre}${e.pendiente ? ' (pronto)' : ''}</button>`;
-    }).join('');
+    // El anfitrión elige con la misma lista de mundos y niveles (según SU avance)
+    if (!this.selRed) this.selRed = this.nuevaSeleccionNivel();
+    const sel = this.selRed;
     this.mostrarHTML(`
       <div class="panel panel-enlinea">
         <h2 class="verde-txt">✔ Conectado</h2>
         <p>Sala ${EnLinea.codigo}</p>
         <div class="tarjetas">${tarjeta('bubu', anfitrion ? 'Tú' : 'Anfitrión')}${tarjeta('dudu', anfitrion ? 'Invitado' : 'Tú')}</div>
-        ${anfitrion ? `<p>Elige el nivel e inicia la partida:</p><div class="lista-niveles">${niveles}</div>`
+        ${anfitrion ? `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}
+            <button class="btn grande verde" data-ir="iniciar">▶ Iniciar: ${ESCENARIOS[sel.nivel].nombre}</button>`
           : '<p class="esperando">⏳ Esperando a que el anfitrión elija el nivel…</p>'}
         <button class="btn" data-ir="salir">${anfitrion ? 'Cerrar sala' : 'Salir de la sala'}</button>
       </div>`);
-    this.cont.querySelectorAll('[data-nivel]').forEach((b) => b.onclick = () => EnLinea.iniciar(b.dataset.nivel));
-    this.conectar({ salir: () => EnLinea.cerrar() });
+    if (anfitrion) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
+    this.conectar({ salir: () => EnLinea.cerrar(), iniciar: () => EnLinea.iniciar(sel.nivel) });
   },
 
   enLineaInvitadoDesconectado(codigo) {

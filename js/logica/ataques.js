@@ -18,6 +18,7 @@ class Golpe {
     this.empujeX = o.empujeX ?? 200;
     this.empujeY = o.empujeY ?? 150;
     this.radial = !!o.radial;                 // empuja alejando desde el centro
+    this.area = !!o.area;                     // daño de área: baja con la distancia (config/balance.js -> areaDanio)
     this.intervalo = o.intervalo || 0;        // >0: puede volver a golpear al mismo objetivo
     this.tInterv = 0;
     this.golpeados = new Set();
@@ -44,12 +45,34 @@ class Golpe {
       this.tInterv += dt;
       if (this.tInterv >= this.intervalo) { this.tInterv = 0; this.golpeados.clear(); }
     }
+    // Objetivos alcanzados en este paso
+    const alcanzados = [];
     for (const obj of mundo.objetivosDe(this.duenio)) {
       if (this.golpeados.has(obj)) continue;
-      if (this.toca(U.rectDe(obj))) {
+      if (this.toca(U.rectDe(obj))) alcanzados.push(obj);
+    }
+    // Área: distancia del centro al borde más cercano de cada enemigo
+    let masCercano = null;
+    const distancias = new Map();
+    if (this.area && this.forma === 'circulo' && typeof BALANCE !== 'undefined') {
+      for (const obj of alcanzados) {
+        const rc = U.rectDe(obj);
+        const px = U.clamp(this.x, rc.x, rc.x + rc.w), py = U.clamp(this.y, rc.y, rc.y + rc.h);
+        const d = Math.hypot(this.x - px, this.y - py);
+        distancias.set(obj, d);
+        if (!masCercano || d < distancias.get(masCercano)) masCercano = obj;
+      }
+    }
+    for (const obj of alcanzados) {
+      {
         this.golpeados.add(obj);
         const dir = this.radial || !this.seguir ? U.signo(obj.x - this.x) : this.seguir.dir;
-        mundo.aplicarDanio(obj, this.danio, {
+        let danio = this.danio;
+        if (distancias.has(obj)) {
+          const completo = BALANCE.areaDanio.completoAlMasCercano && obj === masCercano;
+          danio = this.danio * (completo ? 1 : BALANCE.factorArea(distancias.get(obj) / this.r));
+        }
+        mundo.aplicarDanio(obj, danio, {
           atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY,
           x: obj.x, y: obj.y - obj.alto * 0.6, color: this.color,
         });

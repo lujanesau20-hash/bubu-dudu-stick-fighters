@@ -30,7 +30,11 @@ class Mundo {
       : ESCENARIOS[opciones.escenario] || ESCENARIOS.isla;
     this.escenarioId = opciones.escenario;
     // Número de nivel (1, 2, 3...) para la vida de enemigos y jefes
-    this.nivel = Math.max(1, (typeof ORDEN_NIVELES !== 'undefined' ? ORDEN_NIVELES.indexOf(opciones.escenario) : 0) + 1);
+    this.nivel = datos.nivel || Math.max(1, (typeof ORDEN_NIVELES !== 'undefined' ? ORDEN_NIVELES.indexOf(opciones.escenario) : 0) + 1);
+    this.refuerzos = [];         // enemigos que caen durante la pelea con el jefe
+    this.tRefuerzo = 0;
+    this.tramoActual = 0;        // para el indicador "Tramo X/Y"
+    this.totalTramos = (datos.oleadas || []).length;
     this.escenario = datos;
     this.ancho = datos.ancho;
     this.sueloY = datos.sueloY;
@@ -148,6 +152,7 @@ class Mundo {
 
     this.actualizarMonedas(dt);
     this.actualizarCorazones(dt);
+    this.actualizarRefuerzos(dt);
 
     if (this.modo === 'versus') this.actualizarVersus(dt);
     else { this.actualizarOleadas(dt); this.comprobarFin(dt); }
@@ -236,11 +241,10 @@ class Mundo {
     this.tCorazon += dt;
     if (this.tCorazon >= bc.intervalo) {
       this.tCorazon = 0;
-      const vivos = this.jugadores.filter((j) => j.vivo);
-      const base = vivos.length ? vivos.reduce((s, j) => s + j.x, 0) / vivos.length : this.ancho / 2;
-      const x = U.clamp(base + this.rng.rango(-220, 220), this.limiteIzq + 60, this.limiteDer - 60);
-      this.corazones.push({ x, y: this.sueloY - 760, vx: 0, vy: bc.velocidadCaida, ancho: 34, alto: 30, t: 0, enSuelo: false });
-      this.emitir('corazonAparece', { x });
+      for (const x of this.lugaresCorazones()) {
+        this.corazones.push({ x, y: this.sueloY - 760, vx: 0, vy: bc.velocidadCaida, ancho: 34, alto: 30, t: 0, enSuelo: false });
+        this.emitir('corazonAparece', { x });
+      }
     }
 
     for (const c of this.corazones) {
@@ -259,6 +263,64 @@ class Mundo {
     this.corazones = this.corazones.filter((c) => !c.tomado && c.t < bc.duracion);
   }
 
+  // Dónde caen los corazones: 1 en solitario; 2 en pareja, separados (uno hacia cada jugador)
+  lugaresCorazones() {
+    const bc = BALANCE.corazones;
+    const cant = this.jugadores.length > 1 ? bc.porCaida.pareja : bc.porCaida.solo;
+    const izq = this.limiteIzq + 60, der = this.limiteDer - 60;
+    const vivos = this.jugadores.filter((j) => j.vivo);
+    const centro = vivos.length ? vivos.reduce((s, j) => s + j.x, 0) / vivos.length : (izq + der) / 2;
+    if (cant <= 1) return [U.clamp(centro + this.rng.rango(-220, 220), izq, der)];
+    // Uno cerca de cada jugador; si están juntos, uno a cada lado
+    const lugares = [];
+    const [a, b] = vivos.length >= 2 ? [vivos[0].x, vivos[1].x] : [centro - bc.separacionMin / 2, centro + bc.separacionMin / 2];
+    let x1 = Math.min(a, b) - this.rng.rango(60, 160), x2 = Math.max(a, b) + this.rng.rango(60, 160);
+    if (x2 - x1 < bc.separacionMin) { const m = (x1 + x2) / 2; x1 = m - bc.separacionMin / 2; x2 = m + bc.separacionMin / 2; }
+    lugares.push(U.clamp(x1, izq, der), U.clamp(x2, izq, der));
+    if (Math.abs(lugares[1] - lugares[0]) < bc.separacionMin) { // pegado a una pared: correr el otro
+      if (lugares[0] <= izq + 1) lugares[1] = Math.min(der, izq + bc.separacionMin); else lugares[0] = Math.max(izq, der - bc.separacionMin);
+    }
+    for (let k = 2; k < cant; k++) lugares.push(U.clamp(centro + this.rng.rango(-300, 300), izq, der));
+    return lugares;
+  }
+
+  // ---------- Refuerzos durante la pelea con el jefe (config/balance.js -> refuerzos) ----------
+  actualizarRefuerzos(dt) {
+    if (typeof BALANCE === 'undefined' || !this.jefe || !this.jefe.vivo || this.jefe.estado === 'entrando') return;
+    const br = BALANCE.refuerzos;
+    this.refuerzos = this.refuerzos.filter((e) => e.vivo && this.enemigos.includes(e));
+    this.tRefuerzo += dt;
+    if (this.tRefuerzo < br.intervalo) return;
+    this.tRefuerzo = 0;
+    if (this.refuerzos.length >= br.maxVivos) return;
+    const tipo = br.tipos[Math.floor(this.rng() * br.tipos.length)];
+    const vivos = this.jugadores.filter((j) => j.vivo);
+    if (!vivos.length) return;
+    const centro = vivos.reduce((s, j) => s + j.x, 0) / vivos.length;
+    const izq = this.limiteIzq + 60, der = this.limiteDer - 60;
+    const cerca = br.cuerpoACuerpo.includes(tipo);
+    const [dMin, dMax] = cerca ? br.cerca : br.lejos;
+    // Probar lados y distancias hasta encontrar un lugar dentro de la zona
+    let x = centro;
+    for (let i = 0; i < 12; i++) {
+      const lado = this.rng() < 0.5 ? -1 : 1;
+      const cand = centro + lado * this.rng.rango(dMin, dMax);
+      if (cand >= izq && cand <= der) { x = cand; break; }
+      x = U.clamp(cand, izq, der);
+    }
+    // A distancia: si hay una plataforma cerca de ese punto, caer sobre ella
+    if (!cerca) {
+      const plat = this.plataformas.find((p) => x > p.x - 120 && x < p.x + p.w + 120 && p.x + p.w > izq && p.x < der);
+      if (plat && this.rng() < 0.6) x = plat.x + plat.w / 2;
+    }
+    const e = new Enemigo(this, tipo, x, -200);
+    e.vida = e.vidaMax = BALANCE.vidaEnemigo(this.nivel);
+    e.esRefuerzo = true;
+    this.enemigos.push(e);
+    this.refuerzos.push(e);
+    this.emitir('refuerzo', { enemigo: tipo, x });
+  }
+
   // ---------- Oleadas y jefe ----------
   actualizarOleadas(dt) {
     const esc = this.escenario;
@@ -266,6 +328,7 @@ class Mundo {
     const xMax = vivos.length ? Math.max(...vivos.map((j) => j.x)) : 0;
     const mult = this.modo === 'pareja' ? CONFIG.multiplicadorPareja.enemigos : 1;
 
+    if (this.oleada && this.oleada.fases) { this.actualizarTramo(dt); return; }
     if (this.oleada) {
       const o = this.oleada;
       o.t += dt;
@@ -291,9 +354,16 @@ class Mundo {
     const sig = esc.oleadas[this.indiceOleada];
     if (sig && xMax >= sig.gatillo) {
       this.indiceOleada++;
-      this.oleada = { t: 0, pendientes: sig.grupos.map((g) => ({ ...g, hecho: false })) };
+      this.tramoActual = this.indiceOleada;
       this.limiteIzq = sig.zona[0];
       this.limiteDer = sig.zona[1];
+      if (sig.fases) {
+        // Tramo de la isla: oleadas una tras otra
+        this.oleada = { t: 0, fases: sig.fases, fase: -1, porSalir: 0, espera: 0.6, tSalida: 0 };
+        this.emitir('tramo', { numero: this.indiceOleada, total: esc.oleadas.length });
+        return;
+      }
+      this.oleada = { t: 0, pendientes: sig.grupos.map((g) => ({ ...g, hecho: false })) };
       this.emitir('oleada', { numero: this.indiceOleada, total: esc.oleadas.length });
     } else if (!sig && !this.jefe && esc.zonaJefe && xMax >= esc.zonaJefe.gatillo) {
       this.limiteIzq = esc.zonaJefe.zona[0];
@@ -302,8 +372,54 @@ class Mundo {
       const xj = Math.min(xMax + 520, this.limiteDer - 120);
       this.jefe = new Jefe(this, esc.jefe, xj, -400, mv);
       // Vida del jefe según el nivel (config/balance.js)
-      if (typeof BALANCE !== 'undefined') this.jefe.vida = this.jefe.vidaMax = Math.round(BALANCE.vidaJefe(this.nivel) * mv);
+      if (typeof BALANCE !== 'undefined') this.jefe.vida = this.jefe.vidaMax = Math.round((esc.vidaJefe || BALANCE.vidaJefe(this.nivel)) * mv);
     }
+  }
+
+  // Tramo: cada oleada sale cuando se limpió la anterior; nunca más de "maxVivos" a la vez
+  actualizarTramo(dt) {
+    const o = this.oleada;
+    const bi = BALANCE.isla;
+    const esc = this.escenario;
+    const vivos = this.enemigos.filter((e) => e.vivo).length;
+    o.t += dt;
+    if (o.porSalir <= 0) {
+      if (vivos > 0) return;
+      if (o.fase >= o.fases.length - 1) {
+        // Tramo limpio
+        this.oleada = null;
+        this.limiteIzq = 0;
+        this.limiteDer = this.ancho;
+        const quedan = this.indiceOleada < esc.oleadas.length || esc.zonaJefe;
+        if (quedan) { this.avisoAvanzar = 3; this.emitir('avanzar', {}); }
+        return;
+      }
+      o.espera -= dt;
+      if (o.espera > 0) return;
+      o.fase++;
+      const mult = this.modo === 'pareja' ? CONFIG.multiplicadorPareja.enemigos : 1;
+      o.porSalir = Math.min(bi.maxPorOleada, Math.round(o.fases[o.fase] * mult));
+      o.espera = 1.2;
+      o.k = 0;
+      this.emitir('oleada', { numero: o.fase + 1, total: o.fases.length, tramo: this.indiceOleada });
+    }
+    // Van entrando de a poco, sin pasar el máximo de vivos
+    o.tSalida -= dt;
+    if (o.porSalir > 0 && vivos < bi.maxVivos && o.tSalida <= 0) {
+      this.crearEnemigo(this.elegirTipoOleada(), o.k++ % 5);
+      o.porSalir--;
+      o.tSalida = 0.12;
+    }
+  }
+
+  // Tipo de enemigo al azar según el nivel (BALANCE.isla.tiposDesde y pesos)
+  elegirTipoOleada() {
+    const tipos = this.escenario.tiposOleada || [this.escenario.enemigo];
+    const pesos = BALANCE.isla.pesos;
+    const total = tipos.reduce((s, t) => s + (pesos[t] || 1), 0);
+    let r = this.rng() * total;
+    for (const t of tipos) { r -= pesos[t] || 1; if (r <= 0) return t; }
+    return tipos[0];
   }
 
   crearEnemigo(tipo, k) {
@@ -326,6 +442,18 @@ class Mundo {
       this.estado = 'derrota';
       this.tiempoFin = 0;
       this.emitir('banner', { texto: 'GAME OVER', sub: '', color: '#ff4d4d' });
+      return;
+    }
+    // Victoria en niveles sin jefe: último tramo limpio
+    const esc = this.escenario;
+    if (!esc.zonaJefe && esc.oleadas.length && this.indiceOleada >= esc.oleadas.length && !this.oleada && !this.enemigos.some((e) => e.vivo)) {
+      this.tFinTramos = (this.tFinTramos || 0) + dt;
+      if (this.tFinTramos > 1.5 && (this.monedas.length === 0 || this.tFinTramos > 4)) {
+        this.estado = 'victoria';
+        this.tiempoFin = 0;
+        this.monedasGanadas += CONFIG.monedas.bonoNivel;
+        this.emitir('banner', { texto: '¡NIVEL COMPLETADO!', sub: `+${CONFIG.monedas.bonoNivel} monedas de bono`, color: '#ffd84d' });
+      }
       return;
     }
     // Victoria: jefe derrotado

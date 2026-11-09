@@ -152,6 +152,9 @@ const CONFIG = {
       alcance: 520, preparacion: 0.6, ancho: 34, alto: 82, monedas: 4 },
     mago: { nombre: 'Mago', color: '#8a4fd8', vida: 38, velocidad: 100, danio: 9,
       alcance: 460, preparacion: 0.7, ancho: 34, alto: 82, monedas: 5 },
+    // Espadachín: como el normal pero con espada (más alcance y daño)
+    espadachin: { nombre: 'Espadachín', color: '#e8590c', vida: 50, velocidad: 125, danio: 10,
+      alcance: 92, preparacion: 0.5, ancho: 34, alto: 82, monedas: 4 },
     ninja: { nombre: 'Ninja', color: '#5c677d', vida: 36, velocidad: 230, danio: 9,
       alcance: 64, preparacion: 0.25, ancho: 32, alto: 80, monedas: 5 },
   },

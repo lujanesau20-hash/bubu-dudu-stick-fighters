@@ -94,7 +94,7 @@ const COMBOS = {
       },
     });
     m.agregarGolpe(new Golpe({
-      duenio: j, seguir: j, forma: 'circulo', offX: 0, offY: -j.alto / 2, r: d.radio, radial: true,
+      duenio: j, seguir: j, forma: 'circulo', offX: 0, offY: -j.alto / 2, r: d.radio, radial: true, area: true,
       intervalo: d.duracion / d.golpes, danio: d.danio, empujeX: 260, empujeY: 200,
       duracion: d.duracion, color: d.color,
     }));
@@ -115,7 +115,7 @@ const COMBOS = {
           jj.vy = 2400;
           if (jj.enSuelo) {
             m.agregarGolpe(new Golpe({
-              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true,
+              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true, area: true,
               danio: d.danio, empujeX: d.empuje, empujeY: 700, duracion: 0.12, color: d.color,
             }));
             jj.anim.sy = 0.5; jj.anim.sx = 1.5;

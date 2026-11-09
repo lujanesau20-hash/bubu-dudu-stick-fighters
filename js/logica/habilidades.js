@@ -78,7 +78,7 @@ const HABILIDADES = {
 
   explotarOnda(j, h, m) {
     m.agregarGolpe(new Golpe({
-      duenio: j, forma: 'circulo', x: j.x, y: j.y - 30, r: h.radio, radial: true,
+      duenio: j, forma: 'circulo', x: j.x, y: j.y - 30, r: h.radio, radial: true, area: true,
       danio: h.danio, empujeX: h.empuje, empujeY: 480, duracion: 0.1, color: '#9fd8ff',
     }));
     j.anim.sy = 0.55; j.anim.sx = 1.4;

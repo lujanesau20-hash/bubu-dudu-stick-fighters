@@ -49,8 +49,8 @@ const Menus = {
   seleccion(modo) {
     const ids = Object.keys(CONFIG.personajes);
     let elegido = 'bubu';
-    // Nivel: por defecto el primero que aún no se ha superado
-    let nivel = ORDEN_NIVELES.find((n) => !Guardado.datos.nivelesSuperados.includes(n) && !ESCENARIOS[n].pendiente) || 'isla';
+    // Mundo y nivel: por defecto el primer nivel aún no superado
+    const sel = this.nuevaSeleccionNivel();
     const titulos = { solo: 'Niveles en solitario', pareja: 'Niveles en pareja', versus: 'Versus' };
     const tactil = esDispositivoTactil();
     const ayuda = modo === 'solo'
@@ -71,12 +71,7 @@ const Menus = {
           <h2>${titulos[modo]}</h2>
           <p>${modo === 'solo' ? 'Elige tu personaje' : 'Toca un personaje para que sea el Jugador 1'}</p>
           <div class="tarjetas">${tarjetas}</div>
-          ${modo === 'versus' ? '' : `<p>Elige el nivel:</p><div class="selector-niveles">${ORDEN_NIVELES.map((id, i) => {
-            const e = ESCENARIOS[id];
-            const hecho = Guardado.datos.nivelesSuperados.includes(id);
-            return `<button class="btn-nivel ${id === nivel ? 'activo' : ''}" data-nivel="${id}" ${e.pendiente ? 'disabled' : ''}>`
-              + `<b>${i + 1}</b> ${e.nombre}${hecho ? ' ✓' : ''}</button>`;
-          }).join('')}</div>`}
+          ${modo === 'versus' ? '' : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
           <p class="ayuda">${ayuda}</p>
           <div class="fila-botones">
             <button class="btn" data-ir="volver">Volver</button>
@@ -84,7 +79,7 @@ const Menus = {
           </div>
         </div>`);
       this.cont.querySelectorAll('.tarjeta').forEach((t) => t.onclick = () => { elegido = t.dataset.id; pintar(); });
-      this.cont.querySelectorAll('.btn-nivel').forEach((b) => b.onclick = () => { nivel = b.dataset.nivel; pintar(); });
+      if (modo !== 'versus') this.conectarSelectorNiveles(sel, pintar);
       this.conectar({
         volver: () => this.principal(),
         jugar: () => {
@@ -94,11 +89,11 @@ const Menus = {
           if (!Guardado.datos.vioComoJugar) {
             this.comoJugar(() => {
               Guardado.datos.vioComoJugar = true; Guardado.guardar();
-              this.juego.iniciarPartida(modo, personajes, nivel);
+              this.juego.iniciarPartida(modo, personajes, sel.nivel);
             }, '¡A jugar!');
             return;
           }
-          this.juego.iniciarPartida(modo, personajes, nivel);
+          this.juego.iniciarPartida(modo, personajes, sel.nivel);
         },
       });
     };
@@ -140,7 +135,8 @@ const Menus = {
       <div class="panel">
         <h2 class="dorado">¡NIVEL SUPERADO!</h2>
         <p>Monedas ganadas: 🪙 ${monedas} · Total: 🪙 ${Guardado.datos.monedas}</p>
-        ${sig ? `<button class="btn grande verde" data-ir="siguiente">➜ Siguiente nivel: ${sig.nombre}</button>`
+        ${sig ? `<button class="btn grande verde" data-ir="siguiente">➜ ${sig.mundo === 'isla' ? 'Siguiente nivel: ' + sig.nombreCorto
+          : '¡Mundo desbloqueado! ' + sig.nombre}</button>`
           : '<p class="dorado"><b>🏆 ¡Completaste todos los niveles!</b></p>'}
         <button class="btn grande" data-ir="tienda">🛍 Ir a la tienda</button>
         <button class="btn" data-ir="otra">Jugar otra vez</button>
@@ -254,7 +250,8 @@ Object.assign(Menus, {
         <li><b>Revivir (modo pareja):</b> si tu compañero cae, tienes ${CONFIG.revivir.tiempoCaido} s para llegar a su lado y mantener
             la tecla de revivir ${CONFIG.revivir.tiempoRevivir} s. Si te golpean, se interrumpe. Vuelve con el ${Math.round(CONFIG.revivir.vidaAlRevivir * 100)}% de vida.
             Hay ${CONFIG.revivir.maxPorNivel} revivires por nivel.</li>
-        <li>Los enemigos tienen ${BALANCE.vidaEnemigo(1)} de vida en el nivel 1 y el jefe ${BALANCE.vidaJefe(1)}. Suben un ${Math.round(b.enemigos.subidaPorNivel * 100)}% por nivel.</li>
+        <li>Los enemigos tienen ${BALANCE.vidaEnemigo(1)} de vida en el nivel 1 y suben un ${Math.round((b.enemigos.crecimientoPorNivel - 1) * 100)}% por nivel.
+            El Gigante (nivel 10 de la Isla) tiene ${ESCENARIOS['isla-10'].vidaJefe || BALANCE.vidaJefe(10)}. Durante la pelea con un jefe caen refuerzos cada ${b.refuerzos.intervalo} s.</li>
       </ul>`;
     }
 

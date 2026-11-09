@@ -67,11 +67,11 @@ const Juego = {
     Menus.principal();
   },
 
-  iniciarPartida(modo, personajes, escenario = this.escenario || 'isla') {
+  iniciarPartida(modo, personajes, escenario = this.escenario || ORDEN_NIVELES[0]) {
     this.modo = modo;
     this.personajes = personajes;
     // Nivel elegido (versus siempre usa la arena de la isla)
-    this.escenario = ESCENARIOS[escenario] && !ESCENARIOS[escenario].pendiente ? escenario : 'isla';
+    this.escenario = ESCENARIOS[escenario] && !ESCENARIOS[escenario].pendiente ? escenario : ORDEN_NIVELES[0];
     const c = CONFIG.controles;
     this.entrada.configurar(modo === 'solo' ? [c.solo] : [c.j1, c.j2]);
     this.mundo = new Mundo({ modo, personajes, escenario: modo === 'versus' ? 'isla' : this.escenario, semilla: Math.floor(Math.random() * 1e9) });

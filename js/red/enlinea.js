@@ -274,6 +274,10 @@ const EnLinea = {
     Juego.estado = 'fin';
     Juego.tactil.mostrar(false);
     if (d.monedas && d.tipo !== 'versus') Guardado.sumarMonedas(d.monedas);
+    // El invitado también guarda el nivel superado
+    if (d.tipo === 'victoria' && d.escenario && !Guardado.datos.nivelesSuperados.includes(d.escenario)) {
+      Guardado.datos.nivelesSuperados.push(d.escenario); Guardado.guardar();
+    }
     Menus.enLineaFinInvitado(d);
   },
 
@@ -289,7 +293,7 @@ const EnLinea = {
 
   // Avisos al otro cuando el anfitrión pausa o termina
   avisarPausa(on) { if (this.esAnfitrion) this.enviar({ t: 'pausa', on }); },
-  avisarFin(tipo, monedas) { if (this.esAnfitrion) { this.enPartida = false; this.enviar({ t: 'fin', tipo, monedas }); } },
+  avisarFin(tipo, monedas) { if (this.esAnfitrion) { this.enPartida = false; this.enviar({ t: 'fin', tipo, monedas, escenario: Juego.mundo && Juego.mundo.escenarioId }); } },
   volverAlLobby() { this.enPartida = false; this.enviar({ t: 'lobby' }); Menus.enLineaConectado(); },
 
   errorRed(err) {

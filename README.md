@@ -75,6 +75,7 @@ Todas las teclas se cambian en `CONFIG.controles` (`js/config.js`).
 
 ## Qué falta (preparado para añadir)
 
+- **Mundos y niveles:** Mundo 1 Isla Flotante = 10 niveles (tramos y oleadas definidos en `config/balance.js` -> `isla`, generados en `js/logica/niveles_isla.js`). Los mundos 2-4 (Cielo, Espacio, Ciudad) se desbloquean en orden. Simulaciones: `herramientas/simular_niveles.js` (`simularOleada7`, `tablaNiveles`, `simularJefeNivel`).
 - **Más escenarios:** los 4 niveles (Isla, Cielo, Espacio, Ciudad) están completos. Para agregar otro: datos en `js/logica/escenarios.js`, fondo en `js/dibujo/fondos_nuevos.js`, y si tiene enemigos o jefe propios, su IA en `js/logica/enemigos_nuevos.js` / `js/logica/jefes_nuevos.js`.
 - **Online (fase 2):** ver comentarios en `js/red/red.js`. Hace falta un servidor WebSocket que reenvíe mensajes por sala.
 - **Ropa con imágenes:** pon el PNG en `assets/ropa/` y su ruta en `imagen` dentro de `js/dibujo/ropa.js`.

@@ -68,6 +68,14 @@ class HUD {
       }
     }
 
+    // Indicador pequeño "Tramo X/Y"
+    if (m.modo !== 'versus' && m.totalTramos && !(m.jefe && m.jefe.vivo)) {
+      const enJefe = m.escenario.zonaJefe && m.indiceOleada >= m.totalTramos && !m.oleada;
+      const txt = enJefe ? 'Jefe final ➜' : `Tramo ${Math.max(1, m.tramoActual || 0)}/${m.totalTramos}`;
+      const y = margen + (m.modo === 'pareja' ? 80 : 58) * s;
+      this.texto(ctx, (m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '') + txt, W / 2, y, 15 * s, '#e9ecef', 'center', true);
+    }
+
     // Barra del jefe
     if (m.jefe && m.jefe.estado !== 'entrando' && (m.jefe.vivo || m.jefe.tiempoMuerto < 2)) {
       const w = Math.min(W * 0.55, 700 * s), h = 18 * s;

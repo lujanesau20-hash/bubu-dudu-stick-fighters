@@ -95,7 +95,7 @@ const Sincro = {
     return {
       w: Math.round(this.reloj()), t: m.tiempo, estado: m.estado, tiempoFin: m.tiempoFin, escalaTiempo: m.escalaTiempo,
       limIzq: m.limiteIzq, limDer: m.limiteDer, aviso: r(m.avisoAvanzar), revivesUsados: m.revivesUsados,
-      monedasGanadas: m.monedasGanadas, rondas: m.rondas, ronda: m.ronda, ganador: m.ganador,
+      monedasGanadas: m.monedasGanadas, tramo: m.tramoActual, indiceOleada: m.indiceOleada, enOleada: !!m.oleada, rondas: m.rondas, ronda: m.ronda, ganador: m.ganador,
       jugadores: m.jugadores.map(jug),
       enemigos: m.enemigos.map(ene),
       jefe: m.jefe ? ene(m.jefe) : null,
@@ -170,7 +170,8 @@ const Sincro = {
     const L = (p, q) => p + (q - p) * k;
     m.tiempo = L(A.t, B.t);
     Object.assign(m, { estado: B.estado, tiempoFin: B.tiempoFin, escalaTiempo: B.escalaTiempo, limiteIzq: B.limIzq, limiteDer: B.limDer,
-      avisoAvanzar: B.aviso, revivesUsados: B.revivesUsados, monedasGanadas: B.monedasGanadas, rondas: B.rondas, ronda: B.ronda, ganador: B.ganador });
+      avisoAvanzar: B.aviso, revivesUsados: B.revivesUsados, monedasGanadas: B.monedasGanadas,
+      tramoActual: B.tramo, indiceOleada: B.indiceOleada, oleada: B.enOleada ? {} : null, rondas: B.rondas, ronda: B.ronda, ganador: B.ganador });
 
     // Jugadores
     const ultimo = this.buffer[this.buffer.length - 1].d;

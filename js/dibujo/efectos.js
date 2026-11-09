@@ -97,7 +97,9 @@ class Efectos {
           this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 70, t: 0, dur: 0.35, color: e.color || '#b197fc', ancho: 6 });
           for (let i = 0; i < 14; i++) this.particulas.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y + (Math.random() - 0.5) * 80, vx: (Math.random() - 0.5) * 120, vy: -60 - Math.random() * 160, t: 0, dur: 0.5, color: e.color || '#b197fc', tam: 4 });
           break;
-        case 'oleada': this.banners.push({ texto: `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
+        case 'oleada': this.banners.push({ texto: e.tramo ? `OLEADA ${e.numero}/${e.total}` : `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
+        case 'tramo': this.banners.push({ texto: `TRAMO ${e.numero}/${e.total}`, sub: '', color: '#ffe066', t: 0, dur: 1.4, pequeno: true }); break;
+        case 'refuerzo': this.texto(e.x, 120, '¡REFUERZO!', '#ff8787', false, true); break;
       }
     }
   }

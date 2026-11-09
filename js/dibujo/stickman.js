@@ -11,7 +11,7 @@ const ALIAS_POSE = {
   prepCorte: 'prepEmbestida', corte: 'embestida', oculto: 'descanso',
 };
 // Tipo "base" de cada enemigo o jefe (para sus accesorios)
-const TIPO_BASE = { arquero: 'arquero', arqueroMaestro: 'arquero', mago: 'mago', magoCosmico: 'mago', ninja: 'ninja', ninjaSombra: 'ninja' };
+const TIPO_BASE = { arquero: 'arquero', arqueroMaestro: 'arquero', mago: 'mago', magoCosmico: 'mago', ninja: 'ninja', ninjaSombra: 'ninja', espadachin: 'espadachin' };
 
 function poseStickman(e, t) {
   const f = e.anim.fase;
@@ -261,6 +261,25 @@ function accesorioDelante(ctx, e, t, d) {
       ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(manoD.x, manoD.y - 21, brillo, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
+    }
+  }
+  if (base === 'espadachin') {
+    // Casco pequeño y espada en la mano delantera
+    ctx.fillStyle = '#adb5bd';
+    ctx.beginPath(); ctx.arc(cx, cy - 2, 11, Math.PI, 0); ctx.fill();
+    ctx.fillRect(cx - 12, cy - 3, 24, 3);
+    if (!muerto) {
+      const levantada = e.estado === 'preparar';
+      const ang = levantada ? -2.3 : e.estado === 'atacar' ? 0.2 : -0.6;
+      ctx.save();
+      ctx.translate(manoD.x, manoD.y);
+      ctx.rotate(ang);
+      ctx.fillStyle = '#7c4a1e'; ctx.fillRect(-2, -3, 4, 8);           // empuñadura
+      ctx.fillStyle = '#ffd43b'; ctx.fillRect(-6, -4, 12, 3);          // guarda
+      ctx.fillStyle = '#e9ecef'; ctx.strokeStyle = '#495057'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-2.5, -4); ctx.lineTo(2.5, -4); ctx.lineTo(1, -34); ctx.lineTo(0, -38); ctx.lineTo(-1, -34); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
   }
   if (base === 'ninja') {

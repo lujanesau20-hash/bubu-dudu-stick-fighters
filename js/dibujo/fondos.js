@@ -143,7 +143,10 @@ const FONDOS = {
       // Piedritas en la tierra
       const piedras = decoracion('isla-piedras', (r) => Array.from({ length: 70 }, () => ({ x: r() * 4800, y: 30 + r() * 80, r: 4 + r() * 8 })));
       ctx.fillStyle = 'rgba(80,55,35,0.45)';
-      piedras.forEach((p) => { ctx.beginPath(); ctx.ellipse(p.x, y + p.y, p.r * 1.4, p.r, 0, 0, Math.PI * 2); ctx.fill(); });
+      // (la decoración se repite cada 4700 px para los niveles más largos)
+      for (let off = 0; off < m.ancho; off += 4700) {
+        piedras.forEach((p) => { ctx.beginPath(); ctx.ellipse(p.x + off, y + p.y, p.r * 1.4, p.r, 0, 0, Math.PI * 2); ctx.fill(); });
+      }
       // Pasto
       ctx.fillStyle = '#5dbb4f';
       ctx.fillRect(izq, y - 4, der - izq, 18);
@@ -151,14 +154,19 @@ const FONDOS = {
       ctx.fillRect(izq, y - 4, der - izq, 6);
       // Matas de pasto y flores
       const matas = decoracion('isla-matas', (r) => Array.from({ length: 140 }, () => ({ x: r() * 4700, h: 8 + r() * 12, flor: r() < 0.25, c: r() < 0.5 ? '#ff7aa8' : '#ffe066' })));
-      matas.forEach((p) => {
-        ctx.fillStyle = '#4caa45';
-        const bal = Math.sin(t * 2 + p.x) * 2;
-        ctx.beginPath();
-        ctx.moveTo(p.x - 6, y); ctx.lineTo(p.x + bal, y - p.h); ctx.lineTo(p.x + 6, y);
-        ctx.fill();
-        if (p.flor) { ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x + bal, y - p.h, 4, 0, Math.PI * 2); ctx.fill(); }
-      });
+      for (let off = 0; off < m.ancho; off += 4700) {
+        ctx.save();
+        ctx.translate(off, 0);
+        matas.forEach((p) => {
+          ctx.fillStyle = '#4caa45';
+          const bal = Math.sin(t * 2 + p.x) * 2;
+          ctx.beginPath();
+          ctx.moveTo(p.x - 6, y); ctx.lineTo(p.x + bal, y - p.h); ctx.lineTo(p.x + 6, y);
+          ctx.fill();
+          if (p.flor) { ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x + bal, y - p.h, 4, 0, Math.PI * 2); ctx.fill(); }
+        });
+        ctx.restore();
+      }
       // Plataformas: pequeñas islas flotantes
       m.plataformas.forEach((p, i) => islaFlotante(ctx, p.x, p.y, p.w, 90, '#6cc85a', '#a07450', '#7d6858', i + 1));
     },
@@ -166,7 +174,8 @@ const FONDOS = {
     // Árboles del fondo cercano (detrás de los personajes, mismo plano del mundo)
     decorado(ctx, m) {
       const arboles = decoracion('isla-arboles', (r) => Array.from({ length: 22 }, (_, i) => ({ x: 120 + i * 210 + r() * 120, h: 110 + r() * 80, c: r() < 0.5 ? '#3f9a4a' : '#4caf50' })));
-      arboles.forEach((a) => {
+      for (let off = 0; off < m.ancho; off += 4700) arboles.forEach((a0) => {
+        const a = off ? { ...a0, x: a0.x + off } : a0;
         if (a.x > m.ancho - 60) return;
         const y = m.sueloY;
         ctx.fillStyle = '#6d4c35';
