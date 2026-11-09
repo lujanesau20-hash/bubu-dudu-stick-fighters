@@ -263,6 +263,18 @@ class Mundo {
     this.corazones = this.corazones.filter((c) => !c.tomado && c.t < bc.duracion);
   }
 
+  // Al limpiar un tramo, cada jugador vivo recupera parte de su vida (config/balance.js -> jugador.curaPorTramo)
+  curarPorTramo() {
+    const k = typeof BALANCE !== 'undefined' ? BALANCE.jugador.curaPorTramo || 0 : 0;
+    if (k <= 0) return;
+    for (const j of this.jugadores) {
+      if (!j.vivo || j.vida >= j.vidaMax) continue;
+      const antes = j.vida;
+      j.vida = Math.min(j.vidaMax, j.vida + j.vidaMax * k);
+      this.emitir('curar', { jugador: j.indice, x: j.x, y: j.y - j.alto - 10, cantidad: Math.round(j.vida - antes) });
+    }
+  }
+
   // Dónde caen los corazones: 1 en solitario; 2 en pareja, separados (uno hacia cada jugador)
   lugaresCorazones() {
     const bc = BALANCE.corazones;
@@ -345,6 +357,7 @@ class Mundo {
         this.limiteIzq = 0;
         this.limiteDer = this.ancho;
         this.avisoAvanzar = 3;
+        this.curarPorTramo();
         this.emitir('avanzar', {});
       }
       return;
@@ -391,7 +404,7 @@ class Mundo {
         this.limiteIzq = 0;
         this.limiteDer = this.ancho;
         const quedan = this.indiceOleada < esc.oleadas.length || esc.zonaJefe;
-        if (quedan) { this.avisoAvanzar = 3; this.emitir('avanzar', {}); }
+        if (quedan) { this.avisoAvanzar = 3; this.curarPorTramo(); this.emitir('avanzar', {}); }
         return;
       }
       o.espera -= dt;

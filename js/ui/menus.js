@@ -246,6 +246,7 @@ Object.assign(Menus, {
         <li>El maná se recupera solo, ${b.jugador.manaPorSegundo} por segundo, y ${b.jugador.manaPorGolpe} más por cada golpe que acierta a un enemigo.</li>
         <li>Cada ${b.corazones.intervalo} segundos cae un corazón cerca de ti: cura el ${Math.round(b.corazones.curacion * 100)}% de tu vida.
             Dura ${b.corazones.duracion} s y parpadea antes de desaparecer. En pareja, lo recibe quien lo toque primero.</li>
+        <li>Al limpiar un tramo (cuando aparece "¡ADELANTE!") recuperas el ${Math.round((b.jugador.curaPorTramo || 0) * 100)}% de tu vida.</li>
         <li>Las habilidades caras rinden más daño por cada punto de maná: guarda maná para la Onda de choque y los combos.</li>
         <li><b>Revivir (modo pareja):</b> si tu compañero cae, tienes ${CONFIG.revivir.tiempoCaido} s para llegar a su lado y mantener
             la tecla de revivir ${CONFIG.revivir.tiempoRevivir} s. Si te golpean, se interrumpe. Vuelve con el ${Math.round(CONFIG.revivir.vidaAlRevivir * 100)}% de vida.

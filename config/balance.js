@@ -11,6 +11,7 @@ const BALANCE = {
     manaInicial: 50,          // maná al empezar cada nivel/ronda
     manaPorSegundo: 5,        // recuperación con el tiempo
     manaPorGolpe: 2,          // extra por cada golpe que acierta
+    curaPorTramo: 0.4,        // al limpiar un tramo ("¡ADELANTE!") cada jugador vivo recupera 40% de su vida máxima
   },
 
   // ---------- 1-3. Habilidades (H1..H4) ----------
@@ -47,11 +48,13 @@ const BALANCE = {
     parejaVidaJefe: 1.6,
   },
 
-  // Daño ACTUAL que hacen enemigos y jefes (sin modificar; para ajustarlo después)
+  // Daño que hacen enemigos y jefes.
+  // Enemigos comunes y Gigante ajustados con la simulación (antes: normal 8, arquero 7, mago 9,
+  // ninja 9, espadachín 10; Gigante puño 18, pisotón 15, embestida 22).
   danioEnemigos: {
-    normal: 8, arquero: 7, mago: 9, ninja: 9,
-    espadachin: 10,           // nuevo enemigo (espada, más alcance)
-    gigante: { punio: 18, pisoton: 15, embestida: 22 },
+    normal: 4, arquero: 3, mago: 4, ninja: 4,
+    espadachin: 5,            // enemigo con espada (más alcance)
+    gigante: { punio: 9, pisoton: 8, embestida: 11 },
     // Jefes de los niveles 2, 3 y 4
     arqueroMaestro: { flecha: 7, lluvia: 9 },
     magoCosmico: { orbe: 6, meteoro: 11 },
