@@ -1,0 +1,206 @@
+/* =====================================================================
+   HUD: barras de vida (verde, grande, arriba), energía (azul, debajo),
+   habilidades, monedas, revivires, barra del jefe y marcador de versus.
+   Efecto "barra de daño": la parte perdida queda roja y baja suave.
+   ===================================================================== */
+class HUD {
+  constructor() {
+    this.barras = {}; // índice -> { vidaMostrada, rastro, espera }
+    this.jefe = { rastro: 1, espera: 0 };
+  }
+
+  reiniciar() { this.barras = {}; this.jefe = { rastro: 1, espera: 0 }; }
+
+  actualizar(dt, m) {
+    for (const j of m.jugadores) {
+      const b = this.barras[j.indice] || (this.barras[j.indice] = { vida: j.vida / j.vidaMax, rastro: j.vida / j.vidaMax, espera: 0, ultimaVida: j.vida });
+      const real = j.vida / j.vidaMax;
+      if (j.vida < b.ultimaVida) b.espera = 0.45;   // recibió daño: el rojo espera un instante
+      b.ultimaVida = j.vida;
+      b.vida = real > b.vida ? U.lerp(b.vida, real, Math.min(1, dt * 6)) : real; // curar sube suave
+      if (b.espera > 0) b.espera -= dt;
+      else b.rastro = Math.max(b.vida, b.rastro - dt * 0.5);
+      if (b.rastro < b.vida) b.rastro = b.vida;
+    }
+    if (m.jefe) {
+      const real = Math.max(0, m.jefe.vida / m.jefe.vidaMax);
+      if (m.jefe.anim.flash > 0.9) this.jefe.espera = 0.45;
+      if (this.jefe.espera > 0) this.jefe.espera -= dt;
+      else this.jefe.rastro = Math.max(real, this.jefe.rastro - dt * 0.35);
+    }
+  }
+
+  dibujar(ctx, m, W, H, efectos, esTactil) {
+    const s = U.clamp(H / 720, 0.55, 1.4);
+    const margen = 16 * s;
+    const anchoBarra = Math.min(440 * s, W * 0.34);
+    m.jugadores.forEach((j) => {
+      const derecha = j.indice === 1;
+      this.barraJugador(ctx, j, derecha ? W - margen - anchoBarra : margen, margen, anchoBarra, s, derecha, efectos, esTactil, m);
+    });
+
+    // Monedas (arriba al centro)
+    if (m.modo !== 'versus') {
+      const pulso = 1 + efectos.monedasHud * 0.25;
+      ctx.save();
+      ctx.translate(W / 2, margen + 18 * s);
+      ctx.scale(pulso, pulso);
+      ctx.fillStyle = '#ffcf33'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(-34 * s, 0, 13 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      this.texto(ctx, String(Guardado.datos.monedas + (m.monedasGuardadas ? 0 : m.monedasGanadas)), -14 * s, 9 * s, 26 * s, '#ffffff', 'left');
+      ctx.restore();
+      if (m.modo === 'pareja') {
+        const quedan = CONFIG.revivir.maxPorNivel - m.revivesUsados;
+        let txt = 'Revivir: ';
+        for (let i = 0; i < CONFIG.revivir.maxPorNivel; i++) txt += i < quedan ? '♥' : '♡';
+        this.texto(ctx, txt, W / 2, margen + 58 * s, 18 * s, quedan ? '#ff8fab' : '#999', 'center');
+      }
+    } else {
+      // Marcador de rondas
+      this.texto(ctx, `RONDA ${m.ronda}`, W / 2, margen + 26 * s, 26 * s, '#ffffff', 'center');
+      for (let i = 0; i < 2; i++) {
+        for (let r = 0; r < CONFIG.versus.rondasParaGanar; r++) {
+          const x = W / 2 + (i === 0 ? -1 : 1) * (40 + r * 26) * s;
+          ctx.fillStyle = m.rondas[i] > r ? (i === 0 ? '#4dabf7' : '#ff6b9a') : 'rgba(255,255,255,0.25)';
+          ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(x, margen + 50 * s, 9 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      }
+    }
+
+    // Barra del jefe
+    if (m.jefe && m.jefe.estado !== 'entrando' && (m.jefe.vivo || m.jefe.tiempoMuerto < 2)) {
+      const w = Math.min(W * 0.55, 700 * s), h = 18 * s;
+      // Si no cabe entre las barras de los jugadores, va debajo de ellas
+      const cabeArriba = w < W - 2 * (anchoBarra + margen * 2);
+      const x = (W - w) / 2, y = margen + (cabeArriba ? (m.modo === 'pareja' ? 84 : 62) : 132) * s;
+      const real = Math.max(0, m.jefe.vida / m.jefe.vidaMax);
+      this.texto(ctx, m.jefe.nombre, W / 2, y - 6 * s, 18 * s, m.jefe.fase2 ? '#ff6b6b' : '#ffd84d', 'center');
+      ctx.fillStyle = 'rgba(10,10,25,0.75)';
+      U.rectRedondo(ctx, x - 3, y - 3, w + 6, h + 6, 6); ctx.fill();
+      ctx.fillStyle = '#ff3b3b';
+      ctx.fillRect(x, y, w * this.jefe.rastro, h);
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, '#c77dff'); g.addColorStop(1, '#7b2cbf');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w * real, h);
+    }
+
+    // Aviso para avanzar
+    if (m.avisoAvanzar > 0 && Math.floor(m.avisoAvanzar * 3) % 2 === 0) {
+      this.texto(ctx, '¡ADELANTE! ➜', W - margen - 10, H * 0.45, 40 * s, '#ffe066', 'right');
+    }
+
+    // Ayuda de revivir
+    if (m.modo === 'pareja') {
+      const caido = m.jugadores.find((j) => j.estado === 'caido');
+      const comp = caido && m.jugadores.find((j) => j !== caido && j.vivo);
+      if (comp && Math.abs(comp.x - caido.x) <= CONFIG.revivir.distancia && m.revivesUsados < CONFIG.revivir.maxPorNivel) {
+        const tecla = esTactil && comp.indice === 0 ? 'el botón ♥' : comp.indice === 0 ? 'E' : 'Shift der. / Enter';
+        this.texto(ctx, `Mantén ${tecla} para revivir`, W / 2, H * 0.68, 24 * s, '#7dff9b', 'center');
+      }
+    }
+  }
+
+  barraJugador(ctx, j, x, y, ancho, s, derecha, efectos, esTactil, m) {
+    const b = this.barras[j.indice] || { vida: 1, rastro: 1 };
+    const altoVida = 30 * s, altoEnergia = 13 * s;
+    const retrato = 58 * s;
+    const bx = derecha ? x : x + retrato + 8 * s;
+    const bw = ancho - retrato - 8 * s;
+    const rx = derecha ? x + ancho - retrato : x;
+    const colorJ = j.indice === 0 ? '#4dabf7' : '#ff6b9a';
+
+    // Retrato
+    ctx.save();
+    ctx.fillStyle = 'rgba(15,15,35,0.7)';
+    ctx.strokeStyle = colorJ; ctx.lineWidth = 3 * s;
+    ctx.beginPath(); ctx.arc(rx + retrato / 2, y + retrato / 2, retrato / 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.clip();
+    ctx.translate(rx + retrato / 2, y + retrato * 1.05);
+    if (!j.vivo) ctx.globalAlpha = 0.4;
+    dibujarSpritePersonaje(ctx, j.personaje, Guardado.equipo(j.personaje), retrato * 1.05, { dir: derecha ? -1 : 1 });
+    ctx.restore();
+
+    // Nombre
+    const nombre = CONFIG.personajes[j.personaje].nombre;
+    this.texto(ctx, nombre, derecha ? bx + bw : bx, y + 2 * s, 17 * s, colorJ, derecha ? 'right' : 'left', true);
+    this.texto(ctx, `${Math.ceil(j.vida)}/${j.vidaMax}`, derecha ? bx : bx + bw, y + 2 * s, 14 * s, '#ffffff', derecha ? 'left' : 'right', true);
+
+    // Vida
+    const vy = y + 8 * s;
+    ctx.fillStyle = 'rgba(10,10,25,0.75)';
+    U.rectRedondo(ctx, bx - 3, vy - 3, bw + 6, altoVida + 6, 8 * s); ctx.fill();
+    const llenar = (frac, color) => {
+      const w = bw * U.clamp(frac, 0, 1);
+      if (w <= 0) return;
+      ctx.fillStyle = color;
+      U.rectRedondo(ctx, derecha ? bx + bw - w : bx, vy, w, altoVida, 6 * s); ctx.fill();
+    };
+    llenar(b.rastro, '#ff3b3b');                       // parte perdida en rojo
+    const g = ctx.createLinearGradient(0, vy, 0, vy + altoVida);
+    const baja = b.vida < 0.3;
+    g.addColorStop(0, baja ? '#ffe066' : '#8dff6a');
+    g.addColorStop(1, baja ? '#f59f00' : '#2fb344');
+    llenar(b.vida, g);
+    // Brillo
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(bx + 4, vy + 3, bw - 8, altoVida * 0.25);
+
+    // Energía (tiembla si no alcanza)
+    const temblor = (efectos.alertasEnergia[j.indice] || 0) > 0 ? Math.sin(performance.now() / 20) * 4 : 0;
+    const ey = vy + altoVida + 7 * s;
+    ctx.fillStyle = 'rgba(10,10,25,0.75)';
+    U.rectRedondo(ctx, bx - 3 + temblor, ey - 3, bw + 6, altoEnergia + 6, 5 * s); ctx.fill();
+    const fe = j.energia / CONFIG.energia.max;
+    const we = bw * fe;
+    const ge = ctx.createLinearGradient(0, ey, 0, ey + altoEnergia);
+    const lista = fe >= 0.7;
+    ge.addColorStop(0, lista ? '#a5f3ff' : '#74c0fc');
+    ge.addColorStop(1, lista ? '#22b8cf' : '#1c7ed6');
+    ctx.fillStyle = ge;
+    if (we > 0) { U.rectRedondo(ctx, (derecha ? bx + bw - we : bx) + temblor, ey, we, altoEnergia, 4 * s); ctx.fill(); }
+    // Marca de "combo disponible" (70%)
+    const mx = derecha ? bx + bw * 0.3 : bx + bw * 0.7;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(mx - 1 + temblor, ey - 2, 2, altoEnergia + 4);
+    if (lista && Math.floor(performance.now() / 300) % 2 === 0) {
+      this.texto(ctx, 'COMBO', derecha ? bx - 6 : bx + bw + 6, ey + altoEnergia, 12 * s, '#a5f3ff', derecha ? 'right' : 'left', true);
+    }
+
+    // Habilidades (solo en PC; en celular se ven en los botones)
+    if (!esTactil || j.indice === 1) {
+      const tam = 30 * s, sep = 6 * s;
+      const mapa = m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
+      CONFIG.habilidades.forEach((h, i) => {
+        const hx = derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep);
+        const hy = ey + altoEnergia + 8 * s;
+        const sinEnergia = j.energia < h.energia;
+        ctx.fillStyle = sinEnergia ? 'rgba(60,60,70,0.8)' : 'rgba(20,30,60,0.85)';
+        U.rectRedondo(ctx, hx, hy, tam, tam, 6 * s); ctx.fill();
+        ctx.font = `${16 * s}px "Segoe UI Emoji", Arial`;
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = sinEnergia ? 0.4 : 1;
+        ctx.fillText(h.icono, hx + tam / 2, hy + tam * 0.68);
+        ctx.globalAlpha = 1;
+        const cd = j.enfriamientos[i] / h.enfriamiento;
+        if (cd > 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(hx, hy + tam * (1 - cd), tam, tam * cd);
+        }
+        const tecla = mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', '');
+        this.texto(ctx, tecla, hx + tam - 3, hy + tam - 2, 11 * s, '#ffe066', 'right', true);
+      });
+    }
+  }
+
+  texto(ctx, t, x, y, tam, color, alinear = 'left', fino = false) {
+    ctx.font = `${fino ? 'bold' : '900'} ${tam}px "Trebuchet MS", Arial`;
+    ctx.textAlign = alinear;
+    ctx.lineWidth = Math.max(2, tam / 6);
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.strokeText(t, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(t, x, y);
+  }
+}

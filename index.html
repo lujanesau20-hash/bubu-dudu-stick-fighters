@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#4fb3f6">
+  <title>Bubu & Dudu: Stick Fighters</title>
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+  <div id="juego">
+    <canvas id="lienzo"></canvas>
+    <!-- Controles táctiles (se muestran solo en celular) -->
+    <div id="tactil" class="oculto"></div>
+    <!-- Menús y pantallas -->
+    <div id="pantallas" class="oculto"></div>
+    <!-- Aviso para girar el celular -->
+    <div id="girar"><div>📱↻<p>Gira el teléfono para jugar</p></div></div>
+  </div>
+
+  <!-- Configuración y utilidades -->
+  <script src="js/config.js"></script>
+  <script src="js/utilidades.js"></script>
+  <!-- Entrada (teclado y táctil) -->
+  <script src="js/entrada/input.js"></script>
+  <script src="js/entrada/tactil.js"></script>
+  <!-- Lógica del juego (sin dibujo) -->
+  <script src="js/logica/ataques.js"></script>
+  <script src="js/logica/habilidades.js"></script>
+  <script src="js/logica/combos.js"></script>
+  <script src="js/logica/jugador.js"></script>
+  <script src="js/logica/enemigos.js"></script>
+  <script src="js/logica/jefes.js"></script>
+  <script src="js/logica/escenarios.js"></script>
+  <script src="js/logica/mundo.js"></script>
+  <!-- Hojas de sprites animadas de Bubu y Dudu (las mismas de prueba-personajes.html) -->
+  <script src="js/prueba/animaciones.js"></script>
+  <script src="js/prueba/cuadros_datos.js"></script>
+  <script src="js/prueba/cuadros.js"></script>
+  <!-- Dibujo -->
+  <script src="js/dibujo/camara.js"></script>
+  <script src="js/dibujo/efectos.js"></script>
+  <script src="js/dibujo/fondos.js"></script>
+  <script src="js/dibujo/stickman.js"></script>
+  <script src="js/dibujo/ropa.js"></script>
+  <script src="js/dibujo/personajes.js"></script>
+  <script src="js/dibujo/render.js"></script>
+  <!-- Interfaz -->
+  <script src="js/ui/hud.js"></script>
+  <script src="js/ui/tienda.js"></script>
+  <script src="js/ui/menus.js"></script>
+  <!-- Red (fase 2, preparada) -->
+  <script src="js/red/red.js"></script>
+  <!-- Arranque -->
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prueba de personajes - Bubu y Dudu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #dee2e6; font-family: "Trebuchet MS", Arial, sans-serif; }
+    #lienzo-prueba { position: absolute; left: 0; top: 0; display: block; }
+    .oculto { display: none !important; }
+    #cargando { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #495057; }
+    #aviso-file { position: absolute; left: 12px; top: 12px; max-width: 420px; background: #fff3bf; border: 2px solid #f08c00; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+    #visor { position: absolute; right: 10px; top: 10px; width: 330px; overflow-x: hidden; max-height: calc(100% - 20px); overflow-y: auto; background: rgba(255,255,255,0.95); border: 2px solid #adb5bd; border-radius: 12px; padding: 10px; font-size: 13px; color: #212529; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .visor-titulo { font-weight: bold; font-size: 15px; margin-bottom: 6px; }
+    .fila { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+    #visor canvas { width: 300px; height: 230px; border-radius: 8px; display: block; }
+    #visor-info { margin: 6px 0; line-height: 1.45; min-height: 70px; }
+    .botones-anim { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    button { font: inherit; cursor: pointer; border: 1px solid #adb5bd; background: #f1f3f5; border-radius: 7px; padding: 4px 6px; text-align: left; }
+    button.activo { background: #339af0; color: #fff; border-color: #1c7ed6; }
+    .sel-pj { flex: 1; text-align: center; font-weight: bold; }
+    .btn-chico { margin-top: 4px; width: 100%; text-align: center; font-size: 12px; }
+    .opciones label { display: flex; align-items: center; gap: 3px; cursor: pointer; }
+    b.falta { color: #fff; background: #e03131; border-radius: 4px; padding: 0 4px; font-size: 10px; }
+    b.cod { color: #fff; background: #7048e8; border-radius: 4px; padding: 0 4px; font-size: 10px; }
+    b.prov, .prov { color: #fff; background: #f08c00; border-radius: 4px; padding: 0 4px; font-size: 10px; }
+    .aviso { color: #c92a2a; }
+    .nota { color: #5f3dc4; }
+  </style>
+</head>
+<body>
+  <canvas id="lienzo-prueba"></canvas>
+  <div id="cargando">Cargando hojas de sprites…</div>
+  <div id="aviso-file" class="oculto">
+    Abriste la página con doble clic: el navegador no deja leer los píxeles, así que se usan los cuadros guardados en
+    <code>js/prueba/cuadros_datos.js</code>. Para detectarlos en vivo, usa un servidor local
+    (<code>python -m http.server</code>).
+  </div>
+  <div id="visor"></div>
+
+  <!-- Solo los personajes: no se usan efectos, fondos, enemigos, interfaz, tienda ni combos -->
+  <script src="js/prueba/animaciones.js"></script>
+  <script src="js/prueba/cuadros_datos.js"></script>
+  <script src="js/prueba/cuadros.js"></script>
+  <script src="js/prueba/personaje.js"></script>
+  <script src="js/prueba/visor.js"></script>
+  <script src="js/prueba/prueba.js"></script>
+</body>
+</html>
