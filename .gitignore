@@ -1,1 +1,9 @@
 .claude/
+
+# Secretos locales del Worker TURN y archivos de wrangler (nunca subir)
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+.wrangler/
+node_modules/

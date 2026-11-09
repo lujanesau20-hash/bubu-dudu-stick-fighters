@@ -39,10 +39,16 @@ const EnLinea = {
   crearSala(intento = 0) {
     this.cerrar(true);
     this.rol = 'anfitrion';
+    Menus.enLineaCreando();
+    // Primero las credenciales TURN (máximo unos segundos); si fallan, sigue solo con STUN
+    const turno = this.turnoSala;
+    this.prepararIce().then(() => { if (turno === this.turnoSala && this.esAnfitrion) this.abrirSalaAnfitrion(intento); });
+  },
+
+  abrirSalaAnfitrion(intento) {
     this.codigo = this.nuevoCodigo();
     const peer = new Peer(RED_CONFIG.prefijoSala + this.codigo, this.opcionesPeer());
     this.peer = peer;
-    Menus.enLineaCreando();
 
     peer.on('open', () => Menus.enLineaEsperando(this.codigo));
     peer.on('error', (err) => {
@@ -141,8 +147,15 @@ const EnLinea = {
     if (typeof Depuracion !== 'undefined') Depuracion.registrarSnapshot(texto.length);
     const rc = this.canalRapido;
     if (rc && rc.readyState === 'open') {
-      if (rc.bufferedAmount < 64 * 1024) { try { rc.send(texto); } catch (e) { /* se reintenta con el próximo */ } }
-    } else this.enviar(o); // sin canal rápido: por el fiable
+      // Si la cola crece, este snapshot se descarta: cuando baje sale el más reciente
+      if (rc.bufferedAmount > RED_CONFIG.cola.maxRapidoBytes) { this.snapsDescartados = (this.snapsDescartados || 0) + 1; return; }
+      try { rc.send(texto); } catch (e) { /* se reintenta con el próximo */ }
+    } else {
+      // Sin canal rápido: por el fiable, pero sin dejar que se acumule
+      const dc = this.conn && this.conn.dataChannel;
+      if (dc && dc.bufferedAmount > RED_CONFIG.cola.maxFiableBytes) { this.snapsDescartados = (this.snapsDescartados || 0) + 1; return; }
+      this.enviar(o);
+    }
   },
 
   // Canal extra "negociado" sobre la misma conexión WebRTC: sin orden y sin reenvíos.
@@ -161,12 +174,61 @@ const EnLinea = {
         this.recibir(d, ev.data.length);
       };
       this.canalRapido = dc;
-    } catch (e) { console.warn('Canal rápido no disponible', e); this.canalRapido = null; }
+      // Canal solo para ping/pong: mensajes pequeños que no esperan detrás de los snapshots
+      const dp = pc.createDataChannel('ping', { negotiated: true, id: cfg.idPing, ordered: false, maxRetransmits: 0 });
+      dp.onmessage = (ev) => {
+        if (this.canalPing !== dp) return;
+        let d;
+        try { d = JSON.parse(ev.data); } catch (e) { return; }
+        this.recibir(d, ev.data.length, dp);
+      };
+      this.canalPing = dp;
+    } catch (e) { console.warn('Canal rápido no disponible', e); this.canalRapido = null; this.canalPing = null; }
   },
   cerrarCanalRapido() {
-    const dc = this.canalRapido;
-    this.canalRapido = null;
+    const dc = this.canalRapido, dp = this.canalPing;
+    this.canalRapido = null; this.canalPing = null;
     try { if (dc) dc.close(); } catch (e) {}
+    try { if (dp) dp.close(); } catch (e) {}
+  },
+
+  // Enviar por el canal rápido (sin orden ni reenvíos); si no está abierto, por el fiable
+  enviarRapido(o) {
+    const rc = this.canalRapido;
+    if (rc && rc.readyState === 'open') {
+      if (rc.bufferedAmount > RED_CONFIG.cola.maxRapidoBytes) return false; // cola llena: se descarta
+      try { rc.send(JSON.stringify(o)); return true; } catch (e) { return false; }
+    }
+    this.enviar(o);
+    return true;
+  },
+
+  // ---------- Credenciales TURN del Worker de Cloudflare ----------
+  async prepararIce() {
+    const cfg = RED_CONFIG.turnWorker;
+    if (!cfg || !cfg.url) { RED_CONFIG.iceExtra = []; this.estadoTurn = 'sin configurar (solo STUN)'; return; }
+    const c = this.iceCache;
+    if (c && Date.now() < c.hasta) { RED_CONFIG.iceExtra = c.lista; this.estadoTurn = 'listo (Cloudflare)'; return; }
+    this.estadoTurn = 'pidiendo credenciales…';
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const espera = setTimeout(() => { if (ctrl) ctrl.abort(); }, cfg.esperaMs);
+    try {
+      const r = await fetch(cfg.url, { method: 'GET', cache: 'no-store', signal: ctrl ? ctrl.signal : undefined });
+      if (!r.ok) {
+        let motivo = 'respuesta ' + r.status;
+        try { const j = await r.json(); if (j && j.error) motivo = j.error; } catch (e) {}
+        throw new Error(motivo);
+      }
+      const lista = await r.json();
+      if (!Array.isArray(lista) || !lista.length) throw new Error('respuesta vacía');
+      RED_CONFIG.iceExtra = lista;
+      this.iceCache = { lista, hasta: Date.now() + cfg.reusarMinutos * 60000 };
+      this.estadoTurn = 'listo (Cloudflare)';
+    } catch (e) {
+      RED_CONFIG.iceExtra = [];
+      this.estadoTurn = 'no disponible: ' + (e.name === 'AbortError' ? 'sin respuesta' : e.message) + ' (solo STUN)';
+      console.warn('TURN no disponible, se usa solo STUN:', e.message || e);
+    } finally { clearTimeout(espera); }
   },
 
   invitadoSeFue() {
@@ -227,6 +289,11 @@ const EnLinea = {
     this.rol = 'invitado';
     this.codigo = codigo;
     Menus.enLineaUniendo(codigo);
+    const turno = this.turnoSala;
+    this.prepararIce().then(() => { if (turno === this.turnoSala && this.esInvitado) this.abrirConexionInvitado(codigo); });
+  },
+
+  abrirConexionInvitado(codigo) {
     const peer = new Peer(this.opcionesPeer());
     this.peer = peer;
     const lento = setTimeout(() => { if (!this.conectado && this.peer === peer) Menus.enLineaAvisoLento(); }, RED_CONFIG.avisoTurnSegundos * 1000);
@@ -305,10 +372,12 @@ const EnLinea = {
     this.tEnvio += dt;
     // A 30 por segundo y, además, apenas cambia una tecla (sin esperar al próximo envío)
     const u = this.ultimoControl || {};
-    const cambio = c.x !== u.x || c.abajo !== u.abajo || c.saltoMantenido !== u.saltoMantenido || c.revivir !== u.revivir
+    const xq = Math.round(c.x * 10); // el joystick es analógico: solo cuenta un cambio de 10%
+    const cambio = xq !== u.x || c.abajo !== u.abajo || c.saltoMantenido !== u.saltoMantenido || c.revivir !== u.revivir
       || c.saltoPulsado || c.combo || c.habilidades.some(Boolean);
-    this.ultimoControl = { x: c.x, abajo: c.abajo, saltoMantenido: c.saltoMantenido, revivir: c.revivir };
-    if (cambio || this.tEnvio >= 1 / RED_CONFIG.controlesPorSegundo) { this.tEnvio = 0; this.enviar(Object.assign({ t: 'c' }, this.acumulador.sacar())); }
+    this.ultimoControl = { x: xq, abajo: c.abajo, saltoMantenido: c.saltoMantenido, revivir: c.revivir };
+    // Por el canal rápido (sin reenvíos): cada mensaje lleva las pulsaciones acumuladas
+    if (cambio || this.tEnvio >= 1 / RED_CONFIG.controlesPorSegundo) { this.tEnvio = 0; this.enviarRapido(Object.assign({ t: 'c' }, this.acumulador.sacar())); }
 
     const m = juego.mundo;
     const yo = m.jugadores[1];
@@ -321,20 +390,23 @@ const EnLinea = {
     if (this.conn && this.conn.open) { try { this.conn.send(o); } catch (e) { /* conexión cerrándose */ } }
   },
 
-  recibir(d, bytes) {
+  recibir(d, bytes, canal) {
     // Retraso de red simulado (solo pruebas, ver RED_CONFIG.latenciaPrueba). Mantiene el orden.
     const lp = RED_CONFIG.latenciaPrueba;
     if (lp && lp.ms > 0 && !d._retrasado) {
       const cuando = Math.max(this.ultimaEntrega || 0, performance.now() + lp.ms + (Math.random() * 2 - 1) * lp.variacion);
       this.ultimaEntrega = cuando;
       d._retrasado = true;
-      setTimeout(() => this.recibir(d, bytes), cuando - performance.now());
+      setTimeout(() => this.recibir(d, bytes, canal), cuando - performance.now());
       return;
     }
     this.ultimoMensaje = performance.now();
     switch (d.t) {
-      case 'ping': this.enviar({ t: 'pong', ts: d.ts }); break;
-      case 'pong': this.ping = Math.round(performance.now() - d.ts); break;
+      case 'ping': // se responde por el mismo canal por el que llegó
+        if (canal && canal.readyState === 'open') { try { canal.send(JSON.stringify({ t: 'pong', ts: d.ts })); } catch (e) {} }
+        else this.enviar({ t: 'pong', ts: d.ts });
+        break;
+      case 'pong': this.ping = Math.round(performance.now() - d.ts); this.pingCanal = canal ? 'propio' : 'fiable'; break;
       // --- al invitado ---
       case 'hola': Menus.enLineaConectado(); break;
       case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
@@ -394,7 +466,9 @@ const EnLinea = {
   // Ping cada segundo y detección de silencio
   tic() {
     if (!this.conectado) return;
-    this.enviar({ t: 'ping', ts: performance.now() });
+    const dp = this.canalPing;
+    if (dp && dp.readyState === 'open') { try { dp.send(JSON.stringify({ t: 'ping', ts: performance.now() })); } catch (e) {} }
+    else this.enviar({ t: 'ping', ts: performance.now() });
     if (performance.now() - this.ultimoMensaje > RED_CONFIG.silencioDesconexion * 1000) {
       if (this.esAnfitrion) { if (this.conn) this.conn.close(); this.invitadoSeFue(); }
       else this.salaCerrada('Se perdió la conexión con la sala.');
@@ -446,6 +520,7 @@ const EnLinea = {
     this.conn = null;
     setTimeout(() => { try { if (conn) conn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} }, 150);
     this.cerrarCanalRapido();
+    this.turnoSala = (this.turnoSala || 0) + 1; // anula una sala que aún esperaba credenciales TURN
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
     Sincro.espejo = null;

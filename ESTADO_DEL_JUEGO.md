@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: interfaz más legible, ave stickman y red en línea más fluida; ver la sección 8).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: servidor TURN de Cloudflare y cola de mensajes en línea; ver la sección 9).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`
 
 ---
 
@@ -44,6 +44,7 @@ robots.txt                  Pide a los buscadores no indexar (ver límites).
 .nojekyll                   Necesario para GitHub Pages.
 README.md                   Resumen corto del proyecto.
 ESTADO_DEL_JUEGO.md         Este documento.
+CLAUDE.md                   Reglas de trabajo del proyecto (para quien programe).
 cuadros_datos.js            (raíz) Copia suelta descargada desde el visor. NO se usa; el bueno está en js/prueba/.
 
 config/
@@ -116,6 +117,11 @@ assets/personajes/
   bubu/, dudu/              Hojas de sprites animadas (una fila de cuadros por animación).
   bubu.png, dudu.png        Imágenes fijas (retratos del HUD, tienda, selección).
 BUBU ANIMADO/, DUDU ANIMADO/  Hojas ORIGINALES entregadas (no se tocan; se copiaron a assets/).
+
+turn-worker/                Worker de Cloudflare que entrega credenciales TURN al juego (se despliega aparte).
+  src/index.js              El Worker: solo GET desde la web del juego, límite de peticiones, sin secretos.
+  wrangler.toml             Nombre del Worker y origen permitido. Los secretos van en el panel de Cloudflare.
+  .gitignore, README.md     Archivos locales con secretos que nunca se suben; cómo desplegar.
 
 herramientas/               Simulaciones para la consola del navegador (no forman parte del juego).
   simular_jefe.js           Pelea contra un jefe con un jugador automático.
@@ -218,7 +224,10 @@ Todo se guarda en el navegador (`localStorage`, clave `bubududu_guardado_v1`): m
 - **Formato compacto:** los snapshots son listas de números redondeados (px enteros). Los datos fijos (tipo de enemigo, vida máxima, color y radio de proyectiles) solo se mandan las primeras 10 veces que aparece algo y cada 20 snapshots. El invitado los recuerda y rearma el estado con la misma forma que antes.
 - **Líder lento:** si el líder baja de 40 FPS durante 2 s (por ejemplo un celular), envía 15 snapshots por segundo en vez de 20.
 - **Ping** visible abajo a la izquierda.
-- **Panel de depuración** (oculto): **F3** en la laptop o **5 toques seguidos en la esquina superior izquierda** en el celular. Muestra: rol (líder/invitado), ping del juego, ida y vuelta real de la red (WebRTC), snapshots por segundo (enviados o recibidos), tamaño promedio de cada snapshot (en rojo si pasa de 1500 bytes), FPS, tipo de conexión (directa en la red local / directa por el router / TURN), si el canal rápido está activo, ritmo de envío del líder y bytes en cola del canal fiable.
+- **Servidor TURN (Cloudflare):** al crear o unirse a una sala, el juego pide credenciales TURN de 6 horas al Worker (`RED_CONFIG.turnWorker.url`) y las agrega a los STUN. WebRTC intenta primero la conexión directa y usa el relevo TURN solo si la directa falla (por ejemplo, entre ciudades o con datos móviles). Si el Worker no responde en 4 s o no tiene secretos, se juega solo con STUN como antes, sin bloquear la sala.
+- **Canales:** snapshots y controles por el **canal rápido** (sin orden ni reenvíos; los controles llevan contadores de pulsaciones, así que un mensaje perdido no hace perder un salto o un ataque). El ping va por **su propio canal** pequeño. Pausa, fin de nivel, efectos, reentrada y salida van por el **canal fiable**.
+- **Cola:** si hay más de 4000 bytes esperando en el canal rápido (16000 en el fiable), el snapshot se descarta y sale el siguiente, más nuevo. Así nunca se juntan segundos de retraso.
+- **Panel de depuración** (oculto): **F3** en la laptop o **5 toques seguidos en la esquina superior izquierda** en el celular. Muestra: rol (líder/invitado), ping (y por qué canal), ida y vuelta real de la red (WebRTC), snapshots por segundo, tamaño promedio de cada snapshot (en rojo si pasa de 1500 bytes), FPS, **tipo de conexión** (directa en la red local / directa por el router / **TURN (relevo)**), canal rápido, **estado del TURN** (listo / no disponible, en rojo), cola del canal rápido y del fiable, ritmo de envío y snapshots descartados por segundo (líder).
 - **Si el invitado se va:** el líder **sigue jugando**; aviso "Dudu salió. Puede volver con el código". El invitado puede volver a entrar a mitad de partida con el mismo código: reaparece en un costado de la pantalla, cayendo, con la vida que tenía.
 - **Si el líder se va:** el invitado ve "La sala se cerró" y vuelve al menú.
 - **En celular:** pide horizontal y evita que se apague la pantalla (requiere HTTPS).
@@ -381,7 +390,7 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - Mostrar la ropa de la tienda sobre los sprites animados (hace falta ubicarla cuadro por cuadro).
 - Hojas que faltan: salto simple de Bubu (hoy por código) y un segundo cuadro de dash de Bubu que no esté cortado.
 - Cambiar el corazón y las prendas dibujadas por imágenes (ya preparado).
-- Agregar un servidor TURN para redes móviles difíciles.
+- Servidor TURN: ya está el Worker; falta que la dueña agregue los dos secretos en Cloudflare (ver sección 9).
 - **Probar la red nueva en los dos dispositivos reales** con el panel de depuración (F3 / 5 toques) y anotar aquí: ping, ida y vuelta de la red, snapshots/s recibidos, tamaño, FPS y tipo de conexión del celular.
 - Si aun así el celular se traba siendo invitado: usar la laptop como líder (es quien simula todo) y revisar los FPS del celular en el panel.
 - Opcional: diferencias completas entre snapshots (solo lo que cambió) si algún nivel supera los 1500 bytes; hoy no hace falta (máximo medido 1407).
@@ -406,7 +415,9 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 
 **En línea**
 - Depende del servidor público y gratuito de PeerJS: puede fallar o estar lento sin aviso.
-- Sin servidor TURN, algunas redes móviles o de empresa no logran conectar (se avisa a los 15 s).
+- Sin los secretos del Worker (o si el Worker no responde), no hay TURN y algunas redes móviles o de empresa no logran conectar (se avisa a los 15 s).
+- El límite de peticiones del Worker (30 por minuto por IP) es aproximado: se cuenta en cada instancia del Worker.
+- El Worker solo acepta la web publicada (`https://lujanesau20-hash.github.io`): al probar en `localhost` el TURN aparece como "no disponible" y se usa solo STUN (es lo esperado).
 - El líder debe mantener el juego en primer plano: si cambia de pestaña o bloquea el celular, el navegador frena el juego para los dos.
 - Con el canal rápido, un snapshot perdido no se reenvía: el invitado interpola con el siguiente (a 20/s, un hueco de 50 ms no se nota). Si el navegador no permite el canal rápido, todo vuelve al canal fiable automáticamente.
 - El invitado ve a los demás con ~0.1 s de retraso; los golpes y el daño los decide el líder, así que al invitado le llegan con un poco de demora. Durante dash, combos o al recibir golpes no hay predicción.
@@ -464,4 +475,48 @@ En una prueba con dos pestañas en la misma computadora: 20 snapshots/s de ~890 
 - *Ave:* jugar el nivel 1 de la Isla (siempre hay al menos 1 ave).
 - *Red:* crear sala en un dispositivo y unirse desde el otro. En los dos, abrir el panel (F3 o 5 toques en la esquina superior izquierda). Mirar: **Conexión** (en el mismo WiFi debería decir "directa"; si dice TURN no es normal porque no hay servidor TURN configurado), **Ida y vuelta red** (en el mismo WiFi debería ser < 20 ms), **Snapshots/s recibidos** (≈ 20), **Tamaño promedio** (< 1500), **Canal rápido: sí** y **FPS** del celular.
 - Para comparar con el sistema anterior: en `config/red.js` poner `canalRapido.activo: false` y `compacto.activo: false`.
+
+---
+
+## 9. Servidor TURN de Cloudflare y cola de mensajes
+
+**Problema:** en pareja en línea el panel mostraba de 3000 a 6600 ms. Los jugadores estarán en ciudades y redes distintas (La Paz y Tarija), donde la conexión directa a veces falla.
+
+**Causas encontradas**
+- El ping viajaba por el canal fiable, en la misma cola que los efectos y los controles. Los controles del celular salían hasta 60 veces por segundo, porque el joystick es analógico y cada pequeño cambio contaba.
+- La cola del canal rápido podía juntar hasta 64 KB antes de descartar nada. Con una subida móvil lenta, eso son varios segundos de snapshots esperando. Por el canal fiable (si el rápido no abría) no había ningún límite.
+- No había servidor TURN: entre redes con NAT estricto (datos móviles) la conexión directa puede fallar o quedar mal.
+
+**Cambios**
+- **Worker `turn-worker/`** (Cloudflare): `GET` → pide a `https://rtc.live.cloudflare.com/v1/turn/keys/{TURN_KEY_ID}/credentials/generate-ice-servers` credenciales de 6 h (`ttl: 21600`) y devuelve solo el arreglo `iceServers` (quita los del puerto 53, que los navegadores bloquean). Solo acepta el origen `https://lujanesau20-hash.github.io`, solo GET, 30 peticiones por minuto por IP, y reutiliza las credenciales 30 minutos.
+- **Dirección del Worker:** `__URL_WORKER__` (en `config/red.js` → `turnWorker.url`).
+- **Secretos requeridos** (nunca en el código ni en el repositorio): `TURN_KEY_ID` y `TURN_KEY_API_TOKEN`. Se agregan en Cloudflare → **Workers & Pages** → `bubududu-turn` → **Settings** → **Variables and Secrets** → **Add** → tipo **Secret**. Los dos salen de Cloudflare → **Realtime** → **TURN Server** → la llave creada (Key ID y API Token).
+- **Juego:** pide las credenciales al crear o unirse a una sala (espera máx. 4 s, se reutilizan 60 min) y las suma a los STUN. Si fallan, sigue solo con STUN y lo muestra en el panel.
+- **Ping** por un canal propio (id 51), sin orden ni reenvíos.
+- **Controles** del invitado por el canal rápido con contadores de pulsaciones; el joystick solo cuenta cambios de 10%.
+- **Cola:** se descartan snapshots si hay más de 4000 bytes esperando (rápido) o 16000 (fiable).
+- Ya estaban de la tarea anterior (se verificó, no se repitió): snapshots a 20/s en formato compacto, efectos importantes por el canal fiable, interpolación de 100 ms y predicción del propio personaje.
+
+**Nuevos valores de `config/red.js`**
+- `turnWorker: { url, esperaMs: 4000, reusarMinutos: 60 }`
+- `canalRapido: { activo: true, id: 50, idPing: 51 }`
+- `cola: { maxRapidoBytes: 4000, maxFiableBytes: 16000 }`
+
+**Cómo desplegar el Worker de nuevo**
+```
+cd turn-worker
+npx wrangler login
+npx wrangler deploy
+```
+
+**Cómo probar entre dos dispositivos en redes distintas**
+1. Agregar los dos secretos en Cloudflare (ver arriba).
+2. Abrir la web publicada en los dos dispositivos: uno con WiFi y otro con **datos móviles** (WiFi apagado).
+3. Crear la sala en uno y unirse desde el otro.
+4. Abrir el panel en los dos (F3 o 5 toques en la esquina superior izquierda) y mirar:
+   - **TURN:** debe decir "listo (Cloudflare)". Si dice "no disponible: Faltan los secretos…", faltan los secretos.
+   - **Conexión:** "directa (…)" si se pudo conectar directo, o **"TURN (relevo)"** si pasa por Cloudflare. Las dos sirven.
+   - **Ping:** debería quedar por debajo de ~150 ms entre La Paz y Tarija (antes 3000–6600 ms).
+   - **Snapshots/s** ≈ 20, **Cola rápida** cerca de 0 y **Snapshots descartados/s** en 0 (si sube, la red de subida del líder es lenta).
+5. Para forzar la prueba del relevo: probar con un celular con datos móviles y la otra persona en otra ciudad; si la directa falla, el panel debe decir "TURN (relevo)" y el juego sigue fluido.
 

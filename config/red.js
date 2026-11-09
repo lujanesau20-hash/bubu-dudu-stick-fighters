@@ -22,6 +22,11 @@ const RED_CONFIG = {
     // { urls: 'turn:tu-servidor-turn.com:3478', username: 'usuario', credential: 'clave' },
   ],
 
+  // Servidor TURN de Cloudflare: el juego pide credenciales de corta duración al Worker
+  // de la carpeta turn-worker/ al crear o unirse a una sala. Si no responde en "esperaMs",
+  // se juega solo con STUN (como antes). Dejar url vacía para no usarlo.
+  turnWorker: { url: '', esperaMs: 4000, reusarMinutos: 60 },
+
   // Ritmos de envío
   controlesPorSegundo: 30,      // invitado -> anfitrión (además se envía apenas cambia una tecla)
   estadosPorSegundo: 20,        // anfitrión -> invitado (antes 25, pero en la práctica salían ~20 irregulares)
@@ -32,7 +37,11 @@ const RED_CONFIG = {
 
   // Canal rápido para los snapshots: sin orden y sin reenvíos (un snapshot perdido
   // se reemplaza con el siguiente). Los eventos importantes van por el canal fiable.
-  canalRapido: { activo: true, id: 50 },
+  canalRapido: { activo: true, id: 50, idPing: 51 },
+
+  // Cola de envío: si los datos pendientes pasan de estos bytes, el snapshot se descarta
+  // (el siguiente, más nuevo, sale cuando la cola baja). Así nunca se acumulan segundos de retraso.
+  cola: { maxRapidoBytes: 4000, maxFiableBytes: 16000 },
 
   // Formato compacto de snapshots: números redondeados y datos fijos (tipo, vida máxima,
   // color...) solo cuando aparece algo nuevo o cada "cadaClave" snapshots.
@@ -54,4 +63,8 @@ const RED_CONFIG = {
   modos: ['pareja'],
 };
 
-RED_CONFIG.iceServers = () => [...RED_CONFIG.stun, ...RED_CONFIG.turn];
+// Servidores TURN recibidos del Worker (se llenan solos al crear o unirse a una sala)
+RED_CONFIG.iceExtra = [];
+// Orden: STUN y TURN fijos, luego los de Cloudflare. WebRTC prueba primero la conexión
+// directa (red local o por el router) y usa el relevo TURN solo si la directa falla.
+RED_CONFIG.iceServers = () => [...RED_CONFIG.stun, ...RED_CONFIG.turn, ...RED_CONFIG.iceExtra];

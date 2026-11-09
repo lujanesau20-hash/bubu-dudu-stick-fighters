@@ -1,0 +1,12 @@
+# Worker que entrega credenciales TURN de Cloudflare al juego.
+# Los secretos (TURN_KEY_ID y TURN_KEY_API_TOKEN) NO van aquí:
+# se agregan en el panel de Cloudflare (Workers & Pages > bubududu-turn >
+# Settings > Variables and Secrets) o con "npx wrangler secret put".
+name = "bubududu-turn"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+[vars]
+# Direcciones (origen) desde las que el juego puede pedir credenciales. Separadas por comas.
+ORIGENES_PERMITIDOS = "https://lujanesau20-hash.github.io"

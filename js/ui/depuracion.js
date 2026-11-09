@@ -42,6 +42,9 @@ const Depuracion = {
   cadaSegundo() {
     this.fps = this._cuadros;
     this.snapsPorSeg = this._snaps;
+    const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
+    this.descartadosPorSeg = EL ? (EL.snapsDescartados || 0) - (this._descartadosAntes || 0) : 0;
+    this._descartadosAntes = EL ? EL.snapsDescartados || 0 : 0;
     this.bytesPromedio = this._snaps ? Math.round(this._bytes / this._snaps) : 0;
     this._cuadros = 0; this._snaps = 0; this._bytes = 0;
     if (this.visible) this.leerConexion();
@@ -78,14 +81,17 @@ const Depuracion = {
     const canal = EL && EL.canalRapido && EL.canalRapido.readyState === 'open' ? 'sí (sin reenvíos)' : 'no (canal fiable)';
     const lineas = [
       `Rol: ${rol}`,
-      `Ping (juego): ${EL && EL.ping != null ? EL.ping + ' ms' : '—'}`,
+      `Ping: ${EL && EL.ping != null ? EL.ping + ' ms' + (EL.pingCanal ? ` (canal ${EL.pingCanal})` : '') : '—'}`,
       `Ida y vuelta red (WebRTC): ${this.rttRed != null ? this.rttRed + ' ms' : '—'}`,
       `Snapshots/s ${EL && EL.esAnfitrion ? 'enviados' : 'recibidos'}: ${this.snapsPorSeg}`,
       `Tamaño promedio: ${this.bytesPromedio} bytes`,
       `FPS: ${this.fps}`,
       `Conexión: ${this.tipoConexion}`,
       `Canal rápido: ${EL && EL.activo ? canal : '—'}`,
+      `TURN: ${EL && EL.estadoTurn ? EL.estadoTurn : '—'}`,
     ];
+    if (EL && EL.canalRapido) lineas.push(`Cola rápida: ${EL.canalRapido.bufferedAmount} bytes`);
+    if (EL && EL.esAnfitrion) lineas.push(`Snapshots descartados/s: ${this.descartadosPorSeg || 0}`);
     if (EL && EL.esAnfitrion) lineas.push(`Ritmo de envío: ${EL.estadosPorSegundoActual || RED_CONFIG.estadosPorSegundo} Hz`);
     if (EL && EL.conn && EL.conn.dataChannel) lineas.push(`En cola (fiable): ${EL.conn.dataChannel.bufferedAmount} bytes`);
     ctx.save();
@@ -99,7 +105,8 @@ const Depuracion = {
     ctx.fillStyle = '#b2f2bb';
     lineas.forEach((l, i) => {
       // En rojo si el snapshot promedio pasa del tamaño de aviso (no cabe en un paquete de red)
-      ctx.fillStyle = i === 4 && this.bytesPromedio > RED_CONFIG.compacto.avisoBytes ? '#ff8787' : '#b2f2bb';
+      const alerta = (i === 4 && this.bytesPromedio > RED_CONFIG.compacto.avisoBytes) || (l.startsWith('TURN: no disponible'));
+      ctx.fillStyle = alerta ? '#ff8787' : '#b2f2bb';
       ctx.fillText(l, x + 8 * s, y + alto * (i + 1));
     });
     ctx.restore();

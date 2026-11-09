@@ -15,10 +15,23 @@ class ControlRemoto {
     this.mantenido = new EstadoControl();
     this.pulsos = new EstadoControl();
     this.ultimoSeq = 0;
+    this.ultN = [0, 0, 0, 0, 0, 0]; // contadores de pulsaciones ya usados (salto, H1-H4, combo)
   }
   recibir(o) {
-    if (o.seq <= this.ultimoSeq) return;
+    if (o.seq <= this.ultimoSeq) return; // viejo o repetido (el canal rápido no garantiza orden)
     this.ultimoSeq = o.seq;
+    if (o.n) {
+      // Formato con contadores: si un mensaje se pierde, el siguiente trae la cuenta
+      // acumulada y la pulsación no se pierde.
+      const c = o.c;
+      this.mantenido.x = c.x; this.mantenido.abajo = c.a; this.mantenido.saltoMantenido = c.sm; this.mantenido.revivir = c.r;
+      const u = this.ultN;
+      if (o.n[0] > u[0]) this.pulsos.saltoPulsado = true;
+      for (let i = 0; i < 4; i++) if (o.n[1 + i] > u[1 + i]) this.pulsos.habilidades[i] = true;
+      if (o.n[5] > u[5] && o.cb) this.pulsos.combo = o.cb;
+      this.ultN = o.n.slice();
+      return;
+    }
     const e = EstadoControl.desdeObjeto(o.c);
     this.mantenido.x = e.x;
     this.mantenido.abajo = e.abajo;
@@ -41,19 +54,20 @@ class ControlRemoto {
 }
 
 // ---------- Acumulador de controles del invitado antes de enviarlos ----------
+// Las pulsaciones se cuentan (contadores acumulados) para poder mandar los controles
+// por el canal rápido sin garantía: un mensaje perdido no hace perder un salto o un ataque.
 class AcumuladorControl {
-  constructor() { this.e = new EstadoControl(); this.seq = 0; }
+  constructor() { this.e = new EstadoControl(); this.seq = 0; this.n = [0, 0, 0, 0, 0, 0]; this.combo = null; }
   agregar(c) {
     const e = this.e;
     e.x = c.x; e.abajo = c.abajo; e.saltoMantenido = c.saltoMantenido; e.revivir = c.revivir;
-    if (c.saltoPulsado) e.saltoPulsado = true;
-    c.habilidades.forEach((h, i) => { if (h) e.habilidades[i] = true; });
-    if (c.combo) e.combo = c.combo;
+    if (c.saltoPulsado) this.n[0]++;
+    c.habilidades.forEach((h, i) => { if (h) this.n[1 + i]++; });
+    if (c.combo) { this.n[5]++; this.combo = c.combo; }
   }
   sacar() {
-    const o = { seq: ++this.seq, c: this.e.aObjeto() };
-    this.e.saltoPulsado = false; this.e.habilidades = [false, false, false, false]; this.e.combo = null;
-    return o;
+    const e = this.e;
+    return { seq: ++this.seq, c: { x: Math.round(e.x * 100) / 100, a: e.abajo, sm: e.saltoMantenido, r: e.revivir }, n: this.n.slice(), cb: this.combo };
   }
 }
 

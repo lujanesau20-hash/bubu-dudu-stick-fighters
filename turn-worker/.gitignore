@@ -1,0 +1,7 @@
+# Archivos locales con secretos o generados por wrangler (no subir nunca)
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+.wrangler/
+node_modules/
