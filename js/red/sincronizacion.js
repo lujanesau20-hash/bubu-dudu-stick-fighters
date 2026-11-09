@@ -103,7 +103,7 @@ const Sincro = {
         rot: r(p.rot), vida: r(p.vida), vidaMax: p.vidaMax, color: p.color, radio: p.radio })),
       monedas: m.monedas.map((c) => ({ id: this.id(c), x: r(c.x), y: r(c.y) })),
       corazones: (m.corazones || []).map((c) => ({ id: this.id(c), x: r(c.x), y: r(c.y), t: r(c.t), suelo: c.enSuelo })),
-      eventos,
+      eventos: eventos || null,
     };
   },
 
@@ -124,11 +124,16 @@ const Sincro = {
     this.desfase = null;
     this.variacion = 0;
     this.localPredicho = false;
+    this.fijosRecibidos = new Map(); // datos fijos (tipo, vida máxima...) por id, formato compacto
+    this.eventosPendientes = [];     // efectos que llegan por el canal fiable
     return m;
   },
 
   recibirInstantanea(d) {
     const llegada = this.reloj();
+    // Con el canal rápido pueden llegar desordenados: un snapshot más viejo que el último se descarta
+    const ultimo = this.buffer.length ? this.buffer[this.buffer.length - 1].d : null;
+    if (ultimo && d.w <= ultimo.w) return;
     // Desfase entre el reloj del anfitrión y el nuestro (se queda con la llegada más rápida)
     const muestra = llegada - d.w;
     if (this.desfase == null) { this.desfase = muestra; this.variacion = 0; }
@@ -162,6 +167,10 @@ const Sincro = {
         if (s.d.eventos && s.d.eventos.length) efectos.procesar(s.d.eventos, m);
       }
     }
+    // Efectos que llegaron aparte (canal fiable), en su momento
+    const ep = this.eventosPendientes;
+    while (ep && ep.length && ep[0].w <= tObjetivo) efectos.procesar(ep.shift().lista, m);
+    if (ep && ep.length > 200) ep.splice(0, ep.length - 200);
     this.aplicar(a.d, b.d, k);
   },
 
@@ -312,3 +321,109 @@ const Sincro = {
     this.correccion = { x: ex, y: ey };
   },
 };
+
+// =====================================================================
+// FORMATO COMPACTO DE SNAPSHOTS (config/red.js -> compacto)
+// El líder convierte la instantánea en listas de números redondeados y el
+// invitado la vuelve a armar con la MISMA forma que Sincro.instantanea,
+// así el resto del código no cambia. Los datos fijos (tipo, vida máxima,
+// color, radio...) solo se mandan las primeras veces que aparece algo y en
+// cada snapshot "clave"; el invitado los recuerda por id.
+// =====================================================================
+Object.assign(Sincro, {
+  // ---------- LÍDER ----------
+  comprimir(d) {
+    const cfg = RED_CONFIG.compacto;
+    this.numSnap = (this.numSnap || 0) + 1;
+    const clave = this.numSnap % cfg.cadaClave === 0;
+    const vistos = this.fijosEnviados || (this.fijosEnviados = new Map());
+    // ¿Mandar los datos fijos de este id?
+    const fijos = (id) => {
+      const n = vistos.get(id) || 0;
+      vistos.set(id, n + 1);
+      return clave || n < cfg.repetirFijosNuevos;
+    };
+    if (vistos.size > 3000) vistos.clear(); // limpieza ocasional
+    const r0 = Math.round, r1 = (v) => Math.round(v * 10) / 10, r2 = (v) => Math.round(v * 100) / 100;
+    const b = (v) => (v ? 1 : 0);
+    const jug = (j) => {
+      const a = j.anim;
+      return [r0(j.x), r0(j.y), r0(j.vx), r0(j.vy), j.dir, j.estado, j.alto, r1(j.vida), j.vidaMax, r1(j.energia),
+        j.enf, j.enfC, r2(j.bloq), r2(j.inv), r2(j.atur), b(j.agach), b(j.suelo), j.saltosAire, j.acc, j.disp, r2(j.ultDanio),
+        r1(j.tCaido), r2(j.prog), b(j.rev), b(j.ausente),
+        [r2(a.inclinacion), r2(a.flash), r2(a.sx), r2(a.sy), r2(a.giro), r2(a.volteo), r2(a.rebote), r2(a.ataque), r2(a.fase)],
+        j.estela.flatMap((p) => [r0(p.x), r0(p.y), r2(p.t)])];
+    };
+    const ene = (e) => {
+      const v = [e.id, r0(e.x), r0(e.y), r0(e.vx), r0(e.vy), e.dir, e.estado, r1(e.vida), r2(e.t), r2(e.fase), r2(e.flash), r2(e.tMuerto), b(e.suelo), b(e.fase2)];
+      if (fijos('e' + e.id)) v.push(e.tipo, b(e.jefe), e.vidaMax);
+      return v;
+    };
+    const proy = (p) => {
+      const v = [p.id, r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), r2(p.rot), r2(p.vida)];
+      if (fijos('p' + p.id)) v.push(p.tipo, p.vidaMax, p.color, p.radio);
+      return v;
+    };
+    return {
+      w: d.w, t: r2(d.t),
+      g: [d.estado, r2(d.tiempoFin || 0), d.escalaTiempo, r0(d.limIzq), r0(d.limDer), d.aviso, d.revivesUsados, d.monedasGanadas,
+        d.tramo, d.indiceOleada, b(d.enOleada), d.rondas, d.ronda, d.ganador],
+      j: d.jugadores.map(jug),
+      e: d.enemigos.map(ene),
+      b: d.jefe ? ene(d.jefe) : 0,
+      p: d.proyectiles.map(proy),
+      m: d.monedas.flatMap((c) => [c.id, r0(c.x), r0(c.y)]),
+      h: d.corazones.map((c) => [c.id, r0(c.x), r0(c.y), r1(c.t), b(c.suelo)]),
+    };
+  },
+
+  // ---------- INVITADO ----------
+  descomprimir(c) {
+    const cache = this.fijosRecibidos || (this.fijosRecibidos = new Map());
+    if (cache.size > 3000) cache.clear();
+    const g = c.g;
+    const jug = (v) => {
+      const a = v[25], est = [];
+      for (let i = 0; i < v[26].length; i += 3) est.push({ x: v[26][i], y: v[26][i + 1], t: v[26][i + 2] });
+      return { x: v[0], y: v[1], vx: v[2], vy: v[3], dir: v[4], estado: v[5], alto: v[6], vida: v[7], vidaMax: v[8], energia: v[9],
+        enf: v[10], enfC: v[11], bloq: v[12], inv: v[13], atur: v[14], agach: !!v[15], suelo: !!v[16], saltosAire: v[17],
+        acc: v[18], disp: v[19], ultDanio: v[20], tCaido: v[21], prog: v[22], rev: !!v[23], ausente: !!v[24],
+        anim: { inclinacion: a[0], flash: a[1], sx: a[2], sy: a[3], giro: a[4], volteo: a[5], rebote: a[6], ataque: a[7], fase: a[8] },
+        estela: est };
+    };
+    const ene = (v) => {
+      const k = 'e' + v[0];
+      if (v.length > 14) cache.set(k, { tipo: v[14], jefe: !!v[15], vidaMax: v[16] });
+      const f = cache.get(k);
+      if (!f) return null; // aún no sabemos qué es: se dibuja en el próximo snapshot
+      return { id: v[0], tipo: f.tipo, jefe: f.jefe, x: v[1], y: v[2], vx: v[3], vy: v[4], dir: v[5], estado: v[6], vida: v[7], vidaMax: f.vidaMax,
+        t: v[8], fase: v[9], flash: v[10], tMuerto: v[11], suelo: !!v[12], fase2: !!v[13] };
+    };
+    const proy = (v) => {
+      const k = 'p' + v[0];
+      if (v.length > 7) cache.set(k, { tipo: v[7], vidaMax: v[8], color: v[9], radio: v[10] });
+      const f = cache.get(k);
+      if (!f) return null;
+      return { id: v[0], tipo: f.tipo, x: v[1], y: v[2], vx: v[3], vy: v[4], rot: v[5], vida: v[6], vidaMax: f.vidaMax, color: f.color, radio: f.radio };
+    };
+    const monedas = [];
+    for (let i = 0; i < c.m.length; i += 3) monedas.push({ id: c.m[i], x: c.m[i + 1], y: c.m[i + 2] });
+    return {
+      w: c.w, t: c.t, estado: g[0], tiempoFin: g[1], escalaTiempo: g[2], limIzq: g[3], limDer: g[4], aviso: g[5], revivesUsados: g[6],
+      monedasGanadas: g[7], tramo: g[8], indiceOleada: g[9], enOleada: !!g[10], rondas: g[11], ronda: g[12], ganador: g[13],
+      jugadores: c.j.map(jug),
+      enemigos: c.e.map(ene).filter(Boolean),
+      jefe: c.b ? ene(c.b) : null,
+      proyectiles: c.p.map(proy).filter(Boolean),
+      monedas,
+      corazones: c.h.map((v) => ({ id: v[0], x: v[1], y: v[2], t: v[3], suelo: !!v[4] })),
+      eventos: null, // los efectos llegan aparte por el canal fiable (mensaje "ev")
+    };
+  },
+
+  // Efectos (eventos) que llegan por el canal fiable con la hora del líder
+  recibirEventos(w, lista) {
+    if (!this.eventosPendientes) this.eventosPendientes = [];
+    this.eventosPendientes.push({ w, lista });
+  },
+});

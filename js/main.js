@@ -203,6 +203,7 @@ const Juego = {
     const ctx = this.render.ctx;
     const W = this.render.W, H = this.render.H;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (typeof Depuracion !== 'undefined') Depuracion.cuadro();
 
     if (!this.mundo) {
       // Menú: escenario de fondo moviéndose despacio
@@ -210,6 +211,7 @@ const Juego = {
       this.render.dibujarFondo('isla', cam, this.tiempo);
       ctx.fillStyle = 'rgba(20,10,40,0.25)';
       ctx.fillRect(0, 0, W, H);
+      if (typeof Depuracion !== 'undefined') Depuracion.dibujar(ctx, W, H);
       return;
     }
 
@@ -227,6 +229,7 @@ const Juego = {
     this.efectos.dibujarPantalla(ctx, W, H);
     this.hud.dibujar(ctx, m, W, H, this.efectos, this.tactil.activo);
     if (typeof EnLinea !== 'undefined' && EnLinea.activo) this.dibujarPing(ctx, W, H);
+    if (typeof Depuracion !== 'undefined') Depuracion.dibujar(ctx, W, H); // panel oculto (F3)
   },
 
   // Indicador pequeño de calidad de conexión (ping)

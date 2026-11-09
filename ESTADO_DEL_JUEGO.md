@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (último cambio: commit `b538854`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: interfaz más legible, ave stickman y red en línea más fluida; ver la sección 8).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`
 
 ---
 
@@ -47,6 +47,8 @@ ESTADO_DEL_JUEGO.md         Este documento.
 cuadros_datos.js            (raíz) Copia suelta descargada desde el visor. NO se usa; el bueno está en js/prueba/.
 
 config/
+  interfaz.js               Tamaños, opacidades y colores de la interfaz (indicadores H1–H4, botón Pausa,
+                            aviso de pausa) y del dibujo del ave. Solo cambia cómo se VE el juego.
   balance.js                ★ TODOS los números de equilibrio (vida, maná, daño, enfriamientos, corazones,
                             oleadas, niveles, refuerzos, aves...). Se aplica encima de js/config.js.
   red.js                    Configuración del juego en línea (prefijo de sala, STUN/TURN, ritmos, tiempos).
@@ -93,13 +95,15 @@ js/
                             pantallas de carga con consejos.
     selector_niveles.js     Lista de mundos y niveles con candados (igual en solo, pareja y en línea).
     pausa.js                Botón "Pausa" y menús de pausa (local, líder, invitado), getNombreJugador().
+    depuracion.js           Panel de depuración oculto (F3 o 5 toques en la esquina superior izquierda).
     menu_enlinea.js         Pantallas en línea: crear sala, unirse (teclado numérico), conectado, avisos.
     tienda.js               Tienda de ropa y GUARDADO en localStorage (monedas, compras, avance).
 
   red/
     enlinea.js              Sesión en línea con PeerJS: salas, mensajes, ping, pausa en línea,
                             desconexión y reentrada.
-    sincronizacion.js       Instantáneas del estado (anfitrión) e interpolación/predicción (invitado).
+    sincronizacion.js       Instantáneas del estado (anfitrión), formato compacto y su lectura, e
+                            interpolación/predicción (invitado).
     red.js                  Esqueleto antiguo con WebSocket (fase 2 original). No se usa.
 
   prueba/                   Hojas de sprites: configuración de animaciones y detección de cuadros
@@ -164,7 +168,7 @@ herramientas/               Simulaciones para la consola del navegador (no forma
 | Arquero (verde, capucha) | Guarda distancia y dispara flechas en arco |
 | Mago (morado, sombrero) | Orbes que **persiguen** al jugador; se teletransporta si te acercas |
 | Ninja (gris azulado, cinta roja) | Muy rápido, esquiva saltando, lanza shurikens |
-| Ave de fuego (naranja, vuela) | Vuela a media altura y lanza una **bola de fuego en línea recta** hacia donde estabas (no te sigue) |
+| Ave de fuego (naranja con cresta, cola y patitas rojas, vuela) | Ave **estilo stickman**: cuerpo de palitos, cabeza redonda con ojitos y pico, alas de líneas gruesas que baten (4 cuadros). Vuela a media altura y lanza una **bola de fuego en línea recta** hacia donde estabas (no te sigue). Al prepararse sube las alas, echa la cabeza atrás y el pico brilla; al lanzar abre el pico y baja las alas |
 
 - **Enemigos a distancia (arqueros y magos):** en cada tramo hay un mínimo y un máximo según el nivel; nunca más de 5 vivos a la vez. Vale para todos los mundos.
 - **Aves:** al menos 1 por nivel desde el nivel 1 de cada mundo; sube hasta 5 en los niveles altos. Cuentan dentro del límite de vivos.
@@ -209,17 +213,21 @@ Todo se guarda en el navegador (`localStorage`, clave `bubududu_guardado_v1`): m
 - **Unirse:** teclado numérico en pantalla. Mensajes si la sala no existe, está llena o falla la conexión. Solo 2 personas por sala.
 - **Quien crea la sala es el LÍDER (Bubu)**; quien se une es el **INVITADO (Dudu)**. El líder elige el nivel.
 - **Conexión:** WebRTC directo con **PeerJS 1.5.4** (cdnjs), servidor público gratuito de PeerJS para emparejar y servidores STUN públicos.
-- **Sincronización:** el líder ejecuta toda la simulación. El invitado envía solo sus controles (30/s) y recibe el estado (25/s); lo dibuja con interpolación suave y predice el movimiento de su propio personaje.
+- **Sincronización:** el líder ejecuta toda la simulación. El invitado envía solo sus controles (30/s y, además, apenas cambia una tecla) y recibe el estado (snapshots) **20 veces por segundo, a ritmo estable**. Dibuja a los demás con interpolación suave y unos 100 ms de retraso, y mueve a su propio personaje al instante (predicción) con corrección suave hacia lo que dice el líder.
+- **Dos canales:** los snapshots van por un **canal rápido** (sin orden y sin reenvíos: si uno se pierde, se usa el siguiente). Todo lo importante va por el **canal fiable**: controles, efectos visuales, pausa, fin de nivel, muerte, reentrada. El canal rápido es un canal WebRTC "negociado" (mismo id en los dos lados) sobre la misma conexión de PeerJS.
+- **Formato compacto:** los snapshots son listas de números redondeados (px enteros). Los datos fijos (tipo de enemigo, vida máxima, color y radio de proyectiles) solo se mandan las primeras 10 veces que aparece algo y cada 20 snapshots. El invitado los recuerda y rearma el estado con la misma forma que antes.
+- **Líder lento:** si el líder baja de 40 FPS durante 2 s (por ejemplo un celular), envía 15 snapshots por segundo en vez de 20.
 - **Ping** visible abajo a la izquierda.
+- **Panel de depuración** (oculto): **F3** en la laptop o **5 toques seguidos en la esquina superior izquierda** en el celular. Muestra: rol (líder/invitado), ping del juego, ida y vuelta real de la red (WebRTC), snapshots por segundo (enviados o recibidos), tamaño promedio de cada snapshot (en rojo si pasa de 1500 bytes), FPS, tipo de conexión (directa en la red local / directa por el router / TURN), si el canal rápido está activo, ritmo de envío del líder y bytes en cola del canal fiable.
 - **Si el invitado se va:** el líder **sigue jugando**; aviso "Dudu salió. Puede volver con el código". El invitado puede volver a entrar a mitad de partida con el mismo código: reaparece en un costado de la pantalla, cayendo, con la vida que tenía.
 - **Si el líder se va:** el invitado ve "La sala se cerró" y vuelve al menú.
 - **En celular:** pide horizontal y evita que se apague la pantalla (requiere HTTPS).
 
 ### Pausa
-- **Botón "Pausa"** pequeño arriba a la derecha (dedo o mouse) y tecla **Esc**.
+- **Botón "Pausa"** arriba a la derecha (dedo o mouse) y tecla **Esc**. Mide 78×44 px en celular (área táctil mínima de 44 px) y 74×34 px en laptop. En pareja, la barra del jugador 2 se corre a la izquierda para que el botón no tape su retrato.
 - **Solitario y pareja local:** congela todo. Menú: **Continuar**, **Reiniciar nivel**, **Salir al menú** (+ enlace pequeño "Cómo jugar").
 - **En línea, LÍDER:** pausa directamente a los dos. Menú: **Reanudar**, **Reiniciar nivel**, **Finalizar juego** (manda a los dos al menú principal).
-- **En línea, INVITADO:** su botón solo **pide** pausa. Al líder le aparece arriba "**[nombre] quiere pausar**" con Aceptar / Ignorar; si no responde, desaparece a los 5 s y no se pausa. En pausa, el invitado ve **Reanudar**, **Salirse del juego** y "Esperando al líder para reiniciar o finalizar".
+- **En línea, INVITADO:** su botón solo **pide** pausa. Al líder le aparece arriba "**[nombre] quiere pausar**" en un recuadro pequeño de **color sólido amarillo-naranja** con texto oscuro, botón **Aceptar** verde e **Ignorar** gris, y una barra fina que se vacía mostrando el tiempo restante; si no responde, desaparece a los 5 s y no se pausa. En pausa, el invitado ve **Reanudar**, **Salirse del juego** y "Esperando al líder para reiniciar o finalizar".
 - **Reanudar en línea:** cada uno toca Reanudar y aparece un ✓ junto a su nombre; con los dos ✓ el juego sigue. Si el invitado no está, el líder reanuda solo.
 - El nombre del aviso sale de `getNombreJugador(jugador)` (`js/ui/pausa.js`), que hoy devuelve "Bubu" o "Dudu".
 
@@ -297,7 +305,26 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 
 ### En línea
 - `BALANCE.reentrada`: aparece a 420 px del líder, cae desde 480 px, 2.5 s invulnerable, 30% de vida si salió estando caído.
-- `config/red.js`: prefijo `bubududu-`, 4 dígitos, controles 30/s, estados 25/s, colchón de interpolación 110 ms, aviso de TURN a los 15 s, 6 s sin mensajes = desconectado, lista vacía `turn` para agregar un servidor TURN.
+- `config/red.js`: prefijo `bubududu-`, 4 dígitos, controles 30/s (`controlesPorSegundo`) más un envío inmediato al cambiar una tecla, snapshots **20/s** (`estadosPorSegundo`, antes 25), colchón de interpolación **100 ms** (`retrasoInterpolacion`, antes 110), aviso de TURN a los 15 s, 6 s sin mensajes = desconectado, lista vacía `turn` para agregar un servidor TURN.
+- `RED_CONFIG.liderLento`: si el líder va a menos de **40 FPS** durante **2 s**, baja a **15** snapshots/s.
+- `RED_CONFIG.canalRapido`: `activo: true`, `id: 50` (id del canal negociado; poner `activo: false` vuelve a mandar todo por el canal fiable).
+- `RED_CONFIG.compacto`: `activo: true` (false = formato anterior), datos fijos en los primeros **10** snapshots de cada cosa nueva y cada **20** snapshots, `avisoBytes: 1500` (el panel marca en rojo si se pasa).
+- `RED_CONFIG.depuracion`: tecla `F3`, **5** toques en **2 s** dentro de los **70 px** de la esquina superior izquierda.
+
+### Interfaz — `config/interfaz.js` (`CONFIG.interfaz`)
+| Valor | Número |
+|---|---|
+| Indicadores H1–H4 y combos: escala en celular / laptop | **1.35** (+35%) / **1.1** (+10%) |
+| Indicadores: opacidad | **0.75** (sin desenfoque) |
+| Indicadores: contorno oscuro del ícono | 1.5 px (las letras ya tienen contorno oscuro fino) |
+| Botón Pausa en celular (alto × ancho, letra) | **44 × 78 px**, 16 px |
+| Botón Pausa en laptop (alto × ancho, letra) | **34 × 74 px**, 15 px |
+| Botón Pausa: margen / opacidad | 6 px / 0.85 |
+| Correr la barra del jugador 2 (`apartarHudJugador2`) | sí |
+| Aviso de pausa: duración / fondo / opacidad | **5 s** / `#ffb52e` / **0.96** |
+| Aviso: texto / Aceptar / Ignorar / barra de tiempo | `#1a1a2e` / `#40c057` / `#adb5bd` / 3 px |
+| Ave: escala del dibujo / aleteos por segundo / cuadros | **1.2** / 3 / 4 |
+| Ave: color de detalles / pico / imagen | `#e03131` / `#ffc078` / `null` (ruta para reemplazarla por una imagen) |
 
 ### Otros (en `js/config.js`)
 - Revivir: 15 s caído, 4 s para revivir, distancia 115 px, vuelve con 30%, máximo 2 por nivel.
@@ -315,7 +342,8 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - Los sprites son las hojas originales: no se redibujan, no se recolorean ni se deforman. Una sola escala por personaje (Dudu un 6% más grande); para mirar a la izquierda se voltea la imagen. Los originales de `BUBU ANIMADO/` y `DUDU ANIMADO/` no se tocan.
 
 **Forma de trabajar en el proyecto**
-- Todos los números van en `config/balance.js` (los de red en `config/red.js`).
+- Todos los números van en `config/balance.js` (los de red en `config/red.js` y los de la interfaz en `config/interfaz.js`).
+- Al terminar cada tarea se actualiza este documento y se hace un commit con un mensaje claro.
 - No renombrar, reorganizar ni borrar archivos existentes; solo agregar y mejorar.
 - Hacer una copia de seguridad (commit o etiqueta de git) antes de cada tarea grande.
 - Si un pedido choca con lo ya construido, explicarlo y preguntar antes de cambiarlo.
@@ -354,6 +382,9 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - Hojas que faltan: salto simple de Bubu (hoy por código) y un segundo cuadro de dash de Bubu que no esté cortado.
 - Cambiar el corazón y las prendas dibujadas por imágenes (ya preparado).
 - Agregar un servidor TURN para redes móviles difíciles.
+- **Probar la red nueva en los dos dispositivos reales** con el panel de depuración (F3 / 5 toques) y anotar aquí: ping, ida y vuelta de la red, snapshots/s recibidos, tamaño, FPS y tipo de conexión del celular.
+- Si aun así el celular se traba siendo invitado: usar la laptop como líder (es quien simula todo) y revisar los FPS del celular en el panel.
+- Opcional: diferencias completas entre snapshots (solo lo que cambió) si algún nivel supera los 1500 bytes; hoy no hace falta (máximo medido 1407).
 - Sonido y música (el juego no tiene audio).
 - Guardar el avance en la nube para usarlo en varios dispositivos.
 
@@ -368,7 +399,8 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 **Visual**
 - La ropa comprada no se ve sobre los sprites animados en el juego (sí en la tienda y en los retratos).
 - Los retratos del HUD y de la selección usan las fotos fijas antiguas de los stickers.
-- El botón "Pausa" tapa un poquito el retrato del jugador 2 en modo pareja.
+- Para que el botón "Pausa" no tape el retrato del jugador 2, en pareja su barra queda un poco más a la izquierda (se puede desactivar con `apartarHudJugador2: false`).
+- El ave se dibuja un 20% más grande que su zona de golpe (que no cambió): las puntas de las alas no reciben golpes.
 - El botón de pausa táctil antiguo ("II", abajo al centro) está oculto, no borrado.
 - La primera carga descarga unos 16 MB de hojas de sprites (lenta con datos móviles; luego queda en caché).
 
@@ -376,7 +408,8 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - Depende del servidor público y gratuito de PeerJS: puede fallar o estar lento sin aviso.
 - Sin servidor TURN, algunas redes móviles o de empresa no logran conectar (se avisa a los 15 s).
 - El líder debe mantener el juego en primer plano: si cambia de pestaña o bloquea el celular, el navegador frena el juego para los dos.
-- El invitado ve a los demás con ~0.1–0.2 s de retraso; los golpes y el daño los decide el líder, así que al invitado le llegan con un poco de demora. Durante dash, combos o al recibir golpes no hay predicción.
+- Con el canal rápido, un snapshot perdido no se reenvía: el invitado interpola con el siguiente (a 20/s, un hueco de 50 ms no se nota). Si el navegador no permite el canal rápido, todo vuelve al canal fiable automáticamente.
+- El invitado ve a los demás con ~0.1 s de retraso; los golpes y el daño los decide el líder, así que al invitado le llegan con un poco de demora. Durante dash, combos o al recibir golpes no hay predicción.
 - Mantener la pantalla encendida y copiar al portapapeles solo funcionan con HTTPS.
 - Las monedas y el avance se guardan en cada dispositivo por separado.
 - Si un jugador sale y la partida ya terminó, ambos vuelven a la sala para elegir nivel.
@@ -396,3 +429,39 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - **Rápido:** doble clic en `index.html` (funciona sin servidor gracias a `js/prueba/cuadros_datos.js`).
 - **Con servidor local** (necesario para el modo en línea entre pestañas y para las simulaciones): en la carpeta del proyecto, `python -m http.server 8123` y abrir `http://localhost:8123`.
 - **Simulaciones:** en la consola del navegador, cargar el archivo de `herramientas/` (instrucciones al inicio de cada uno) y llamar, por ejemplo, `tablaNiveles(3)`, `simularOleada7(20)` o `simularJefeNivel('isla-10', 10)`.
+
+---
+
+## 8. Últimos cambios (interfaz, ave y red en línea)
+
+**Qué cambió**
+1. **Indicadores H1–H4 y combos** (debajo de las barras): +35% en celular, +10% en laptop, 75% de opacidad (sin desenfoque) y contorno oscuro fino. Los enfriamientos, costos y combos se muestran igual.
+2. **Botón "Pausa"** más grande: 78×44 px en celular, 74×34 px en laptop.
+3. **Aviso "[nombre] quiere pausar"**: color sólido amarillo-naranja, texto oscuro, Aceptar verde, Ignorar gris y una barra fina con los 5 s restantes.
+4. **Ave enemiga** rediseñada como stickman: 4 cuadros de aleteo y posturas de preparar y de lanzar. No cambió su comportamiento, vida, cantidad ni altura de vuelo. Se puede reemplazar por una imagen con `CONFIG.interfaz.ave.imagen`.
+5. **Red en línea**: panel de depuración, snapshots compactos a 20/s estables, canal rápido sin reenvíos, efectos por el canal fiable, controles enviados al instante al cambiar una tecla, 100 ms de interpolación y frecuencia más baja si el líder va lento.
+
+**Causa del trabado (medida)**
+- Cada snapshot pesaba **~3.2 KB de media y hasta ~4.9 KB** en peleas con 12 enemigos (antes: objetos JSON con nombres largos y decimales). No cabía en un paquete de WiFi (~1.2 KB), así que cada uno viajaba partido en 3–4 paquetes.
+- Iban por un canal **fiable y ordenado**: si se perdía un solo paquete, todos los siguientes esperaban su reenvío. En el WiFi del celular (que agrupa paquetes para ahorrar batería) eso produce tirones y sube el ping que muestra el juego (que viaja por la misma cola).
+- El líder enviaba con un contador que se reiniciaba en cada cuadro: salían ~20 por segundo en vez de 25 y con intervalos irregulares, peor aún si el líder iba lento.
+- PeerJS 1.5.4 con `reliable: false` solo quita el orden, pero **sigue reenviando**; por eso se usa un canal WebRTC propio con `maxRetransmits: 0`.
+
+**Antes → después (medido en el navegador, nivel con 12 enemigos)**
+| | Antes | Después |
+|---|---|---|
+| Tamaño del snapshot (promedio / máximo) | 3155 / 4331 bytes (hasta 4881) | **987 / 1407 bytes** |
+| Snapshots por segundo | 25 configurados, ~20 irregulares | **20 estables** (15 si el líder va lento) |
+| Canal de los snapshots | fiable y ordenado | **rápido, sin orden ni reenvíos** |
+| Controles del invitado | cada 33 ms | cada 33 ms **y al instante al cambiar una tecla** |
+| Retraso de interpolación | 110 ms | **100 ms** |
+
+En una prueba con dos pestañas en la misma computadora: 20 snapshots/s de ~890 bytes, canal rápido abierto, conexión directa por UDP, ping 1 ms. **Falta medirlo en el celular y la laptop reales** (ver sección 6).
+
+**Cómo probar**
+- *Indicadores y botón:* en la laptop, jugar cualquier nivel; en el celular, jugar con controles táctiles (los íconos deben verse más grandes y algo transparentes; el botón "Pausa" debe ser fácil de tocar).
+- *Aviso de pausa:* en línea, el invitado toca "Pausa"; al líder le sale el aviso amarillo con la barra que se vacía en 5 s.
+- *Ave:* jugar el nivel 1 de la Isla (siempre hay al menos 1 ave).
+- *Red:* crear sala en un dispositivo y unirse desde el otro. En los dos, abrir el panel (F3 o 5 toques en la esquina superior izquierda). Mirar: **Conexión** (en el mismo WiFi debería decir "directa"; si dice TURN no es normal porque no hay servidor TURN configurado), **Ida y vuelta red** (en el mismo WiFi debería ser < 20 ms), **Snapshots/s recibidos** (≈ 20), **Tamaño promedio** (< 1500), **Canal rápido: sí** y **FPS** del celular.
+- Para comparar con el sistema anterior: en `config/red.js` poner `canalRapido.activo: false` y `compacto.activo: false`.
+

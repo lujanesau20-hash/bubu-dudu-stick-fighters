@@ -183,3 +183,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
 .fila-check .espera { color: #adb5bd; }
 .fila-check .desconectado { color: #ff8787; font-size: 12px; }
 .btn-enlace { font: inherit; font-size: 13px; background: none; border: none; color: #a5d8ff; text-decoration: underline; cursor: pointer; }
+
+/* ---------- Botón "Pausa" más grande (medidas en config/interfaz.js) ---------- */
+#btn-pausa { display: flex; align-items: center; justify-content: center; padding: 0 10px; border-radius: 10px;
+  background: rgba(20, 20, 40, 0.55); border: 1.5px solid rgba(255,255,255,0.45); }
+
+/* ---------- Aviso "quiere pausar": color sólido (colores en config/interfaz.js) ---------- */
+#aviso-pausa { flex-wrap: wrap; justify-content: center; gap: 6px 8px; padding: 5px 10px 8px; font-size: 14px;
+  border: 1.5px solid rgba(26,26,46,0.55); box-shadow: 0 2px 8px rgba(0,0,0,0.35); overflow: hidden; }
+#aviso-pausa.visible { opacity: 1; }
+#aviso-pausa button { font-weight: bold; padding: 6px 12px; color: #1a1a2e; }
+#aviso-pausa .barra-tiempo { position: absolute; left: 0; bottom: 0; width: 100%; transform-origin: left center; }

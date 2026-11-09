@@ -34,9 +34,16 @@ class HUD {
     const s = U.clamp(H / 720, 0.55, 1.4);
     const margen = 16 * s;
     const anchoBarra = Math.min(440 * s, W * 0.34);
+    // Si el botón "Pausa" está visible, el bloque del jugador 2 se corre a la izquierda para no quedar tapado
+    const cp = CONFIG.interfaz.botonPausa;
+    let apartar = 0;
+    if (cp.apartarHudJugador2 && typeof Pausa !== 'undefined' && Pausa.visible && Pausa.medidasBoton) {
+      const mb = Pausa.medidasBoton();
+      apartar = Math.max(0, (mb.ancho + mb.margen + 4) * (W / Math.max(1, window.innerWidth)) - margen);
+    }
     m.jugadores.forEach((j) => {
       const derecha = j.indice === 1;
-      this.barraJugador(ctx, j, derecha ? W - margen - anchoBarra : margen, margen, anchoBarra, s, derecha, efectos, esTactil, m);
+      this.barraJugador(ctx, j, derecha ? W - margen - anchoBarra - apartar : margen, margen, anchoBarra, s, derecha, efectos, esTactil, m);
     });
 
     // Monedas (arriba al centro)
@@ -181,24 +188,30 @@ class HUD {
     // Habilidades (fila 1) y combinaciones (fila 2), en PC y en celular.
     // Cada ícono: sombra de enfriamiento que baja + segundos, costo de maná debajo,
     // y apagado si no hay maná suficiente.
-    const tam = 30 * s, sep = 7 * s;
+    // Tamaño y opacidad de los indicadores (config/interfaz.js): más grandes en celular
+    const ch = CONFIG.interfaz.habilidades;
+    const si = s * (esTactil ? ch.escalaCelular : ch.escalaLaptop);
+    const tam = 30 * si, sep = 7 * si;
     const fila1 = ey + altoEnergia + 8 * s;
-    const fila2 = fila1 + tam + 16 * s;
+    const fila2 = fila1 + tam + 16 * si;
+    ctx.save();
+    ctx.globalAlpha = ch.opacidad;
     // En línea cada persona usa los controles de un jugador (m.mapasHud); el remoto se muestra como H1..H4
     const mapa = m.mapasHud ? m.mapasHud[j.indice] : m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
     const tactilJ1 = !mapa || (esTactil && j.indice === (m.indiceLocal || 0));
     const posX = (i) => (derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep));
     const nombreTecla = (i) => (tactilJ1 ? 'H' + (i + 1) : mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', ''));
     CONFIG.habilidades.forEach((h, i) => {
-      this.iconoHabilidad(ctx, posX(i), fila1, tam, s, h.icono, h.energia, j.energia,
+      this.iconoHabilidad(ctx, posX(i), fila1, tam, si, h.icono, h.energia, j.energia,
         j.enfriamientos[i], h.enfriamiento, nombreTecla(i));
     });
     CONFIG.combos.lista.forEach((c, k) => {
       const [a, b] = c.habilidades;
       const etiqueta = tactilJ1 ? `H${a + 1}+H${b + 1}` : `${nombreTecla(a)}+${nombreTecla(b)}`;
-      this.iconoHabilidad(ctx, posX(k) + (derecha ? -tam / 2 : tam / 2), fila2, tam, s, c.icono || '✦', c.energia, j.energia,
+      this.iconoHabilidad(ctx, posX(k) + (derecha ? -tam / 2 : tam / 2), fila2, tam, si, c.icono || '✦', c.energia, j.energia,
         j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true);
     });
+    ctx.restore();
   }
 
   // Un ícono de habilidad o combo
@@ -206,16 +219,20 @@ class HUD {
     const sinMana = mana < costo;
     ctx.fillStyle = sinMana ? 'rgba(60,60,70,0.8)' : esCombo ? 'rgba(70,30,80,0.88)' : 'rgba(20,30,60,0.85)';
     U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.fill();
+    // Contorno oscuro fino para que se lea sobre cualquier fondo
+    ctx.strokeStyle = 'rgba(10,10,25,0.9)'; ctx.lineWidth = CONFIG.interfaz.habilidades.contorno;
+    U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.stroke();
     if (esCombo && !sinMana && cdRestante <= 0) {
       ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 1.5;
       U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.stroke();
     }
     ctx.font = `${16 * s}px "Segoe UI Emoji", Arial`;
     ctx.textAlign = 'center';
-    ctx.globalAlpha = sinMana ? 0.35 : 1;
+    const alfa = ctx.globalAlpha; // opacidad general de los indicadores
+    ctx.globalAlpha = alfa * (sinMana ? 0.35 : 1);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(icono, x + tam / 2, y + tam * 0.68);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = alfa;
     // Enfriamiento: sombra que baja y segundos restantes
     if (cdRestante > 0 && cdTotal > 0) {
       const k = Math.min(1, cdRestante / cdTotal);

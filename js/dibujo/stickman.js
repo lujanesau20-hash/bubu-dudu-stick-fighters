@@ -294,9 +294,31 @@ function accesorioDelante(ctx, e, t, d) {
   }
 }
 
-/* ---------- Ave voladora (dibujada por código, con alas que aletean) ---------- */
+/* ---------- Ave voladora estilo STICKMAN (dibujada por código) ----------
+   Cuerpo de palitos, cabeza redonda con ojitos y pico, alas de líneas gruesas
+   que baten (cuadros de aleteo), cresta y cola rojas, patitas encogidas.
+   Posturas: aleteo normal, "preparar" (alas arriba, cabeza atrás, pico brillando)
+   y "atacar" (cabeza adelante y pico abierto al lanzar la bola de fuego).
+   Para usar una imagen: pon la ruta en CONFIG.interfaz.ave.imagen. */
+const IMAGEN_AVE = { img: null, ruta: null };
+function imagenAve() {
+  const ruta = CONFIG.interfaz.ave.imagen;
+  if (!ruta) return null;
+  if (IMAGEN_AVE.ruta !== ruta) { IMAGEN_AVE.ruta = ruta; IMAGEN_AVE.img = new Image(); IMAGEN_AVE.img.src = ruta; }
+  return IMAGEN_AVE.img.complete && IMAGEN_AVE.img.naturalWidth ? IMAGEN_AVE.img : null;
+}
+
+// Cuadros de aleteo: [ángulo del hombro, doblez de la punta] (positivo = ala hacia arriba)
+const CUADROS_ALA_AVE = {
+  2: [[0.95, 0.5], [-0.55, -0.25]],
+  3: [[0.95, 0.5], [0.15, 0.05], [-0.55, -0.25]],
+  4: [[0.95, 0.5], [0.2, 0.1], [-0.55, -0.25], [0.2, 0.1]],
+};
+
 function dibujarAve(ctx, e, t) {
+  const ca = CONFIG.interfaz.ave;
   const muerto = e.estado === 'muerto';
+  const prep = e.estado === 'preparar', ataca = e.estado === 'atacar';
   const cy = e.y - e.alto / 2;
   ctx.save();
   // Sombra en el suelo (más chica cuanto más alto vuela)
@@ -304,65 +326,111 @@ function dibujarAve(ctx, e, t) {
     const alto = Math.max(0, e.mundo.sueloY - e.y);
     const k = Math.max(0.3, 1 - alto / 400);
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath(); ctx.ellipse(e.x, e.mundo.sueloY, 20 * k, 5 * k, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(e.x, e.mundo.sueloY, 22 * k, 5 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.translate(e.x, cy);
   if (muerto) {
     ctx.rotate(e.dir * Math.min(1, e.tiempoMuerto / 0.4) * 2.4);
     ctx.globalAlpha = Math.max(0, 1 - Math.max(0, e.tiempoMuerto - 0.7) / 0.7);
   }
-  ctx.scale(e.dir, 1);
-  const color = e.anim.flash > 0.5 ? '#ffffff' : e.color;
-  const aleteo = muerto ? 0.2 : Math.sin(t * 14 + e.x * 0.01);
-  ctx.lineJoin = 'round';
-  // Alas (detrás y delante)
-  const ala = (desp, alfa) => {
-    ctx.save();
-    ctx.globalAlpha *= alfa;
-    ctx.fillStyle = color; ctx.strokeStyle = 'rgba(20,20,35,0.85)'; ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(-4 + desp, -2);
-    ctx.lineTo(-22 + desp, -10 - aleteo * 20);
-    ctx.lineTo(-8 + desp, -4 - aleteo * 8);
-    ctx.lineTo(4 + desp, -14 - aleteo * 22);
-    ctx.lineTo(8 + desp, -2);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.restore();
-  };
-  ala(4, 0.65);
-  // Cola de plumas
-  ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = 'rgba(20,20,35,0.85)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-14, 2); ctx.lineTo(-28, -4); ctx.lineTo(-26, 4); ctx.lineTo(-30, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
-  // Cuerpo y cabeza
-  ctx.fillStyle = color; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.ellipse(0, 2, 15, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(13, -6, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // Pico (brilla al preparar la bola de fuego) y ojo enojado
-  const prep = e.estado === 'preparar';
-  ctx.fillStyle = prep ? '#ffe066' : '#fab005';
-  if (prep) { ctx.shadowColor = '#ff922b'; ctx.shadowBlur = 14; }
-  ctx.beginPath(); ctx.moveTo(19, -8); ctx.lineTo(28, -5); ctx.lineTo(19, -2); ctx.closePath(); ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#1a1a2e';
-  if (!muerto) { ctx.fillRect(14, -9, 3, 3); ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(11, -12); ctx.lineTo(17, -10); ctx.stroke(); }
-  else { ctx.font = 'bold 8px Arial'; ctx.fillText('x', 13, -4); }
-  // Patitas
-  ctx.strokeStyle = '#fab005'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-3, 11); ctx.lineTo(-5, 18); ctx.moveTo(4, 11); ctx.lineTo(3, 18); ctx.stroke();
-  ala(-2, 1);
+  ctx.scale(e.dir * ca.escala, ca.escala);
+
+  const img = imagenAve();
+  if (img) {
+    const h = 70, w = h * img.naturalWidth / img.naturalHeight;
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  } else {
+    const color = e.anim.flash > 0.5 ? '#ffffff' : (ca.colorCuerpo || e.color);
+    const detalle = e.anim.flash > 0.5 ? '#ffffff' : ca.colorDetalles;
+    // Cuadro de aleteo (o postura fija al disparar)
+    const cuadros = CUADROS_ALA_AVE[U.clamp(Math.round(ca.cuadrosAleteo), 2, 4)];
+    let ala;
+    if (muerto) ala = [0.3, 0.2];
+    else if (prep) ala = [1.15, 0.7];          // alas bien arriba: se prepara
+    else if (ataca) ala = [-0.7, -0.35];       // golpe de alas hacia abajo al lanzar
+    else ala = cuadros[Math.floor(t * ca.aleteosPorSegundo * cuadros.length + e.anim.fase * 3) % cuadros.length];
+    // Pequeño sube y baja del cuerpo con el aleteo
+    const sube = muerto ? 0 : -ala[0] * 3;
+    // Cabeza: atrás al preparar, adelante al lanzar
+    const cab = prep ? { x: 12, y: -16 } : ataca ? { x: 21, y: -10 } : { x: 16, y: -13 };
+    const hombro = { x: 2, y: -3 + sube }, cola = { x: -18, y: 4 + sube }, cuello = { x: 9, y: -6 + sube };
+    const cabeza = { x: cab.x, y: cab.y + sube };
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // Un ala: dos palitos gruesos (hombro -> codo -> punta)
+    const unaAla = (dx, largo, ancho, g) => {
+      const x0 = hombro.x + dx, y0 = hombro.y;
+      const x1 = x0 - Math.cos(ala[0]) * largo * 0.55, y1 = y0 - Math.sin(ala[0]) * largo * 0.55;
+      const a2 = ala[0] + ala[1];
+      const x2 = x1 - Math.cos(a2) * largo * 0.6, y2 = y1 - Math.sin(a2) * largo * 0.6;
+      ctx.lineWidth = ancho + g;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    };
+    const lineas = (contorno) => {
+      const g = contorno ? 3 : 0;
+      const oscuro = 'rgba(20,20,35,0.8)';
+      const pincel = (c) => { ctx.strokeStyle = contorno ? oscuro : c; ctx.fillStyle = contorno ? oscuro : c; };
+      // Ala de atrás (más clara)
+      pincel(color);
+      ctx.save(); if (!contorno) ctx.globalAlpha *= 0.7; unaAla(4, 30, 5, g); ctx.restore();
+      // Patitas encogidas (palitos doblados)
+      pincel(detalle);
+      ctx.lineWidth = 3 + g;
+      ctx.beginPath();
+      ctx.moveTo(-4, 4 + sube); ctx.lineTo(-3, 12 + sube); ctx.lineTo(-9, 14 + sube);
+      ctx.moveTo(2, 4 + sube); ctx.lineTo(3, 12 + sube); ctx.lineTo(-3, 14 + sube);
+      ctx.stroke();
+      // Cuerpo: palito de la cola al cuello
+      pincel(color);
+      ctx.lineWidth = 5 + g;
+      ctx.beginPath(); ctx.moveTo(cola.x, cola.y); ctx.lineTo(cuello.x, cuello.y); ctx.lineTo(cabeza.x - 4, cabeza.y + 4); ctx.stroke();
+      // Cola: tres plumas de línea y cresta de tres palitos (rojas)
+      pincel(detalle);
+      ctx.lineWidth = 3 + g;
+      ctx.beginPath();
+      [[-29, -4], [-30, 3], [-27, 10]].forEach(([x, y]) => { ctx.moveTo(cola.x, cola.y); ctx.lineTo(x, y + sube); });
+      [[-6, -14], [-1, -16], [4, -14]].forEach(([x, y]) => { ctx.moveTo(cabeza.x + x * 0.4, cabeza.y - 8); ctx.lineTo(cabeza.x + x, cabeza.y + y); });
+      ctx.stroke();
+      // Cabeza redonda
+      pincel(color);
+      ctx.beginPath(); ctx.arc(cabeza.x, cabeza.y, 10 + (contorno ? 1.5 : 0), 0, Math.PI * 2); ctx.fill();
+      // Ala de adelante (encima del cuerpo)
+      unaAla(-2, 36, 6, g);
+    };
+    lineas(true);
+    lineas(false);
+
+    // Pico: cerrado, o abierto y brillante al preparar / lanzar
+    const abierto = prep || ataca ? 4 : 0;
+    ctx.fillStyle = prep ? '#ffe066' : ca.colorPico;
+    ctx.strokeStyle = 'rgba(20,20,35,0.8)'; ctx.lineWidth = 1.5;
+    if (prep) { ctx.shadowColor = '#ff922b'; ctx.shadowBlur = 14; }
+    ctx.beginPath(); ctx.moveTo(cabeza.x + 8, cabeza.y - 3); ctx.lineTo(cabeza.x + 19, cabeza.y - 1 - abierto * 0.4); ctx.lineTo(cabeza.x + 9, cabeza.y + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if (abierto) { ctx.beginPath(); ctx.moveTo(cabeza.x + 9, cabeza.y + 2); ctx.lineTo(cabeza.x + 17, cabeza.y + 2 + abierto); ctx.lineTo(cabeza.x + 8, cabeza.y + 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.shadowBlur = 0;
+    // Ojitos redondos con brillo (simpático, no de terror)
+    if (!muerto) {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath(); ctx.arc(cabeza.x + 3, cabeza.y - 2, 2.6, 0, Math.PI * 2); ctx.arc(cabeza.x + 8.5, cabeza.y - 2, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cabeza.x + 3.4, cabeza.y - 3.6, 1.2, 1.2); ctx.fillRect(cabeza.x + 8.8, cabeza.y - 3.4, 1, 1);
+    } else {
+      ctx.fillStyle = '#1a1a2e'; ctx.font = 'bold 9px Arial'; ctx.fillText('x x', cabeza.x - 6, cabeza.y + 1);
+    }
+  }
   ctx.restore();
   // Aviso "!" antes de lanzar
-  if (e.estado === 'preparar') {
+  if (prep) {
     ctx.save();
     ctx.font = '900 26px Arial'; ctx.textAlign = 'center';
     ctx.fillStyle = '#ffdd33'; ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 4;
-    const by = cy - 30 - Math.abs(Math.sin(t * 16)) * 5;
+    const by = cy - 40 * ca.escala - Math.abs(Math.sin(t * 16)) * 5;
     ctx.strokeText('!', e.x, by); ctx.fillText('!', e.x, by);
     ctx.restore();
   }
   // Vida pequeña si está herida
   if (!muerto && e.vida < e.vidaMax) {
-    const w = 40, x = e.x - w / 2, y = cy - 26;
+    const w = 40, x = e.x - w / 2, y = cy - 34 * ca.escala;
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x - 1, y - 1, w + 2, 6);
     ctx.fillStyle = '#ff5050'; ctx.fillRect(x, y, w * Math.max(0, e.vida / e.vidaMax), 4);
   }

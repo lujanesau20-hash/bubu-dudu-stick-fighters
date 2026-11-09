@@ -4,7 +4,9 @@
    - Quien se une es el INVITADO (Dudu): envía sus controles y dibuja el
      estado que le llega (ver js/red/sincronizacion.js).
    Mensajes (JSON, campo "t"):
-     anfitrión -> invitado: hola, llena, lobby, inicio, e (estado), pausa, fin, cerrar
+     anfitrión -> invitado: hola, llena, lobby, inicio, e / e2 (estado), ev (efectos), pausa, fin, cerrar
+     Los snapshots compactos (e2) van por un "canal rápido" sin orden ni reenvíos;
+     todo lo demás va por el canal fiable de PeerJS.
      invitado -> anfitrión: c (controles), adios
      ambos: ping / pong
    ===================================================================== */
@@ -65,6 +67,8 @@ const EnLinea = {
       clearTimeout(lento);
       this.conectado = true;
       this.ultimoMensaje = performance.now();
+      this.abrirCanalRapido(conn);
+      Sincro.fijosEnviados = new Map(); // el invitado (nuevo o que volvió) no conoce ningún dato fijo
       this.controlRemoto = new ControlRemoto();
       this.enviar({ t: 'hola', personaje: 'dudu' });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
@@ -91,6 +95,7 @@ const EnLinea = {
     juego.entrada.fuentesRemotas[1] = () => (this.controlRemoto ? this.controlRemoto.leer() : new EstadoControl());
     this.eventosPendientes = [];
     this.tEnvio = 0;
+    Sincro.fijosEnviados = new Map(); Sincro.numSnap = 0;
     this.enviar({ t: 'inicio', modo: m.modo, personajes: ['bubu', 'dudu'], escenario: m.escenarioId, semilla: 1, nivel: m.nivel });
     this.mantenerPantalla();
   },
@@ -99,12 +104,69 @@ const EnLinea = {
   trasPasos(m, dt) {
     if (!this.conectado) { this.eventosPendientes = []; return; }
     for (const e of m.eventos) this.eventosPendientes.push(Object.assign({}, e));
+    // Ritmo estable: se descuenta el intervalo (antes se reiniciaba a 0 y salía irregular)
+    const intervalo = 1 / this.ritmoEnvio(dt);
     this.tEnvio += dt;
-    if (this.tEnvio >= 1 / RED_CONFIG.estadosPorSegundo) {
-      this.tEnvio = 0;
-      this.enviar({ t: 'e', d: Sincro.instantanea(m, this.eventosPendientes) });
-      this.eventosPendientes = [];
+    if (this.tEnvio >= intervalo) {
+      this.tEnvio -= intervalo;
+      if (this.tEnvio > intervalo) this.tEnvio = 0;
+      this.enviarEstado(m);
     }
+  },
+
+  // Si el líder va lento (celular con pocos FPS), baja la frecuencia de snapshots
+  ritmoEnvio(dt) {
+    const ll = RED_CONFIG.liderLento;
+    this.fpsLider = this.fpsLider ? this.fpsLider * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05 : 60;
+    const lento = this.fpsLider < ll.fpsMinimo;
+    this.tLento = U.clamp((this.tLento || 0) + (lento ? dt : -dt), 0, ll.segundosParaCambiar * 2);
+    this.estadosPorSegundoActual = this.tLento >= ll.segundosParaCambiar ? ll.estadosPorSegundo : RED_CONFIG.estadosPorSegundo;
+    return this.estadosPorSegundoActual;
+  },
+
+  enviarEstado(m) {
+    const eventos = this.eventosPendientes;
+    this.eventosPendientes = [];
+    if (!RED_CONFIG.compacto.activo) { // formato anterior (todo por el canal fiable)
+      const o = { t: 'e', d: Sincro.instantanea(m, eventos) };
+      this.enviar(o);
+      if (typeof Depuracion !== 'undefined' && Depuracion.visible) Depuracion.registrarSnapshot(JSON.stringify(o).length);
+      return;
+    }
+    const snap = Sincro.instantanea(m, null);
+    // Efectos visuales: por el canal fiable (no se pierden), con la hora del snapshot
+    if (eventos.length) this.enviar({ t: 'ev', w: snap.w, v: eventos });
+    const o = { t: 'e2', d: Sincro.comprimir(snap) };
+    const texto = JSON.stringify(o);
+    if (typeof Depuracion !== 'undefined') Depuracion.registrarSnapshot(texto.length);
+    const rc = this.canalRapido;
+    if (rc && rc.readyState === 'open') {
+      if (rc.bufferedAmount < 64 * 1024) { try { rc.send(texto); } catch (e) { /* se reintenta con el próximo */ } }
+    } else this.enviar(o); // sin canal rápido: por el fiable
+  },
+
+  // Canal extra "negociado" sobre la misma conexión WebRTC: sin orden y sin reenvíos.
+  // Los dos lados lo crean con el mismo id, así no hace falta volver a negociar.
+  abrirCanalRapido(conn) {
+    this.cerrarCanalRapido();
+    const cfg = RED_CONFIG.canalRapido;
+    const pc = conn && conn.peerConnection;
+    if (!cfg.activo || !pc || !pc.createDataChannel) return;
+    try {
+      const dc = pc.createDataChannel('rapido', { negotiated: true, id: cfg.id, ordered: false, maxRetransmits: 0 });
+      dc.onmessage = (ev) => {
+        if (this.canalRapido !== dc) return;
+        let d;
+        try { d = JSON.parse(ev.data); } catch (e) { return; }
+        this.recibir(d, ev.data.length);
+      };
+      this.canalRapido = dc;
+    } catch (e) { console.warn('Canal rápido no disponible', e); this.canalRapido = null; }
+  },
+  cerrarCanalRapido() {
+    const dc = this.canalRapido;
+    this.canalRapido = null;
+    try { if (dc) dc.close(); } catch (e) {}
   },
 
   invitadoSeFue() {
@@ -175,6 +237,7 @@ const EnLinea = {
         clearTimeout(lento);
         this.conectado = true;
         this.ultimoMensaje = performance.now();
+        this.abrirCanalRapido(conn);
         this.acumulador = new AcumuladorControl();
       });
       conn.on('data', (d) => this.recibir(d));
@@ -240,7 +303,12 @@ const EnLinea = {
     if (!this.pausadoPorAnfitrion) Sincro.predecir(dt, c);
     this.acumulador.agregar(c);
     this.tEnvio += dt;
-    if (this.tEnvio >= 1 / RED_CONFIG.controlesPorSegundo) { this.tEnvio = 0; this.enviar(Object.assign({ t: 'c' }, this.acumulador.sacar())); }
+    // A 30 por segundo y, además, apenas cambia una tecla (sin esperar al próximo envío)
+    const u = this.ultimoControl || {};
+    const cambio = c.x !== u.x || c.abajo !== u.abajo || c.saltoMantenido !== u.saltoMantenido || c.revivir !== u.revivir
+      || c.saltoPulsado || c.combo || c.habilidades.some(Boolean);
+    this.ultimoControl = { x: c.x, abajo: c.abajo, saltoMantenido: c.saltoMantenido, revivir: c.revivir };
+    if (cambio || this.tEnvio >= 1 / RED_CONFIG.controlesPorSegundo) { this.tEnvio = 0; this.enviar(Object.assign({ t: 'c' }, this.acumulador.sacar())); }
 
     const m = juego.mundo;
     const yo = m.jugadores[1];
@@ -253,14 +321,14 @@ const EnLinea = {
     if (this.conn && this.conn.open) { try { this.conn.send(o); } catch (e) { /* conexión cerrándose */ } }
   },
 
-  recibir(d) {
+  recibir(d, bytes) {
     // Retraso de red simulado (solo pruebas, ver RED_CONFIG.latenciaPrueba). Mantiene el orden.
     const lp = RED_CONFIG.latenciaPrueba;
     if (lp && lp.ms > 0 && !d._retrasado) {
       const cuando = Math.max(this.ultimaEntrega || 0, performance.now() + lp.ms + (Math.random() * 2 - 1) * lp.variacion);
       this.ultimaEntrega = cuando;
       d._retrasado = true;
-      setTimeout(() => this.recibir(d), cuando - performance.now());
+      setTimeout(() => this.recibir(d, bytes), cuando - performance.now());
       return;
     }
     this.ultimoMensaje = performance.now();
@@ -272,7 +340,19 @@ const EnLinea = {
       case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
       case 'lobby': Juego.mundo = null; Juego.estado = 'menu'; Juego.tactil.mostrar(false); this.enPartida = false; Menus.enLineaConectado(); break;
       case 'inicio': this.alInicio(d); break;
-      case 'e': if (this.esInvitado && Sincro.espejo) Sincro.recibirInstantanea(d.d); break;
+      case 'e':
+        if (this.esInvitado && Sincro.espejo) {
+          if (typeof Depuracion !== 'undefined') Depuracion.registrarSnapshot(bytes || (Depuracion.visible ? JSON.stringify(d).length : 0));
+          Sincro.recibirInstantanea(d.d);
+        }
+        break;
+      case 'e2': // snapshot compacto (normalmente por el canal rápido)
+        if (this.esInvitado && Sincro.espejo) {
+          if (typeof Depuracion !== 'undefined') Depuracion.registrarSnapshot(bytes || (Depuracion.visible ? JSON.stringify(d).length : 0));
+          Sincro.recibirInstantanea(Sincro.descomprimir(d.d));
+        }
+        break;
+      case 'ev': if (this.esInvitado && Sincro.espejo) Sincro.recibirEventos(d.w, d.v); break;
       case 'pausa':
         this.pausadoPorAnfitrion = d.on;
         if (d.on) Menus.enLineaPausaAnfitrion(); else if (!this.menuAbierto && Juego.estado === 'jugando') Menus.ocultar();
@@ -365,6 +445,7 @@ const EnLinea = {
     const conn = this.conn;
     this.conn = null;
     setTimeout(() => { try { if (conn) conn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} }, 150);
+    this.cerrarCanalRapido();
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
     Sincro.espejo = null;

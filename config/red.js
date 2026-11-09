@@ -23,9 +23,23 @@ const RED_CONFIG = {
   ],
 
   // Ritmos de envío
-  controlesPorSegundo: 30,      // invitado -> anfitrión
-  estadosPorSegundo: 25,        // anfitrión -> invitado
-  retrasoInterpolacion: 110,    // ms de "colchón" para dibujar suave al invitado
+  controlesPorSegundo: 30,      // invitado -> anfitrión (además se envía apenas cambia una tecla)
+  estadosPorSegundo: 20,        // anfitrión -> invitado (antes 25, pero en la práctica salían ~20 irregulares)
+  retrasoInterpolacion: 100,    // ms de "colchón" para dibujar suave al invitado (antes 110)
+
+  // Si el líder va lento (pocos FPS, p. ej. un celular), envía menos snapshots
+  liderLento: { fpsMinimo: 40, estadosPorSegundo: 15, segundosParaCambiar: 2 },
+
+  // Canal rápido para los snapshots: sin orden y sin reenvíos (un snapshot perdido
+  // se reemplaza con el siguiente). Los eventos importantes van por el canal fiable.
+  canalRapido: { activo: true, id: 50 },
+
+  // Formato compacto de snapshots: números redondeados y datos fijos (tipo, vida máxima,
+  // color...) solo cuando aparece algo nuevo o cada "cadaClave" snapshots.
+  compacto: { activo: true, repetirFijosNuevos: 10, cadaClave: 20, avisoBytes: 1500 }, // avisoBytes: el panel lo marca en rojo si se pasa
+
+  // Panel de depuración oculto: F3 o 5 toques en la esquina superior izquierda
+  depuracion: { tecla: 'F3', toques: 5, segundosToques: 2, esquinaPx: 70 },
 
   // Tiempos
   avisoTurnSegundos: 15,        // si conectar tarda más, sugerir TURN

@@ -20,10 +20,28 @@ const Pausa = {
     this.boton = document.getElementById('btn-pausa');
     // Funciona con dedo y mouse (pointerdown es inmediato en celular)
     this.boton.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.pulsar(); });
+    this.aplicarTamano();
+    window.addEventListener('resize', () => this.aplicarTamano());
+    window.addEventListener('touchstart', () => this.aplicarTamano(), { once: true, passive: true });
+  },
+
+  // Medidas del botón (celular o laptop) desde config/interfaz.js
+  medidasBoton() {
+    const cfg = CONFIG.interfaz.botonPausa;
+    const celular = (this.juego && this.juego.esTactil) || esDispositivoTactil();
+    return Object.assign({ margen: cfg.margen }, celular ? cfg.celular : cfg.laptop);
+  },
+  aplicarTamano() {
+    if (!this.boton) return;
+    const m = this.medidasBoton(), st = this.boton.style;
+    st.height = m.alto + 'px'; st.minWidth = m.ancho + 'px'; st.fontSize = m.letra + 'px';
+    st.top = m.margen + 'px'; st.right = m.margen + 'px';
+    st.opacity = CONFIG.interfaz.botonPausa.opacidad;
   },
 
   // Mostrar el botón solo mientras se juega
   actualizarBoton(visible) {
+    this.visible = !!visible;
     if (this.boton) this.boton.classList.toggle('oculto', !visible);
   },
 
@@ -113,14 +131,24 @@ const Pausa = {
       a.id = 'aviso-pausa';
       document.getElementById('juego').appendChild(a);
     }
+    // Color sólido y legible (config/interfaz.js)
+    const ca = CONFIG.interfaz.avisoPausa;
+    a.style.background = ca.fondo; a.style.opacity = ''; a.style.color = ca.texto;
     a.innerHTML = `<span>${nombre} quiere pausar</span>
-      <button data-r="si">Aceptar</button><button data-r="no">Ignorar</button>`;
+      <button data-r="si" style="background:${ca.botonAceptar}">Aceptar</button><button data-r="no" style="background:${ca.botonIgnorar}">Ignorar</button>
+      <div class="barra-tiempo" style="height:${ca.altoBarraTiempo}px;background:${ca.texto}"></div>`;
     a.classList.add('visible');
-    const cerrar = () => { a.classList.remove('visible'); clearTimeout(this.tAviso); };
+    a.style.opacity = ca.opacidadFondo;
+    // Barra fina que se vacía en los segundos del aviso
+    const barra = a.querySelector('.barra-tiempo');
+    barra.style.transition = 'none'; barra.style.transform = 'scaleX(1)';
+    void barra.offsetWidth; // reiniciar la animación
+    barra.style.transition = `transform ${ca.segundos}s linear`; barra.style.transform = 'scaleX(0)';
+    const cerrar = () => { a.classList.remove('visible'); a.style.opacity = ''; clearTimeout(this.tAviso); };
     a.querySelector('[data-r="si"]').onpointerdown = (e) => { e.preventDefault(); cerrar(); if (this.juego.estado === 'jugando') this.juego.pausar(); };
     a.querySelector('[data-r="no"]').onpointerdown = (e) => { e.preventDefault(); cerrar(); };
     // Si el líder no responde, desaparece solo a los 5 segundos y NO se pausa
     clearTimeout(this.tAviso);
-    this.tAviso = setTimeout(cerrar, 5000);
+    this.tAviso = setTimeout(cerrar, ca.segundos * 1000);
   },
 };
