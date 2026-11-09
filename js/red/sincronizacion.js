@@ -58,6 +58,9 @@ class AcumuladorControl {
 }
 
 const Sincro = {
+  // Reloj en ms (se puede reemplazar en pruebas: herramientas/simular_red.js)
+  reloj: () => performance.now(),
+
   // IDs estables para enemigos, proyectiles, monedas y corazones (lado anfitrión)
   ids: new WeakMap(),
   siguienteId: 1,
@@ -90,7 +93,7 @@ const Sincro = {
       tMuerto: r(e.tiempoMuerto || 0), suelo: e.enSuelo, fase2: !!e.fase2,
     });
     return {
-      t: m.tiempo, estado: m.estado, tiempoFin: m.tiempoFin, escalaTiempo: m.escalaTiempo,
+      w: Math.round(this.reloj()), t: m.tiempo, estado: m.estado, tiempoFin: m.tiempoFin, escalaTiempo: m.escalaTiempo,
       limIzq: m.limiteIzq, limDer: m.limiteDer, aviso: r(m.avisoAvanzar), revivesUsados: m.revivesUsados,
       monedasGanadas: m.monedasGanadas, rondas: m.rondas, ronda: m.ronda, ganador: m.ganador,
       jugadores: m.jugadores.map(jug),
@@ -118,12 +121,22 @@ const Sincro = {
     this.historial = [];            // posiciones predichas del jugador local
     this.correccion = { x: 0, y: 0 };
     this.tLocal = 0;
+    this.desfase = null;
+    this.variacion = 0;
+    this.localPredicho = false;
     return m;
   },
 
   recibirInstantanea(d) {
-    this.buffer.push({ llegada: performance.now(), d });
-    if (this.buffer.length > 40) this.buffer.shift();
+    const llegada = this.reloj();
+    // Desfase entre el reloj del anfitrión y el nuestro (se queda con la llegada más rápida)
+    const muestra = llegada - d.w;
+    if (this.desfase == null) { this.desfase = muestra; this.variacion = 0; }
+    else if (muestra < this.desfase) this.desfase = muestra;
+    else this.desfase += (muestra - this.desfase) * 0.01;
+    this.variacion = this.variacion * 0.95 + Math.abs(muestra - this.desfase) * 0.05;
+    this.buffer.push({ llegada, d });
+    if (this.buffer.length > 60) this.buffer.shift();
     this.corregirLocal(d);
   },
 
@@ -131,18 +144,21 @@ const Sincro = {
   prepararDibujo(ahora, efectos) {
     const m = this.espejo;
     if (!m || !this.buffer.length) return;
-    const tObjetivo = ahora - RED_CONFIG.retrasoInterpolacion;
+    const intervalo = 1000 / RED_CONFIG.estadosPorSegundo;
+    const colchon = U.clamp(Math.max(RED_CONFIG.retrasoInterpolacion, intervalo * 1.5 + this.variacion * 3), 60, 350);
+    const tObjetivo = ahora - this.desfase - colchon; // en el reloj del anfitrión
     let a = this.buffer[0], b = this.buffer[this.buffer.length - 1];
     for (let i = 0; i < this.buffer.length - 1; i++) {
-      if (this.buffer[i].llegada <= tObjetivo && this.buffer[i + 1].llegada >= tObjetivo) { a = this.buffer[i]; b = this.buffer[i + 1]; break; }
+      if (this.buffer[i].d.w <= tObjetivo && this.buffer[i + 1].d.w >= tObjetivo) { a = this.buffer[i]; b = this.buffer[i + 1]; break; }
     }
-    if (tObjetivo > b.llegada) a = b;
-    const k = a === b ? 1 : U.clamp((tObjetivo - a.llegada) / (b.llegada - a.llegada), 0, 1);
+    if (tObjetivo > b.d.w) a = b;
+    if (tObjetivo < this.buffer[0].d.w) b = a = this.buffer[0];
+    const k = a === b ? 1 : U.clamp((tObjetivo - a.d.w) / (b.d.w - a.d.w), 0, 1);
 
     // Eventos (efectos) de todas las instantáneas que ya "pasaron"
     for (const s of this.buffer) {
-      if (s.llegada <= tObjetivo && s.d.t > this.ultimoTiempoEventos) {
-        this.ultimoTiempoEventos = s.d.t;
+      if (s.d.w <= tObjetivo && s.d.w > this.ultimoTiempoEventos) {
+        this.ultimoTiempoEventos = s.d.w;
         if (s.d.eventos && s.d.eventos.length) efectos.procesar(s.d.eventos, m);
       }
     }
@@ -157,16 +173,20 @@ const Sincro = {
       avisoAvanzar: B.aviso, revivesUsados: B.revivesUsados, monedasGanadas: B.monedasGanadas, rondas: B.rondas, ronda: B.ronda, ganador: B.ganador });
 
     // Jugadores
+    const ultimo = this.buffer[this.buffer.length - 1].d;
     B.jugadores.forEach((sb, i) => {
       const j = m.jugadores[i];
       if (!j) return;
-      const sa = A.jugadores[i] || sb;
-      const local = i === m.indiceLocal && this.prediciendo(sb);
-      this.copiarJugador(j, sb);
-      if (!local) {
-        j.x = L(sa.x, sb.x); j.y = L(sa.y, sb.y);
-        j.vx = sb.vx; j.vy = sb.vy;
+      if (i === m.indiceLocal) {
+        // El propio personaje usa el estado MÁS NUEVO: sus ataques y animaciones salen antes
+        const s = ultimo.jugadores[i] || sb;
+        this.copiarJugador(j, s, this.localPredicho);
+        return;
       }
+      const sa = A.jugadores[i] || sb;
+      this.copiarJugador(j, sb, false);
+      j.x = L(sa.x, sb.x); j.y = L(sa.y, sb.y);
+      j.vx = sb.vx; j.vy = sb.vy;
     });
 
     // Enemigos y jefe (por id)
@@ -199,12 +219,11 @@ const Sincro = {
     m.corazones = interp(B.corazones, A.corazones).map((c) => ({ ...c, enSuelo: c.suelo }));
   },
 
-  copiarJugador(j, s) {
-    const localPredicho = j.indice === this.espejo.indiceLocal && this.prediciendo(s);
-    if (!localPredicho) j.dir = s.dir; // el local mira hacia donde él mismo pulsa
+  copiarJugador(j, s, localPredicho) {
+    if (!localPredicho) { j.dir = s.dir; j.agachado = s.agach; } // el local mira/se agacha según lo que él pulsa
     Object.assign(j, {
       estado: s.estado, alto: s.alto, vida: s.vida, vidaMax: s.vidaMax, energia: s.energia,
-      bloqueoAtaque: s.bloq, invulnerable: s.inv, aturdido: s.atur, agachado: s.agach,
+      bloqueoAtaque: s.bloq, invulnerable: s.inv, aturdido: s.atur,
       tiempoCaido: s.tCaido, progresoRevivir: s.prog, reviviendo: s.rev, ultimoDanio: s.ultDanio,
       animDisparo: s.disp, estela: s.estela, ausente: s.ausente,
     });
@@ -227,11 +246,12 @@ const Sincro = {
     const j = m.jugadores[m.indiceLocal];
     const ultimo = this.buffer[this.buffer.length - 1].d.jugadores[m.indiceLocal];
     this.tLocal += dt;
-    if (!ultimo || !this.prediciendo(ultimo)) {
+    this.localPredicho = !!ultimo && this.prediciendo(ultimo);
+    if (!this.localPredicho) {
       // Acciones especiales (dash, combos, caído...): manda el anfitrión, con suavizado
       j.x += (ultimo.x - j.x) * Math.min(1, dt * 15);
       j.y += (ultimo.y - j.y) * Math.min(1, dt * 15);
-      j.enSuelo = ultimo.suelo;
+      j.enSuelo = ultimo.suelo; j.vx = ultimo.vx; j.vy = ultimo.vy; j.saltosAire = ultimo.saltosAire;
       this.historial.length = 0;
       this.correccion = { x: 0, y: 0 };
       return;
@@ -251,13 +271,16 @@ const Sincro = {
     m.moverCuerpo(j, dt);
     if (!antes && j.enSuelo) j.saltosAire = 1;
 
-    // Aplicar poco a poco la corrección pendiente
-    const f = Math.min(1, dt * 8);
-    j.x += this.correccion.x * f; this.correccion.x *= 1 - f;
-    j.y += this.correccion.y * f; this.correccion.y *= 1 - f;
+    // Aplicar poco a poco la corrección pendiente. El historial se mueve igual,
+    // para que la próxima comparación no vuelva a contar lo ya corregido.
+    const f = Math.min(1, dt * 10);
+    const cx = this.correccion.x * f, cy = this.correccion.y * f;
+    j.x += cx; j.y += cy;
+    this.correccion.x -= cx; this.correccion.y -= cy;
     if (j.y > m.sueloY) j.y = m.sueloY;
+    if (cx || cy) for (const p of this.historial) { p.x += cx; p.y += cy; }
 
-    this.historial.push({ t: performance.now(), x: j.x, y: j.y });
+    this.historial.push({ t: this.reloj(), x: j.x, y: j.y });
     while (this.historial.length > 120) this.historial.shift();
   },
 
@@ -268,15 +291,23 @@ const Sincro = {
     const s = d.jugadores[m.indiceLocal];
     if (!s || !this.prediciendo(s)) return;
     const j = m.jugadores[m.indiceLocal];
-    const atras = (EnLinea.ping || 80) + 1000 / RED_CONFIG.estadosPorSegundo;
-    const tBuscado = performance.now() - atras;
-    let h = this.historial[0];
-    for (const p of this.historial) { if (p.t <= tBuscado) h = p; else break; }
-    const ex = s.x - h.x, ey = s.y - h.y;
+    // El estado del anfitrión refleja nuestras teclas de hace ~1 ping (+ envío de controles y un paso)
+    const atras = (EnLinea.ping || 80) + 1000 / RED_CONFIG.controlesPorSegundo / 2 + 1000 / 60;
+    const tBuscado = this.reloj() - atras;
+    const H = this.historial;
+    if (!H.length || H[0].t > tBuscado) return; // aún no hay historial suficiente
+    let i = 0;
+    while (i < H.length - 1 && H[i + 1].t <= tBuscado) i++;
+    const p0 = H[i], p1 = H[Math.min(i + 1, H.length - 1)];
+    const kk = p1.t > p0.t ? U.clamp((tBuscado - p0.t) / (p1.t - p0.t), 0, 1) : 0;
+    const h = { x: p0.x + (p1.x - p0.x) * kk, y: p0.y + (p1.y - p0.y) * kk };
+    let ex = s.x - h.x, ey = s.y - h.y;
+    if (Math.abs(ex) < 2) ex = 0;   // zona muerta: no corregir diferencias mínimas
+    if (Math.abs(ey) < 2) ey = 0;
     if (Math.abs(ex) > 220 || Math.abs(ey) > 260) { // demasiado lejos: saltar directo
       j.x = s.x; j.y = s.y; j.vx = s.vx; j.vy = s.vy; this.historial.length = 0; this.correccion = { x: 0, y: 0 };
       return;
     }
-    this.correccion = { x: ex, y: Math.abs(ey) > 30 ? ey : ey * 0.5 };
+    this.correccion = { x: ex, y: ey };
   },
 };

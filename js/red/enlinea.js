@@ -239,6 +239,15 @@ const EnLinea = {
   },
 
   recibir(d) {
+    // Retraso de red simulado (solo pruebas, ver RED_CONFIG.latenciaPrueba). Mantiene el orden.
+    const lp = RED_CONFIG.latenciaPrueba;
+    if (lp && lp.ms > 0 && !d._retrasado) {
+      const cuando = Math.max(this.ultimaEntrega || 0, performance.now() + lp.ms + (Math.random() * 2 - 1) * lp.variacion);
+      this.ultimaEntrega = cuando;
+      d._retrasado = true;
+      setTimeout(() => this.recibir(d), cuando - performance.now());
+      return;
+    }
     this.ultimoMensaje = performance.now();
     switch (d.t) {
       case 'ping': this.enviar({ t: 'pong', ts: d.ts }); break;

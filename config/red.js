@@ -32,6 +32,10 @@ const RED_CONFIG = {
   silencioDesconexion: 6,       // s sin mensajes = desconectado
   pingCadaSegundos: 1,
 
+  // SOLO PARA PRUEBAS: simula retraso de red al recibir mensajes (ms de ida y variación).
+  // Ej.: { ms: 75, variacion: 25 } en los dos dispositivos ≈ 150 ms de ping. Dejar en 0.
+  latenciaPrueba: { ms: 0, variacion: 0 },
+
   // Modos que se pueden jugar en línea (la arquitectura sirve también para versus)
   modos: ['pareja'],
 };
