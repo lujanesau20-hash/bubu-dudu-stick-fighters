@@ -85,7 +85,8 @@ Object.assign(FONDOS, {
       ctx.fillStyle = g;
       ctx.fillRect(-40, y + 6, m.ancho + 80, 300);
       ctx.beginPath();
-      for (let x = -40; x <= m.ancho + 40; x += 46) {
+      const v = U.rangoVisibleX(ctx);
+      for (let x = Math.max(-40, -40 + Math.floor((v.izq + 40) / 46) * 46); x <= Math.min(m.ancho + 40, v.der); x += 46) {
         const r = 26 + Math.sin(x * 0.07) * 6;
         ctx.moveTo(x + r, y + 10);
         ctx.arc(x, y + 10, r, Math.PI, 0);
@@ -95,20 +96,22 @@ Object.assign(FONDOS, {
       // Brillos dorados (polvo de estrellas) en la nube
       const brillos = decoracion('cielo-brillos', (r) => Array.from({ length: 60 }, () => ({ x: r() * 4700, y: 40 + r() * 160, f: r() * 6 })));
       brillos.forEach((b) => {
+        if (!U.visibleX(v, b.x, 4)) return;
         ctx.globalAlpha = 0.3 + Math.abs(Math.sin(t * 2 + b.f)) * 0.5;
         ctx.fillStyle = '#ffe066';
         ctx.fillRect(b.x, y + b.y, 3, 3);
       });
       ctx.globalAlpha = 1;
       // Plataformas: nubes pequeñas
-      m.plataformas.forEach((p, i) => nubeSolida(ctx, p.x, p.y, p.w, 46, '#ffffff', '#d7ddf7', i + 2));
+      m.plataformas.forEach((p, i) => { if (U.visibleX(v, p.x, p.w)) nubeSolida(ctx, p.x, p.y, p.w, 46, '#ffffff', '#d7ddf7', i + 2); });
     },
 
     // Columnas de un templo en las nubes (detrás de los personajes)
     decorado(ctx, m) {
       const cols = decoracion('cielo-columnas', (r) => Array.from({ length: 12 }, (_, i) => ({ x: 260 + i * 380 + r() * 140, h: 120 + r() * 120, rota: r() < 0.3 })));
+      const v = U.rangoVisibleX(ctx);
       cols.forEach((c) => {
-        if (c.x > m.ancho - 80) return;
+        if (c.x > m.ancho - 80 || !U.visibleX(v, c.x, 30)) return;
         const y = m.sueloY;
         const h = c.rota ? c.h * 0.55 : c.h;
         ctx.fillStyle = 'rgba(255,255,255,0.75)';
@@ -201,7 +204,9 @@ Object.assign(FONDOS, {
       ctx.fillRect(-40, y - 2, m.ancho + 80, 8);
       // Cráteres
       const crat = decoracion('esp-crateres', (r) => Array.from({ length: 45 }, () => ({ x: r() * 4700, y: 30 + r() * 120, r: 8 + r() * 26 })));
+      const v = U.rangoVisibleX(ctx);
       crat.forEach((c) => {
+        if (!U.visibleX(v, c.x, 60)) return;
         ctx.fillStyle = 'rgba(30,25,50,0.45)';
         ctx.beginPath(); ctx.ellipse(c.x, y + c.y, c.r * 1.5, c.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = 'rgba(200,195,230,0.25)';
@@ -209,6 +214,7 @@ Object.assign(FONDOS, {
       });
       // Plataformas metálicas flotantes con luces
       m.plataformas.forEach((p, i) => {
+        if (!U.visibleX(v, p.x, p.w)) return;
         ctx.fillStyle = '#495057';
         U.rectRedondo(ctx, p.x - 4, p.y, p.w + 8, 18, 6); ctx.fill();
         ctx.fillStyle = '#868e96';
@@ -233,8 +239,9 @@ Object.assign(FONDOS, {
     decorado(ctx, m) {
       const ant = decoracion('esp-antenas', (r) => Array.from({ length: 10 }, (_, i) => ({ x: 300 + i * 450 + r() * 160, h: 90 + r() * 90 })));
       const t = performance.now() / 1000;
+      const v = U.rangoVisibleX(ctx);
       ant.forEach((a) => {
-        if (a.x > m.ancho - 80) return;
+        if (a.x > m.ancho - 80 || !U.visibleX(v, a.x, 30)) return;
         const y = m.sueloY;
         ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(a.x, y); ctx.lineTo(a.x, y - a.h); ctx.stroke();
@@ -300,7 +307,8 @@ Object.assign(FONDOS, {
       ctx.fillStyle = '#adb5bd';
       ctx.fillRect(-40, y - 2, m.ancho + 80, 5);
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      for (let x = 0; x < m.ancho; x += 70) ctx.fillRect(x, y + 3, 2, 21);
+      const v = U.rangoVisibleX(ctx);
+      for (let x = Math.max(0, Math.floor(v.izq / 70) * 70); x < Math.min(m.ancho, v.der); x += 70) ctx.fillRect(x, y + 3, 2, 21);
       // Bordillo y asfalto
       ctx.fillStyle = '#495057';
       ctx.fillRect(-40, y + 24, m.ancho + 80, 8);
@@ -308,10 +316,11 @@ Object.assign(FONDOS, {
       ctx.fillRect(-40, y + 32, m.ancho + 80, 300);
       // Línea amarilla discontinua
       ctx.fillStyle = '#fcc419';
-      for (let x = 0; x < m.ancho; x += 120) ctx.fillRect(x, y + 92, 60, 7);
+      for (let x = Math.max(0, Math.floor(v.izq / 120) * 120); x < Math.min(m.ancho, v.der); x += 120) ctx.fillRect(x, y + 92, 60, 7);
       // Plataformas: toldos de tiendas a rayas
       const colores = [['#e03131', '#fff5f5'], ['#1971c2', '#e7f5ff'], ['#2f9e44', '#ebfbee'], ['#f08c00', '#fff9db']];
       m.plataformas.forEach((p, i) => {
+        if (!U.visibleX(v, p.x, p.w)) return;
         const [c1, c2] = colores[i % colores.length];
         const rayas = Math.max(4, Math.round(p.w / 22));
         for (let k = 0; k < rayas; k++) {
@@ -335,8 +344,9 @@ Object.assign(FONDOS, {
     decorado(ctx, m) {
       const y = m.sueloY;
       const tiendas = decoracion('ciu-tiendas', (r) => Array.from({ length: 14 }, (_, i) => ({ x: 120 + i * 340 + r() * 60, w: 200 + r() * 60, c: ['#3b2f4f', '#2f3b4f', '#4f2f3b'][i % 3] })));
+      const v = U.rangoVisibleX(ctx);
       tiendas.forEach((tn) => {
-        if (tn.x > m.ancho - 100) return;
+        if (tn.x > m.ancho - 100 || !U.visibleX(v, tn.x, tn.w)) return;
         ctx.fillStyle = tn.c;
         ctx.fillRect(tn.x, y - 230, tn.w, 230);
         ctx.fillStyle = 'rgba(255,214,140,0.55)';

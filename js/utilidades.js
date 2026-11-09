@@ -2,6 +2,16 @@
    UTILIDADES: matemáticas, colisiones y números aleatorios con semilla
    ===================================================================== */
 const U = {
+  // Rango X del mundo que se ve en pantalla (con la cámara ya aplicada al ctx).
+  // Sirve para no dibujar lo que está fuera de la pantalla.
+  rangoVisibleX(ctx, margen = 120) {
+    const m = ctx.getTransform();
+    const a = m.a || 1;
+    const x1 = (0 - m.e) / a, x2 = (ctx.canvas.width - m.e) / a;
+    return { izq: Math.min(x1, x2) - margen, der: Math.max(x1, x2) + margen };
+  },
+  visibleX(v, x, ancho = 0) { return x + ancho >= v.izq && x - ancho <= v.der; },
+
   clamp: (v, a, b) => (v < a ? a : v > b ? b : v),
   lerp: (a, b, t) => a + (b - a) * t,
   signo: (v) => (v < 0 ? -1 : 1),

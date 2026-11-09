@@ -35,6 +35,11 @@ const RED_CONFIG = {
   // Si el líder va lento (pocos FPS, p. ej. un celular), envía menos snapshots
   liderLento: { fpsMinimo: 40, estadosPorSegundo: 15, segundosParaCambiar: 2 },
 
+  // Si un cuadro del líder tarda más de "cuadroMs" (un pico, p. ej. Cataclismo con muchos
+  // enemigos), el envío de ese cuadro pasa al siguiente y durante "segundos" se envían
+  // menos snapshots. Después vuelve solo a la frecuencia normal.
+  liderAtrasado: { cuadroMs: 34, segundos: 1, estadosPorSegundo: 12 },
+
   // Canal rápido para los snapshots: sin orden y sin reenvíos (un snapshot perdido
   // se reemplaza con el siguiente). Los eventos importantes van por el canal fiable.
   canalRapido: { activo: true, id: 50, idPing: 51 },

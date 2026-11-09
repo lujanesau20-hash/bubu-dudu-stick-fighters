@@ -204,6 +204,7 @@ const Juego = {
     const W = this.render.W, H = this.render.H;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (typeof Depuracion !== 'undefined') Depuracion.cuadro();
+    this.aplicarSombras();
 
     if (!this.mundo) {
       // Menú: escenario de fondo moviéndose despacio
@@ -230,6 +231,18 @@ const Juego = {
     this.hud.dibujar(ctx, m, W, H, this.efectos, this.tactil.activo);
     if (typeof EnLinea !== 'undefined' && EnLinea.activo) this.dibujarPing(ctx, W, H);
     if (typeof Depuracion !== 'undefined') Depuracion.dibujar(ctx, W, H); // panel oculto (F3)
+  },
+
+  // En celular se quita el brillo borroso (shadowBlur), lo más caro de dibujar.
+  // Solo cambia el brillo de algunos efectos; config/interfaz.js -> efectos.*.sinSombras
+  aplicarSombras() {
+    const cfg = CONFIG.interfaz.efectos;
+    const sin = !!(this.esTactil ? cfg.celular.sinSombras : cfg.laptop.sinSombras);
+    if (sin === this._sinSombras) return;
+    this._sinSombras = sin;
+    const ctx = this.render.ctx;
+    if (sin) Object.defineProperty(ctx, 'shadowBlur', { configurable: true, get: () => 0, set: () => {} });
+    else delete ctx.shadowBlur;
   },
 
   // Indicador pequeño de calidad de conexión (ping)

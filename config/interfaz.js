@@ -32,6 +32,13 @@ CONFIG.interfaz = {
     altoBarraTiempo: 3,       // barra fina con el tiempo restante (px)
   },
 
+  // Rendimiento de los efectos visuales (no cambian la jugabilidad, solo cuánto se dibuja)
+  efectos: {
+    celular: { maxParticulas: 180, factorParticulas: 0.5, maxTextos: 14, sinSombras: true },
+    laptop: { maxParticulas: 450, factorParticulas: 1, maxTextos: 30, sinSombras: false },
+    // sinSombras: quita el brillo borroso (shadowBlur), lo más caro de dibujar en un celular
+  },
+
   // Ave enemiga estilo stickman (solo dibujo)
   ave: {
     escala: 1.2,              // tamaño del dibujo (1.2 ≈ alto de un stickman normal); no cambia su zona de golpe

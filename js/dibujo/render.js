@@ -48,8 +48,13 @@ class Render {
       ctx.restore();
     }
 
+    // Lo que está fuera de la pantalla no se dibuja
+    const v = U.rangoVisibleX(ctx);
+    this.rangoVisible = v;
+
     // Monedas
     for (const c of m.monedas) {
+      if (!U.visibleX(v, c.x, 10)) continue;
       const giro = Math.abs(Math.cos(t * 8 + c.x));
       ctx.fillStyle = '#ffcf33';
       ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2;
@@ -67,18 +72,20 @@ class Render {
       }
     }
 
-    for (const e of m.enemigos) dibujarStickman(ctx, e, t);
+    for (const e of m.enemigos) if (U.visibleX(v, e.x, 80)) dibujarStickman(ctx, e, t);
     if (m.jefe) dibujarStickman(ctx, m.jefe, t);
 
     const etiquetas = m.jugadores.length > 1;
-    // Primero los caídos (quedan detrás)
-    const orden = [...m.jugadores].sort((a, b) => (a.vivo ? 1 : 0) - (b.vivo ? 1 : 0));
-    for (const j of orden) {
-      if (j.ausente) continue; // en línea: el invitado se desconectó y el anfitrión sigue solo
-      dibujarJugador(ctx, j, t, equipos[j.personaje], etiquetas);
+    // Primero los caídos (quedan detrás); sin crear listas nuevas en cada cuadro
+    for (let pasada = 0; pasada < 2; pasada++) {
+      for (const j of m.jugadores) {
+        if ((j.vivo ? 1 : 0) !== pasada) continue;
+        if (j.ausente) continue; // en línea: el invitado se desconectó y el anfitrión sigue solo
+        dibujarJugador(ctx, j, t, equipos[j.personaje], etiquetas);
+      }
     }
 
-    for (const p of m.proyectiles) this.dibujarProyectil(p, t);
+    for (const p of m.proyectiles) if (U.visibleX(v, p.x, 120)) this.dibujarProyectil(p, t);
     efectos.dibujarMundo(ctx, m);
     ctx.restore();
   }

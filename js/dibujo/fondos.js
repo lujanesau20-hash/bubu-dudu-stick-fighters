@@ -123,7 +123,9 @@ const FONDOS = {
 
     suelo(ctx, m, t) {
       const y = m.sueloY;
-      const izq = -40, der = m.ancho + 40;
+      // Solo la parte visible del nivel (antes se dibujaba todo el nivel en cada cuadro)
+      const v = U.rangoVisibleX(ctx);
+      const izq = Math.max(-40, Math.floor(v.izq / 120) * 120), der = Math.min(m.ancho + 40, v.der);
       // Roca colgando bajo la isla principal
       ctx.fillStyle = '#7a6656';
       ctx.beginPath();
@@ -134,18 +136,22 @@ const FONDOS = {
       }
       ctx.lineTo(der, y + 20);
       ctx.fill();
-      // Tierra
-      const gt = ctx.createLinearGradient(0, y, 0, y + 140);
-      gt.addColorStop(0, '#a5784f');
-      gt.addColorStop(1, '#7e5b3e');
-      ctx.fillStyle = gt;
+      // Tierra (el degradado se crea una sola vez por altura de suelo)
+      if (!this._gt || this._gtY !== y) {
+        this._gt = ctx.createLinearGradient(0, y, 0, y + 140);
+        this._gt.addColorStop(0, '#a5784f');
+        this._gt.addColorStop(1, '#7e5b3e');
+        this._gtY = y;
+      }
+      ctx.fillStyle = this._gt;
       ctx.fillRect(izq, y + 6, der - izq, 120);
       // Piedritas en la tierra
       const piedras = decoracion('isla-piedras', (r) => Array.from({ length: 70 }, () => ({ x: r() * 4800, y: 30 + r() * 80, r: 4 + r() * 8 })));
       ctx.fillStyle = 'rgba(80,55,35,0.45)';
       // (la decoración se repite cada 4700 px para los niveles más largos)
       for (let off = 0; off < m.ancho; off += 4700) {
-        piedras.forEach((p) => { ctx.beginPath(); ctx.ellipse(p.x + off, y + p.y, p.r * 1.4, p.r, 0, 0, Math.PI * 2); ctx.fill(); });
+        if (off + 4800 < v.izq || off > v.der) continue;
+        piedras.forEach((p) => { if (!U.visibleX(v, p.x + off, 20)) return; ctx.beginPath(); ctx.ellipse(p.x + off, y + p.y, p.r * 1.4, p.r, 0, 0, Math.PI * 2); ctx.fill(); });
       }
       // Pasto
       ctx.fillStyle = '#5dbb4f';
@@ -155,9 +161,11 @@ const FONDOS = {
       // Matas de pasto y flores
       const matas = decoracion('isla-matas', (r) => Array.from({ length: 140 }, () => ({ x: r() * 4700, h: 8 + r() * 12, flor: r() < 0.25, c: r() < 0.5 ? '#ff7aa8' : '#ffe066' })));
       for (let off = 0; off < m.ancho; off += 4700) {
+        if (off + 4700 < v.izq || off > v.der) continue;
         ctx.save();
         ctx.translate(off, 0);
         matas.forEach((p) => {
+          if (!U.visibleX(v, p.x + off, 12)) return;
           ctx.fillStyle = '#4caa45';
           const bal = Math.sin(t * 2 + p.x) * 2;
           ctx.beginPath();
@@ -168,13 +176,15 @@ const FONDOS = {
         ctx.restore();
       }
       // Plataformas: pequeñas islas flotantes
-      m.plataformas.forEach((p, i) => islaFlotante(ctx, p.x, p.y, p.w, 90, '#6cc85a', '#a07450', '#7d6858', i + 1));
+      m.plataformas.forEach((p, i) => { if (U.visibleX(v, p.x, p.w)) islaFlotante(ctx, p.x, p.y, p.w, 90, '#6cc85a', '#a07450', '#7d6858', i + 1); });
     },
 
     // Árboles del fondo cercano (detrás de los personajes, mismo plano del mundo)
     decorado(ctx, m) {
       const arboles = decoracion('isla-arboles', (r) => Array.from({ length: 22 }, (_, i) => ({ x: 120 + i * 210 + r() * 120, h: 110 + r() * 80, c: r() < 0.5 ? '#3f9a4a' : '#4caf50' })));
+      const v = U.rangoVisibleX(ctx);
       for (let off = 0; off < m.ancho; off += 4700) arboles.forEach((a0) => {
+        if (!U.visibleX(v, a0.x + off, 90)) return; // fuera de pantalla
         const a = off ? { ...a0, x: a0.x + off } : a0;
         if (a.x > m.ancho - 60) return;
         const y = m.sueloY;

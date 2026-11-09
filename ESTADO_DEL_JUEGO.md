@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: servidor TURN de Cloudflare y cola de mensajes en línea; ver la sección 9).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: rendimiento con muchos enemigos y habilidades grandes; ver la sección 10).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`
 
 ---
 
@@ -127,6 +127,8 @@ herramientas/               Simulaciones para la consola del navegador (no forma
   simular_jefe.js           Pelea contra un jefe con un jugador automático.
   simular_niveles.js        Oleada de 7, nivel completo, tabla de niveles, jefe con refuerzos.
   simular_red.js            Simula ping/variación para medir la suavidad del invitado en línea.
+  medir_rendimiento.js      15 enemigos + Cataclismo + Torbellino: cuenta operaciones de dibujo,
+                            textos, sombras, partículas y objetos nuevos del peor cuadro.
 ```
 
 **Separación importante:** la lógica (`js/logica/`) no dibuja ni lee el teclado. Recibe controles y emite "eventos" que el dibujo convierte en efectos. Gracias a eso funciona el modo en línea.
@@ -519,4 +521,56 @@ npx wrangler deploy
    - **Ping:** debería quedar por debajo de ~150 ms entre La Paz y Tarija (antes 3000–6600 ms).
    - **Snapshots/s** ≈ 20, **Cola rápida** cerca de 0 y **Snapshots descartados/s** en 0 (si sube, la red de subida del líder es lenta).
 5. Para forzar la prueba del relevo: probar con un celular con datos móviles y la otra persona en otra ciudad; si la directa falla, el panel debe decir "TURN (relevo)" y el juego sigue fluido.
+
+---
+
+## 10. Rendimiento con muchos enemigos y habilidades grandes
+
+**Problema:** tirones con muchos enemigos al usar Cataclismo o Torbellino, aunque la red medía bien (ping 14 ms, cola vacía).
+
+**Qué se midió** (`herramientas/medir_rendimiento.js`: 15 enemigos juntos, Cataclismo y luego Torbellino, pantalla de celular 1688×780)
+| Parte | Costo encontrado |
+|---|---|
+| Simulación (física, IA, **cálculo de daño de área**) | 0.1–0.24 ms por cuadro: **no es el problema** |
+| **Suelo y decorado del fondo** | **844 + 159 operaciones de dibujo en CADA cuadro**: se dibujaban las piedras, pasto, flores y árboles de TODO el nivel (en el nivel 5 son 11 000 px), aunque no se vieran. Era el mayor costo fijo. |
+| **Partículas** | hasta **430** vivas; un solo cuadro con impacto de área creaba **230 objetos nuevos** (cada golpe a cada enemigo: 8–22 chispas + número de daño; muerte: 18 más; explosión: 60 + 30 de polvo) |
+| Efectos (anillos, arcos, partículas, textos) | 462 operaciones en el peor cuadro |
+| Dibujo de los 15 enemigos | 338 operaciones (todos estaban en pantalla) |
+| Textos | ~95 dibujos de texto por cuadro (números de daño + HUD) |
+| Sombras borrosas (`shadowBlur`) | 11 en el peor cuadro (cartel del combo, arcos del Torbellino, orbes, corte volador). Es lo más caro de dibujar en un celular. |
+| Listas nuevas | cada cuadro se creaban 5 listas nuevas con `filter` y una copia ordenada de los jugadores |
+
+**Qué se cambió (sin tocar la jugabilidad)**
+- **No dibujar fuera de pantalla:** suelo, piedras, pasto, flores, árboles, plataformas y decorados de los 4 mundos; enemigos, proyectiles, monedas, partículas y textos (`U.rangoVisibleX` en `js/utilidades.js`).
+- **Pool de partículas:** las partículas terminadas se guardan y se reutilizan (hasta 800) en vez de crear objetos nuevos.
+- **Límites en celular** (`config/interfaz.js` → `efectos`): máximo 180 partículas (laptop 450), la mitad de partículas por evento (laptop todas), máximo 14 textos flotantes (laptop 30; los grandes reemplazan al más viejo) y **sin sombras borrosas** en celular.
+- **Sin listas nuevas por cuadro:** los efectos terminados se quitan "en el lugar" y los jugadores se dibujan sin copiar ni ordenar.
+- **No recalcular:** el degradado de la tierra de la isla se crea una sola vez.
+- **Líder atrasado:** si un cuadro del líder tarda más de 34 ms, el envío de ese cuadro pasa al siguiente (la simulación no espera al envío) y durante 1 s manda 12 snapshots/s; después vuelve solo a 20 (`config/red.js` → `liderAtrasado`).
+
+**Antes → después (peor cuadro, 15 enemigos + Cataclismo)**
+| | Antes | Después (laptop) | Después (celular) |
+|---|---|---|---|
+| Operaciones de dibujo | 2090 | **1211** (−42%) | **959** (−54%) |
+| Partículas vivas | 430 | 430 | **180** |
+| Objetos nuevos en un cuadro (6 enemigos) | 230 (todos creados) | 230 (reutilizados del pool) | **119** (reutilizados) |
+| Sombras borrosas | 11 | 11 | **0** |
+| Suelo + decorado | 1003 ops | solo lo visible | solo lo visible |
+| Listas nuevas por cuadro | 6 | 0 | 0 |
+
+**Panel de depuración: "PEOR MOMENTO (esta partida)"** — se reinicia en cada partida y no cuenta el primer cuadro después de una pausa o carga:
+- FPS mínimo (por segundo completo), cuadro más largo en ms con **cuántos enemigos y efectos** había en ese instante, snapshot más grande, mínimo de snapshots/s (en línea), cola máxima de envío. Abajo: enemigos y efectos de ahora.
+
+**Nuevos valores**
+- `config/interfaz.js` → `efectos.celular: { maxParticulas: 180, factorParticulas: 0.5, maxTextos: 14, sinSombras: true }`, `efectos.laptop: { maxParticulas: 450, factorParticulas: 1, maxTextos: 30, sinSombras: false }`.
+- `config/red.js` → `liderAtrasado: { cuadroMs: 34, segundos: 1, estadosPorSegundo: 12 }`.
+
+**Cómo probar**
+- Jugar un nivel alto de la Isla (5 o más) en el celular, juntar muchos enemigos y usar Cataclismo y Torbellino. Abrir el panel (F3 / 5 toques) y mirar "PEOR MOMENTO": FPS mínimo y cuadro más largo (con cuántos enemigos y efectos).
+- En la consola del navegador: `await fetch('herramientas/medir_rendimiento.js').then(r => r.text()).then(eval); medirRendimiento({ enemigos: 15 })`.
+- Si en el celular se ve muy simple, subir `factorParticulas` o poner `sinSombras: false` en `config/interfaz.js`.
+
+**Límites**
+- Las mediciones de tiempo se hicieron en una laptop; en el celular solo se puede comparar con el panel (FPS mínimo y cuadro más largo).
+- En celular los brillos (sombras borrosas) de combos, orbes y bolas de fuego no se ven, y hay la mitad de chispas.
 

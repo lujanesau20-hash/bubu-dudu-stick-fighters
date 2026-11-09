@@ -111,9 +111,16 @@ const EnLinea = {
     if (!this.conectado) { this.eventosPendientes = []; return; }
     for (const e of m.eventos) this.eventosPendientes.push(Object.assign({}, e));
     // Ritmo estable: se descuenta el intervalo (antes se reiniciaba a 0 y salía irregular)
+    // Si este cuadro se pasó de tiempo, el líder está "atrasado" por un momento:
+    // baja la frecuencia y el envío de este cuadro pasa al siguiente (la simulación no espera al envío)
+    const ra = RED_CONFIG.liderAtrasado;
+    const lento = dt * 1000 > ra.cuadroMs;
+    if (lento) this.atrasadoHasta = performance.now() + ra.segundos * 1000;
     const intervalo = 1 / this.ritmoEnvio(dt);
     this.tEnvio += dt;
     if (this.tEnvio >= intervalo) {
+      if (lento && !this.envioAplazado) { this.envioAplazado = true; return; }
+      this.envioAplazado = false;
       this.tEnvio -= intervalo;
       if (this.tEnvio > intervalo) this.tEnvio = 0;
       this.enviarEstado(m);
@@ -126,8 +133,12 @@ const EnLinea = {
     this.fpsLider = this.fpsLider ? this.fpsLider * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05 : 60;
     const lento = this.fpsLider < ll.fpsMinimo;
     this.tLento = U.clamp((this.tLento || 0) + (lento ? dt : -dt), 0, ll.segundosParaCambiar * 2);
-    this.estadosPorSegundoActual = this.tLento >= ll.segundosParaCambiar ? ll.estadosPorSegundo : RED_CONFIG.estadosPorSegundo;
-    return this.estadosPorSegundoActual;
+    let hz = this.tLento >= ll.segundosParaCambiar ? ll.estadosPorSegundo : RED_CONFIG.estadosPorSegundo;
+    // Atrasado solo por un momento (un pico de efectos): frecuencia más baja solo mientras dura
+    this.atrasado = performance.now() < (this.atrasadoHasta || 0);
+    if (this.atrasado) hz = Math.min(hz, RED_CONFIG.liderAtrasado.estadosPorSegundo);
+    this.estadosPorSegundoActual = hz;
+    return hz;
   },
 
   enviarEstado(m) {

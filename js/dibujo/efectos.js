@@ -10,6 +10,8 @@ class Efectos {
   }
 
   reiniciar() {
+    if (this.particulas) for (const p of this.particulas) this.devolver(p);
+    this.pool = this.pool || [];   // partículas usadas que se vuelven a usar (no se crean nuevas)
     this.particulas = [];
     this.textos = [];
     this.anillos = [];
@@ -19,6 +21,34 @@ class Efectos {
     this.colorDestello = '#fff';
     this.alertasEnergia = {}; // jugador -> tiempo (la barra tiembla)
     this.monedasHud = 0;      // pulso del contador de monedas
+  }
+
+  // ---------- Rendimiento: límites (config/interfaz.js -> efectos) ----------
+  limites() {
+    const cfg = CONFIG.interfaz.efectos;
+    return (typeof Juego !== 'undefined' && Juego.esTactil) ? cfg.celular : cfg.laptop;
+  }
+  // Cantidad de partículas de un evento, ajustada al dispositivo
+  cant(n) { return Math.max(1, Math.round(n * this.limites().factorParticulas)); }
+
+  // Partícula nueva (reutiliza una del pool). Si ya hay el máximo, no se agrega.
+  particula(x, y, vx, vy, dur, color, tam, grav = 0, tipo = null) {
+    if (this.particulas.length >= this.limites().maxParticulas) return;
+    const p = this.pool.pop() || {};
+    p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.t = 0; p.dur = dur; p.color = color; p.tam = tam; p.grav = grav; p.tipo = tipo;
+    this.particulas.push(p);
+  }
+  devolver(p) { if (this.pool && this.pool.length < 800) this.pool.push(p); }
+
+  // Quita de la lista lo que terminó, sin crear una lista nueva
+  compactar(lista, alQuitar) {
+    let k = 0;
+    for (let i = 0; i < lista.length; i++) {
+      const o = lista[i];
+      if (o.t < o.dur) lista[k++] = o;
+      else if (alQuitar) alQuitar(o);
+    }
+    lista.length = k;
   }
 
   procesar(eventos, mundo) {
@@ -36,7 +66,7 @@ class Efectos {
         case 'lanzar': this.chispas(e.x, e.y, '#dfe9f5', 3); break;
         case 'arco': this.arcos.push({ jugador: e.jugador, dir: e.dir, radio: e.radio, color: e.color, t: 0, dur: 0.22, tipo: 'arco' }); break;
         case 'dash':
-          for (let i = 0; i < 10; i++) this.particulas.push({ x: e.x, y: e.y + (Math.random() - 0.5) * 60, vx: -e.dir * (200 + Math.random() * 300), vy: 0, t: 0, dur: 0.3, color: '#ffe066', tam: 3, tipo: 'linea' });
+          for (let i = 0, n = this.cant(10); i < n; i++) this.particula(e.x, e.y + (Math.random() - 0.5) * 60, -e.dir * (200 + Math.random() * 300), 0, 0.3, '#ffe066', 3, 0, 'linea');
           break;
         case 'torbellino': this.arcos.push({ jugador: e.jugador, radio: e.radio, color: e.color, t: 0, dur: e.duracion, tipo: 'torbellino' }); break;
         case 'onda':
@@ -46,9 +76,9 @@ class Efectos {
         case 'explosion':
           this.anillos.push({ x: e.x, y: e.y, r: 30, rMax: e.radio, t: 0, dur: 0.55, color: e.color, ancho: 26 });
           this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: e.radio * 0.7, t: 0, dur: 0.4, color: '#fff3b0', ancho: 14 });
-          for (let i = 0; i < 60; i++) {
+          for (let i = 0, n = this.cant(60); i < n; i++) {
             const a = Math.random() * Math.PI, v = 300 + Math.random() * 900;
-            this.particulas.push({ x: e.x, y: e.y, vx: Math.cos(a) * v * (Math.random() < 0.5 ? 1 : -1), vy: -Math.sin(a) * v, t: 0, dur: 0.6 + Math.random() * 0.6, color: Math.random() < 0.5 ? e.color : '#ffd36b', tam: 4 + Math.random() * 6, grav: 1400 });
+            this.particula(e.x, e.y, Math.cos(a) * v * (Math.random() < 0.5 ? 1 : -1), -Math.sin(a) * v, 0.6 + Math.random() * 0.6, Math.random() < 0.5 ? e.color : '#ffd36b', 4 + Math.random() * 6, 1400);
           }
           this.polvo(e.x, e.y, 30);
           this.flash('#ffb37a', 0.7);
@@ -95,7 +125,7 @@ class Efectos {
           break;
         case 'teletransporte':
           this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 70, t: 0, dur: 0.35, color: e.color || '#b197fc', ancho: 6 });
-          for (let i = 0; i < 14; i++) this.particulas.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y + (Math.random() - 0.5) * 80, vx: (Math.random() - 0.5) * 120, vy: -60 - Math.random() * 160, t: 0, dur: 0.5, color: e.color || '#b197fc', tam: 4 });
+          for (let i = 0, n = this.cant(14); i < n; i++) this.particula(e.x + (Math.random() - 0.5) * 40, e.y + (Math.random() - 0.5) * 80, (Math.random() - 0.5) * 120, -60 - Math.random() * 160, 0.5, e.color || '#b197fc', 4);
           break;
         case 'oleada': this.banners.push({ texto: e.tramo ? `OLEADA ${e.numero}/${e.total}` : `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
         case 'tramo': this.banners.push({ texto: `TRAMO ${e.numero}/${e.total}`, sub: '', color: '#ffe066', t: 0, dur: 1.4, pequeno: true }); break;
@@ -105,19 +135,26 @@ class Efectos {
   }
 
   chispas(x, y, color, n) {
+    n = this.cant(n);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = 150 + Math.random() * 450;
-      this.particulas.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 100, t: 0, dur: 0.25 + Math.random() * 0.3, color, tam: 2 + Math.random() * 4, grav: 900 });
+      this.particula(x, y, Math.cos(a) * v, Math.sin(a) * v - 100, 0.25 + Math.random() * 0.3, color, 2 + Math.random() * 4, 900);
     }
   }
 
   polvo(x, y, n) {
+    n = this.cant(n);
     for (let i = 0; i < n; i++) {
-      this.particulas.push({ x: x + (Math.random() - 0.5) * 30, y: y - 4, vx: (Math.random() - 0.5) * 300, vy: -Math.random() * 120, t: 0, dur: 0.4 + Math.random() * 0.3, color: 'rgba(240,235,220,0.8)', tam: 6 + Math.random() * 8, tipo: 'humo' });
+      this.particula(x + (Math.random() - 0.5) * 30, y - 4, (Math.random() - 0.5) * 300, -Math.random() * 120, 0.4 + Math.random() * 0.3, 'rgba(240,235,220,0.8)', 6 + Math.random() * 8, 0, 'humo');
     }
   }
 
   texto(x, y, texto, color, grande = false, chico = false) {
+    // Muchos números de daño a la vez no se leen y cuestan: con el máximo, se reemplaza el más viejo
+    if (this.textos.length >= this.limites().maxTextos) {
+      if (!grande) return;
+      this.textos.shift();
+    }
     this.textos.push({ x: x + (Math.random() - 0.5) * 16, y, texto, color, t: 0, dur: grande ? 1.1 : 0.75, grande, chico });
   }
 
@@ -130,15 +167,17 @@ class Efectos {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.tipo === 'humo') { p.vx *= 0.92; p.vy *= 0.92; }
     }
-    this.particulas = this.particulas.filter((p) => p.t < p.dur);
+    // Se quitan los terminados sin crear listas nuevas (las partículas vuelven al pool)
+    if (!this._devolver) this._devolver = (p) => this.devolver(p);
+    this.compactar(this.particulas, this._devolver);
     for (const t of this.textos) { t.t += dt; t.y -= dt * (t.grande ? 50 : 80); }
-    this.textos = this.textos.filter((t) => t.t < t.dur);
+    this.compactar(this.textos);
     for (const a of this.anillos) a.t += dt;
-    this.anillos = this.anillos.filter((a) => a.t < a.dur);
+    this.compactar(this.anillos);
     for (const a of this.arcos) a.t += dt;
-    this.arcos = this.arcos.filter((a) => a.t < a.dur);
+    this.compactar(this.arcos);
     for (const b of this.banners) b.t += dt;
-    this.banners = this.banners.filter((b) => b.t < b.dur);
+    this.compactar(this.banners);
     this.destello = Math.max(0, this.destello - dt * 2.5);
     this.monedasHud = Math.max(0, this.monedasHud - dt * 4);
     for (const k in this.alertasEnergia) this.alertasEnergia[k] = Math.max(0, this.alertasEnergia[k] - dt);
@@ -191,7 +230,9 @@ class Efectos {
       }
       ctx.restore();
     }
+    const v = U.rangoVisibleX(ctx, 40);
     for (const p of this.particulas) {
+      if (p.x < v.izq || p.x > v.der) continue; // fuera de pantalla
       const k = p.t / p.dur;
       ctx.globalAlpha = 1 - k;
       ctx.fillStyle = p.color;
@@ -205,6 +246,7 @@ class Efectos {
     }
     ctx.globalAlpha = 1;
     for (const t of this.textos) {
+      if (t.x < v.izq || t.x > v.der) continue;
       const k = t.t / t.dur;
       const esc = t.t < 0.1 ? 0.6 + t.t * 6 : 1;
       ctx.save();
