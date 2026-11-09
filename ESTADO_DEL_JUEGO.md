@@ -488,8 +488,8 @@ En una prueba con dos pestañas en la misma computadora: 20 snapshots/s de ~890 
 - No había servidor TURN: entre redes con NAT estricto (datos móviles) la conexión directa puede fallar o quedar mal.
 
 **Cambios**
-- **Worker `turn-worker/`** (Cloudflare): `GET` → pide a `https://rtc.live.cloudflare.com/v1/turn/keys/{TURN_KEY_ID}/credentials/generate-ice-servers` credenciales de 6 h (`ttl: 21600`) y devuelve solo el arreglo `iceServers` (quita los del puerto 53, que los navegadores bloquean). Solo acepta el origen `https://lujanesau20-hash.github.io`, solo GET, 30 peticiones por minuto por IP, y reutiliza las credenciales 30 minutos.
-- **Dirección del Worker:** `__URL_WORKER__` (en `config/red.js` → `turnWorker.url`).
+- **Worker `turn-worker/`** (Cloudflare): `GET` → pide a `https://rtc.live.cloudflare.com/v1/turn/keys/{TURN_KEY_ID}/credentials/generate-ice-servers` credenciales de 6 h (`ttl: 21600`) y devuelve solo el arreglo `iceServers` (quita los del puerto 53, que los navegadores bloquean). Solo acepta el origen `https://lujanesau20-hash.github.io`, solo GET (`preview_urls = false`), 30 peticiones por minuto por IP, y reutiliza las credenciales 30 minutos.
+- **Dirección del Worker:** **https://bubududu-turn.lujanesau20.workers.dev** (en `config/red.js` → `turnWorker.url`).
 - **Secretos requeridos** (nunca en el código ni en el repositorio): `TURN_KEY_ID` y `TURN_KEY_API_TOKEN`. Se agregan en Cloudflare → **Workers & Pages** → `bubududu-turn` → **Settings** → **Variables and Secrets** → **Add** → tipo **Secret**. Los dos salen de Cloudflare → **Realtime** → **TURN Server** → la llave creada (Key ID y API Token).
 - **Juego:** pide las credenciales al crear o unirse a una sala (espera máx. 4 s, se reutilizan 60 min) y las suma a los STUN. Si fallan, sigue solo con STUN y lo muestra en el panel.
 - **Ping** por un canal propio (id 51), sin orden ni reenvíos.

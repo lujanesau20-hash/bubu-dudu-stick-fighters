@@ -25,7 +25,7 @@ const RED_CONFIG = {
   // Servidor TURN de Cloudflare: el juego pide credenciales de corta duración al Worker
   // de la carpeta turn-worker/ al crear o unirse a una sala. Si no responde en "esperaMs",
   // se juega solo con STUN (como antes). Dejar url vacía para no usarlo.
-  turnWorker: { url: '', esperaMs: 4000, reusarMinutos: 60 },
+  turnWorker: { url: 'https://bubududu-turn.lujanesau20.workers.dev', esperaMs: 4000, reusarMinutos: 60 },
 
   // Ritmos de envío
   controlesPorSegundo: 30,      // invitado -> anfitrión (además se envía apenas cambia una tecla)

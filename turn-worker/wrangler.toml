@@ -6,6 +6,7 @@ name = "bubududu-turn"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 workers_dev = true
+preview_urls = false
 
 [vars]
 # Direcciones (origen) desde las que el juego puede pedir credenciales. Separadas por comas.
