@@ -34,10 +34,10 @@ const Juego = {
     // Mundo de fondo para el menú (solo para ver el escenario)
     this.mundoMenu = new Mundo({ modo: 'solo', personajes: ['bubu'], escenario: 'isla' });
 
-    SPRITES.cargar(() => {
-      this.irAlMenu();
-      requestAnimationFrame((t) => this.bucle(t));
-    });
+    // Pantalla de carga con consejos mientras se cargan los sprites
+    Menus.carga();
+    requestAnimationFrame((t) => this.bucle(t));
+    SPRITES.cargar(() => this.irAlMenu());
   },
 
   ajustarTamano() {
@@ -63,10 +63,21 @@ const Juego = {
     this.hud.reiniciar();
     this.camara.saltarA(this.mundo, this.render.anchoBase);
     this.acumulador = 0;
-    this.estado = 'jugando';
     this.finMostrado = false;
-    Menus.ocultar();
-    this.tactil.mostrar(this.esTactil);
+    // Pantalla de carga corta con un consejo antes de empezar el nivel
+    this.estado = 'carga';
+    this.tactil.mostrar(false);
+    const esc = this.modo === 'versus' ? ARENAS_VERSUS.isla : ESCENARIOS.isla;
+    Menus.carga(this.modo === 'versus' ? esc.nombre : `Nivel ${this.mundo.nivel} · ${esc.nombre}`);
+    clearTimeout(this.tCarga);
+    this.tCarga = setTimeout(() => {
+      if (this.estado !== 'carga') return;
+      this.estado = 'jugando';
+      this.ultimo = performance.now();
+      this.entrada.teclasPulsadas.clear();
+      Menus.ocultar();
+      this.tactil.mostrar(this.esTactil);
+    }, 1600);
   },
 
   reiniciar() { this.iniciarPartida(this.modo, this.personajes); },

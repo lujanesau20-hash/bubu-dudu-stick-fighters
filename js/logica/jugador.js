@@ -17,9 +17,11 @@ class Jugador {
     this.enSuelo = false;
     this.vidaMax = cj.vidaMax;
     this.vida = this.vidaMax;
-    this.energia = CONFIG.energia.max * 0.5;
+    this.energia = CONFIG.energia.inicial ?? CONFIG.energia.max * 0.5;
     this.enfriamientos = [0, 0, 0, 0];
     this.enfriamientoCombo = 0;
+    this.enfriamientosCombo = CONFIG.combos.lista.map(() => 0); // uno por combinación
+    this.bloqueoAtaque = 0;            // un ataque en curso no se interrumpe con otro
     this.ultimaHabilidad = null;
     this.estado = 'normal';            // 'normal' | 'caido' | 'muerto'
     this.accion = null;                // acción especial en curso (dash, combo...)
@@ -56,6 +58,8 @@ class Jugador {
     this.aturdido = Math.max(0, this.aturdido - dt);
     this.enfriamientoCombo = Math.max(0, this.enfriamientoCombo - dt);
     for (let i = 0; i < 4; i++) this.enfriamientos[i] = Math.max(0, this.enfriamientos[i] - dt);
+    for (let i = 0; i < this.enfriamientosCombo.length; i++) this.enfriamientosCombo[i] = Math.max(0, this.enfriamientosCombo[i] - dt);
+    this.bloqueoAtaque = Math.max(0, this.bloqueoAtaque - dt);
     a.ataque = Math.max(0, a.ataque - dt * 4);
     a.flash = Math.max(0, a.flash - dt * 5);
 
@@ -139,7 +143,8 @@ class Jugador {
     // Salto más corto si se suelta pronto
     if (!c.saltoMantenido && this.vy < -380) this.vy += 2600 * dt;
 
-    if (this.aturdido <= 0) COMBOS.procesar(this, c, m);
+    // Mientras dura un ataque solo se permiten combinaciones (no otro ataque)
+    if (this.aturdido <= 0) COMBOS.procesar(this, c, m, this.bloqueoAtaque > 0);
   }
 
   actualizarCaido(dt) {

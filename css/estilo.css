@@ -93,3 +93,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
 #girar { display: none; position: absolute; inset: 0; background: #1a1a2e; z-index: 10; align-items: center; justify-content: center; text-align: center; font-size: 60px; }
 #girar p { font-size: 20px; margin-top: 12px; }
 @media (orientation: portrait) and (pointer: coarse) { #girar { display: flex; } }
+
+/* ---------- Cómo jugar y pantallas de carga ---------- */
+.panel-ayuda { max-width: 860px; }
+.cuerpo-ayuda { width: 100%; text-align: left; overflow-y: auto; max-height: 58vh; padding-right: 4px; }
+.cuerpo-ayuda h3 { color: #ffd84d; margin: 10px 0 4px; font-size: 16px; }
+.tabla-ayuda { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla-ayuda th { color: #ffd84d; text-align: left; padding: 4px 6px; border-bottom: 2px solid rgba(255,216,77,0.5); }
+.tabla-ayuda td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.tabla-ayuda.numeros td:nth-child(n+4), .tabla-ayuda.numeros th:nth-child(n+4) { text-align: center; }
+.lista-ayuda { padding-left: 20px; line-height: 1.55; font-size: 15px; }
+.lista-ayuda li { margin-bottom: 6px; }
+.panel-carga { max-width: 520px; }
+.barra-carga { width: 80%; height: 10px; border-radius: 6px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.barra-carga div { width: 40%; height: 100%; background: #ffd84d; border-radius: 6px; animation: carga 1.1s ease-in-out infinite alternate; }
+@keyframes carga { from { margin-left: 0; } to { margin-left: 60%; } }
+.consejo { font-size: 15px; min-height: 44px; }

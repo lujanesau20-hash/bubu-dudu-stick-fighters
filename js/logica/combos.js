@@ -14,7 +14,7 @@ const COMBOS = {
 
   // Lee los controles del jugador y dispara habilidades o combinaciones
   procesar(j, c, m, soloCombos = false) {
-    if (c.combo && this.intentar(j, c.combo, m)) return;
+    if (c.combo && this.intentar(j, c.combo, m, CONFIG.combos.ventanaTactilMs)) return;
 
     const pulsadas = [];
     c.habilidades.forEach((p, i) => { if (p) pulsadas.push(i); });
@@ -23,7 +23,7 @@ const COMBOS = {
     // Dos teclas vecinas en el mismo instante
     if (pulsadas.length >= 2) {
       for (let k = 0; k < pulsadas.length - 1; k++) {
-        if (pulsadas[k + 1] - pulsadas[k] === 1 && this.intentar(j, [pulsadas[k], pulsadas[k + 1]], m)) return;
+        if (pulsadas[k + 1] - pulsadas[k] === 1 && this.intentar(j, [pulsadas[k], pulsadas[k + 1]], m, CONFIG.combos.ventanaMs)) return;
       }
     }
 
@@ -31,20 +31,24 @@ const COMBOS = {
       // Una tecla y luego la vecina dentro de la ventana
       const u = j.ultimaHabilidad;
       if (u && Math.abs(u.indice - i) === 1 && (m.tiempo - u.tiempo) * 1000 <= CONFIG.combos.ventanaMs) {
-        if (this.intentar(j, [u.indice, i], m)) return;
+        if (this.intentar(j, [u.indice, i], m, CONFIG.combos.ventanaMs)) return;
       }
       if (!soloCombos) HABILIDADES.usar(j, i, m);
     }
   },
 
-  intentar(j, par, m) {
+  // ventanaMs: tiempo máximo desde la 1a habilidad para devolver su maná
+  // (250 ms en teclado; el tiempo de deslizar en táctil)
+  intentar(j, par, m, ventanaMs = CONFIG.combos.ventanaMs) {
     const def = this.buscar(par[0], par[1]);
     if (!def || j.enfriamientoCombo > 0) return false;
+    const k = CONFIG.combos.lista.indexOf(def);
+    if (j.enfriamientosCombo[k] > 0) return false; // enfriamiento propio de cada combinación
 
     // Devolver la energía de la habilidad que inició la combinación
     let reembolso = 0;
     const u = j.ultimaHabilidad;
-    if (u && par.includes(u.indice) && (m.tiempo - u.tiempo) * 1000 <= CONFIG.combos.ventanaTactilMs) reembolso = u.energia;
+    if (u && par.includes(u.indice) && (m.tiempo - u.tiempo) * 1000 <= ventanaMs) reembolso = u.energia;
 
     if (j.energia + reembolso < def.energia) {
       m.emitir('sinEnergia', { jugador: j.indice, combo: true });
@@ -54,6 +58,7 @@ const COMBOS = {
     if (reembolso) j.enfriamientos[u.indice] = 0;
     j.ultimaHabilidad = null;
     j.enfriamientoCombo = CONFIG.combos.enfriamiento;
+    j.enfriamientosCombo[k] = def.enfriamiento || 0;
     m.emitir('combo', { nombre: def.nombre, color: def.color, jugador: j.indice, x: j.x, y: j.y - j.alto / 2 });
     this[def.id](j, def, m);
     return true;

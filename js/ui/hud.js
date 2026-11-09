@@ -73,7 +73,7 @@ class HUD {
       const w = Math.min(W * 0.55, 700 * s), h = 18 * s;
       // Si no cabe entre las barras de los jugadores, va debajo de ellas
       const cabeArriba = w < W - 2 * (anchoBarra + margen * 2);
-      const x = (W - w) / 2, y = margen + (cabeArriba ? (m.modo === 'pareja' ? 84 : 62) : 132) * s;
+      const x = (W - w) / 2, y = margen + (cabeArriba ? (m.modo === 'pareja' ? 84 : 62) : 196) * s;
       const real = Math.max(0, m.jefe.vida / m.jefe.vidaMax);
       this.texto(ctx, m.jefe.nombre, W / 2, y - 6 * s, 18 * s, m.jefe.fase2 ? '#ff6b6b' : '#ffd84d', 'center');
       ctx.fillStyle = 'rgba(10,10,25,0.75)';
@@ -155,43 +155,68 @@ class HUD {
     const fe = j.energia / CONFIG.energia.max;
     const we = bw * fe;
     const ge = ctx.createLinearGradient(0, ey, 0, ey + altoEnergia);
-    const lista = fe >= 0.7;
+    // COMBO: hay maná para la combinación más barata (config/balance.js)
+    const minCombo = Math.min(...CONFIG.combos.lista.map((c) => c.energia)) / CONFIG.energia.max;
+    const lista = fe >= minCombo;
     ge.addColorStop(0, lista ? '#a5f3ff' : '#74c0fc');
     ge.addColorStop(1, lista ? '#22b8cf' : '#1c7ed6');
     ctx.fillStyle = ge;
     if (we > 0) { U.rectRedondo(ctx, (derecha ? bx + bw - we : bx) + temblor, ey, we, altoEnergia, 4 * s); ctx.fill(); }
-    // Marca de "combo disponible" (70%)
-    const mx = derecha ? bx + bw * 0.3 : bx + bw * 0.7;
+    // Marca de "combo disponible"
+    const mx = derecha ? bx + bw * (1 - minCombo) : bx + bw * minCombo;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(mx - 1 + temblor, ey - 2, 2, altoEnergia + 4);
     if (lista && Math.floor(performance.now() / 300) % 2 === 0) {
       this.texto(ctx, 'COMBO', derecha ? bx - 6 : bx + bw + 6, ey + altoEnergia, 12 * s, '#a5f3ff', derecha ? 'right' : 'left', true);
     }
 
-    // Habilidades (solo en PC; en celular se ven en los botones)
-    if (!esTactil || j.indice === 1) {
-      const tam = 30 * s, sep = 6 * s;
-      const mapa = m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
-      CONFIG.habilidades.forEach((h, i) => {
-        const hx = derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep);
-        const hy = ey + altoEnergia + 8 * s;
-        const sinEnergia = j.energia < h.energia;
-        ctx.fillStyle = sinEnergia ? 'rgba(60,60,70,0.8)' : 'rgba(20,30,60,0.85)';
-        U.rectRedondo(ctx, hx, hy, tam, tam, 6 * s); ctx.fill();
-        ctx.font = `${16 * s}px "Segoe UI Emoji", Arial`;
-        ctx.textAlign = 'center';
-        ctx.globalAlpha = sinEnergia ? 0.4 : 1;
-        ctx.fillText(h.icono, hx + tam / 2, hy + tam * 0.68);
-        ctx.globalAlpha = 1;
-        const cd = j.enfriamientos[i] / h.enfriamiento;
-        if (cd > 0) {
-          ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.fillRect(hx, hy + tam * (1 - cd), tam, tam * cd);
-        }
-        const tecla = mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', '');
-        this.texto(ctx, tecla, hx + tam - 3, hy + tam - 2, 11 * s, '#ffe066', 'right', true);
-      });
+    // Habilidades (fila 1) y combinaciones (fila 2), en PC y en celular.
+    // Cada ícono: sombra de enfriamiento que baja + segundos, costo de maná debajo,
+    // y apagado si no hay maná suficiente.
+    const tam = 30 * s, sep = 7 * s;
+    const fila1 = ey + altoEnergia + 8 * s;
+    const fila2 = fila1 + tam + 16 * s;
+    const mapa = m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
+    const tactilJ1 = esTactil && j.indice === 0;
+    const posX = (i) => (derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep));
+    const nombreTecla = (i) => (tactilJ1 ? 'H' + (i + 1) : mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', ''));
+    CONFIG.habilidades.forEach((h, i) => {
+      this.iconoHabilidad(ctx, posX(i), fila1, tam, s, h.icono, h.energia, j.energia,
+        j.enfriamientos[i], h.enfriamiento, nombreTecla(i));
+    });
+    CONFIG.combos.lista.forEach((c, k) => {
+      const [a, b] = c.habilidades;
+      const etiqueta = tactilJ1 ? `H${a + 1}+H${b + 1}` : `${nombreTecla(a)}+${nombreTecla(b)}`;
+      this.iconoHabilidad(ctx, posX(k) + (derecha ? -tam / 2 : tam / 2), fila2, tam, s, c.icono || '✦', c.energia, j.energia,
+        j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true);
+    });
+  }
+
+  // Un ícono de habilidad o combo
+  iconoHabilidad(ctx, x, y, tam, s, icono, costo, mana, cdRestante, cdTotal, etiqueta, esCombo = false) {
+    const sinMana = mana < costo;
+    ctx.fillStyle = sinMana ? 'rgba(60,60,70,0.8)' : esCombo ? 'rgba(70,30,80,0.88)' : 'rgba(20,30,60,0.85)';
+    U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.fill();
+    if (esCombo && !sinMana && cdRestante <= 0) {
+      ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 1.5;
+      U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.stroke();
     }
+    ctx.font = `${16 * s}px "Segoe UI Emoji", Arial`;
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = sinMana ? 0.35 : 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(icono, x + tam / 2, y + tam * 0.68);
+    ctx.globalAlpha = 1;
+    // Enfriamiento: sombra que baja y segundos restantes
+    if (cdRestante > 0 && cdTotal > 0) {
+      const k = Math.min(1, cdRestante / cdTotal);
+      ctx.fillStyle = 'rgba(0,0,0,0.62)';
+      ctx.fillRect(x, y + tam * (1 - k), tam, tam * k);
+      this.texto(ctx, cdRestante >= 1 ? String(Math.ceil(cdRestante)) : cdRestante.toFixed(1), x + tam / 2, y + tam * 0.66, 14 * s, '#ffffff', 'center');
+    }
+    // Tecla (esquina) y costo de maná (debajo)
+    this.texto(ctx, etiqueta, x + tam - 2, y + 9 * s, (esCombo ? 8 : 10) * s, '#ffe066', 'right', true);
+    this.texto(ctx, String(costo), x + tam / 2, y + tam + 11 * s, 10 * s, sinMana ? '#ff8f8f' : '#74c0fc', 'center', true);
   }
 
   texto(ctx, t, x, y, tam, color, alinear = 'left', fino = false) {

@@ -124,11 +124,11 @@ const CONFIG = {
     ventanaTactilMs: 900,    // táctil: tiempo para deslizar al botón vecino
     enfriamiento: 1.0,
     lista: [
-      { id: 'corteVolador', nombre: '¡CORTE VOLADOR!', habilidades: [0, 1], energia: 70,
+      { id: 'corteVolador', nombre: '¡CORTE VOLADOR!', icono: '🌙', habilidades: [0, 1], energia: 70,
         danio: 48, velocidad: 820, color: '#7fe3ff' },
-      { id: 'torbellino', nombre: '¡TORBELLINO RELÁMPAGO!', habilidades: [1, 2], energia: 80,
+      { id: 'torbellino', nombre: '¡TORBELLINO RELÁMPAGO!', icono: '🌀', habilidades: [1, 2], energia: 80,
         danio: 16, golpes: 6, duracion: 0.75, velocidad: 650, radio: 135, color: '#ffe066' },
-      { id: 'cataclismo', nombre: '¡CATACLISMO!', habilidades: [2, 3], energia: 92,
+      { id: 'cataclismo', nombre: '¡CATACLISMO!', icono: '☄️', habilidades: [2, 3], energia: 92,
         danio: 120, radio: 520, empuje: 950, color: '#ff6a3d' },
     ],
   },

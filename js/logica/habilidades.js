@@ -11,6 +11,7 @@ const HABILIDADES = {
     if (j.energia < h.energia) { m.emitir('sinEnergia', { jugador: j.indice }); return false; }
     j.energia -= h.energia;
     j.enfriamientos[i] = h.enfriamiento;
+    j.bloqueoAtaque = h.bloqueo || 0;
     j.ultimaHabilidad = { indice: i, tiempo: m.tiempo, energia: h.energia };
     this[h.id](j, h, m);
     return true;

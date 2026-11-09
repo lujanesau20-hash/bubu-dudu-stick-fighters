@@ -15,6 +15,8 @@ class Mundo {
     this.proyectiles = [];
     this.golpes = [];
     this.monedas = [];
+    this.corazones = [];         // corazones de curación
+    this.tCorazon = 0;           // segundos de juego desde el último corazón
     this.jefe = null;
     this.congelar = 0;           // pausa de impacto (hit-stop)
     this.escalaTiempo = 1;       // cámara lenta
@@ -27,6 +29,8 @@ class Mundo {
       ? ARENAS_VERSUS[opciones.escenario] || ARENAS_VERSUS.isla
       : ESCENARIOS[opciones.escenario] || ESCENARIOS.isla;
     this.escenarioId = opciones.escenario;
+    // Número de nivel (1, 2, 3...) para la vida de enemigos y jefes
+    this.nivel = Math.max(1, (typeof ORDEN_NIVELES !== 'undefined' ? ORDEN_NIVELES.indexOf(opciones.escenario) : 0) + 1);
     this.escenario = datos;
     this.ancho = datos.ancho;
     this.sueloY = datos.sueloY;
@@ -141,6 +145,7 @@ class Mundo {
     this.golpes = this.golpes.filter((g) => g.vivo);
 
     this.actualizarMonedas(dt);
+    this.actualizarCorazones(dt);
 
     if (this.modo === 'versus') this.actualizarVersus(dt);
     else { this.actualizarOleadas(dt); this.comprobarFin(dt); }
@@ -218,6 +223,40 @@ class Mundo {
     this.monedas = this.monedas.filter((c) => !c.recogida);
   }
 
+  // ---------- Corazones de curación (config/balance.js -> corazones) ----------
+  actualizarCorazones(dt) {
+    if (typeof BALANCE === 'undefined') return;
+    const bc = BALANCE.corazones;
+    if (this.modo === 'versus' && !bc.enVersus) return;
+    if (this.estado !== 'jugando') return;
+
+    // Cada "intervalo" segundos de juego cae un corazón cerca de los jugadores
+    this.tCorazon += dt;
+    if (this.tCorazon >= bc.intervalo) {
+      this.tCorazon = 0;
+      const vivos = this.jugadores.filter((j) => j.vivo);
+      const base = vivos.length ? vivos.reduce((s, j) => s + j.x, 0) / vivos.length : this.ancho / 2;
+      const x = U.clamp(base + this.rng.rango(-220, 220), this.limiteIzq + 60, this.limiteDer - 60);
+      this.corazones.push({ x, y: this.sueloY - 760, vx: 0, vy: bc.velocidadCaida, ancho: 34, alto: 30, t: 0, enSuelo: false });
+      this.emitir('corazonAparece', { x });
+    }
+
+    for (const c of this.corazones) {
+      c.t += dt;
+      if (!c.enSuelo) { c.vy = bc.velocidadCaida; this.moverCuerpo(c, dt, true); }
+      // Lo recibe el primero que lo toque (y que no tenga la vida llena)
+      const rc = U.rectDe(c);
+      const j = this.jugadores.find((p) => p.vivo && p.vida < p.vidaMax && U.rectChoca(U.rectDe(p), rc));
+      if (j) {
+        const antes = j.vida;
+        j.vida = Math.min(j.vidaMax, j.vida + j.vidaMax * bc.curacion);
+        c.tomado = true;
+        this.emitir('curar', { jugador: j.indice, x: c.x, y: c.y - 20, cantidad: Math.round(j.vida - antes) });
+      }
+    }
+    this.corazones = this.corazones.filter((c) => !c.tomado && c.t < bc.duracion);
+  }
+
   // ---------- Oleadas y jefe ----------
   actualizarOleadas(dt) {
     const esc = this.escenario;
@@ -260,6 +299,8 @@ class Mundo {
       const mv = this.modo === 'pareja' ? CONFIG.multiplicadorPareja.vidaJefe : 1;
       const xj = Math.min(xMax + 520, this.limiteDer - 120);
       this.jefe = new Jefe(this, esc.jefe, xj, -400, mv);
+      // Vida del jefe según el nivel (config/balance.js)
+      if (typeof BALANCE !== 'undefined') this.jefe.vida = this.jefe.vidaMax = Math.round(BALANCE.vidaJefe(this.nivel) * mv);
     }
   }
 
@@ -271,6 +312,8 @@ class Mundo {
       if (this.jugadores.every((j) => Math.abs(j.x - x) > 320)) break;
     }
     const e = new Enemigo(this, tipo, x, -150 - k * 140 - this.rng() * 120);
+    // Vida según el nivel (config/balance.js)
+    if (typeof BALANCE !== 'undefined') e.vida = e.vidaMax = BALANCE.vidaEnemigo(this.nivel);
     this.enemigos.push(e);
   }
 

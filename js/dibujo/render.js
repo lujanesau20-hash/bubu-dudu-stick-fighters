@@ -56,6 +56,17 @@ class Render {
       ctx.beginPath(); ctx.ellipse(c.x, c.y, 8 * giro + 1, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
+    // Corazones de curación (parpadean al final)
+    if (m.corazones) {
+      const bc = BALANCE.corazones;
+      for (const c of m.corazones) {
+        const quedan = bc.duracion - c.t;
+        if (quedan < bc.parpadeo && Math.floor(t * 8) % 2 === 0) continue;
+        const flota = c.enSuelo ? Math.sin(t * 4 + c.x) * 4 : 0;
+        dibujarCorazon(ctx, c.x, c.y - 16 + flota, 30, t);
+      }
+    }
+
     for (const e of m.enemigos) dibujarStickman(ctx, e, t);
     if (m.jefe) dibujarStickman(ctx, m.jefe, t);
 
@@ -125,4 +136,41 @@ class Render {
     }
     ctx.restore();
   }
+}
+
+// Corazón de curación dibujado por código (contorno oscuro y brillo).
+// Para usar una imagen después: dibújala aquí en lugar de las curvas.
+function dibujarCorazon(ctx, x, y, tam, t = 0) {
+  const s = tam / 30 * (1 + Math.sin(t * 6) * 0.05); // late suavemente
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  // Brillo detrás
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 30);
+  g.addColorStop(0, 'rgba(255,120,150,0.55)');
+  g.addColorStop(1, 'rgba(255,120,150,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
+  // Forma
+  ctx.beginPath();
+  ctx.moveTo(0, 13);
+  ctx.bezierCurveTo(-4, 9, -17, 2, -17, -6);
+  ctx.bezierCurveTo(-17, -13, -11, -17, -6, -17);
+  ctx.bezierCurveTo(-3, -17, -1, -15, 0, -12);
+  ctx.bezierCurveTo(1, -15, 3, -17, 6, -17);
+  ctx.bezierCurveTo(11, -17, 17, -13, 17, -6);
+  ctx.bezierCurveTo(17, 2, 4, 9, 0, 13);
+  ctx.closePath();
+  const r = ctx.createLinearGradient(0, -17, 0, 13);
+  r.addColorStop(0, '#ff6b8a');
+  r.addColorStop(1, '#d6204a');
+  ctx.fillStyle = r;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#4a0f1f';
+  ctx.stroke();
+  // Reflejo
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath(); ctx.ellipse(-8, -9, 4, 2.6, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }

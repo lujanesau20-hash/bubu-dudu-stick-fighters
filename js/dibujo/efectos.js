@@ -71,7 +71,18 @@ class Efectos {
           break;
         case 'moneda': this.texto(e.x, e.y - 10, '+' + e.valor, '#ffd84d', false, true); this.monedasHud = 1; break;
         case 'texto': this.texto(e.x, e.y, e.texto, e.color, e.grande); break;
-        case 'sinEnergia': this.alertasEnergia[e.jugador] = 0.4; break;
+        case 'sinEnergia': {
+          // Aviso pequeño sobre el jugador (sin repetirlo mientras tiembla la barra)
+          const j = mundo && mundo.jugadores[e.jugador];
+          if (j && !(this.alertasEnergia[e.jugador] > 0)) this.texto(j.x, j.y - j.alto - 30, 'Sin maná', '#74c0fc', false, true);
+          this.alertasEnergia[e.jugador] = 0.4;
+          break;
+        }
+        case 'curar':
+          this.texto(e.x, e.y - 30, '+' + e.cantidad + ' ♥', '#7dff9b', true);
+          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 80, t: 0, dur: 0.4, color: '#ff6b8a', ancho: 6 });
+          this.chispas(e.x, e.y, '#ff8fab', 14);
+          break;
         case 'caido': this.chispas(e.x, e.y - 40, '#ff6b6b', 20); this.camara.sacudir(10); break;
         case 'revivido':
           this.anillos.push({ x: e.x, y: e.y - 40, r: 20, rMax: 140, t: 0, dur: 0.5, color: '#7dff9b', ancho: 10 });
