@@ -37,7 +37,15 @@ const Juego = {
     // Pantalla de carga con consejos mientras se cargan los sprites
     Menus.carga();
     requestAnimationFrame((t) => this.bucle(t));
-    SPRITES.cargar(() => this.irAlMenu());
+    SPRITES.cargar(() => {
+      this.irAlMenu();
+      // Enlace compartido ?sala=1234: ir directo a unirse a esa sala
+      const sala = new URLSearchParams(location.search).get('sala');
+      if (sala && /^\d+$/.test(sala) && typeof EnLinea !== 'undefined') {
+        history.replaceState(null, '', location.pathname);
+        if (EnLinea.disponible()) EnLinea.unirse(sala); else Menus.enLineaInicio();
+      }
+    });
   },
 
   ajustarTamano() {
@@ -47,6 +55,12 @@ const Juego = {
   },
 
   irAlMenu() {
+    // En línea, el anfitrión vuelve a la sala (no al menú principal)
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) {
+      this.estado = 'menu'; this.mundo = null; this.tactil.mostrar(false);
+      if (EnLinea.conectado) EnLinea.volverAlLobby(); else Menus.enLineaEsperando(EnLinea.codigo);
+      return;
+    }
     this.estado = 'menu';
     this.mundo = null;
     this.tactil.mostrar(false);
@@ -62,6 +76,7 @@ const Juego = {
     this.efectos.reiniciar();
     this.hud.reiniciar();
     this.camara.saltarA(this.mundo, this.render.anchoBase);
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.alIniciarPartida(this); // controles del invitado por la red
     this.acumulador = 0;
     this.finMostrado = false;
     // Pantalla de carga corta con un consejo antes de empezar el nivel
@@ -87,6 +102,7 @@ const Juego = {
     this.estado = 'pausa';
     this.tactil.mostrar(false);
     Menus.pausa();
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.avisarPausa(true);
   },
 
   reanudar() {
@@ -95,6 +111,7 @@ const Juego = {
     this.entrada.teclasPulsadas.clear();
     Menus.ocultar();
     this.tactil.mostrar(this.esTactil);
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.avisarPausa(false);
   },
 
   bucle(t) {
@@ -102,7 +119,10 @@ const Juego = {
     this.ultimo = t;
     this.tiempo += dt;
 
-    if (this.estado === 'jugando') this.actualizarJuego(dt);
+    if (this.estado === 'jugando') {
+      if (typeof EnLinea !== 'undefined' && EnLinea.esInvitado) EnLinea.actualizarInvitado(this, dt); // el invitado no simula
+      else this.actualizarJuego(dt);
+    }
     else if (this.estado === 'pausa') {
       if (this.entrada.consumir(CONFIG.controles.generales.pausa)) this.reanudar();
     }
@@ -127,6 +147,7 @@ const Juego = {
       this.acumulador -= PASO;
       pasos++;
     }
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.trasPasos(m, dt); // enviar estado al invitado
     this.efectos.procesar(m.eventos, m);
     m.eventos.length = 0;
 
@@ -149,6 +170,7 @@ const Juego = {
     this.estado = 'fin';
     this.tactil.mostrar(false);
     const m = this.mundo;
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.avisarFin(tipo, m.monedasGanadas);
     if (tipo !== 'versus') { Guardado.sumarMonedas(m.monedasGanadas); m.monedasGuardadas = true; }
     if (tipo === 'derrota') Menus.gameOver(m.monedasGanadas);
     if (tipo === 'victoria') {
@@ -177,6 +199,8 @@ const Juego = {
     }
 
     const m = this.mundo;
+    // Invitado: interpolar el estado recibido antes de dibujar
+    if (typeof EnLinea !== 'undefined' && EnLinea.esInvitado && Sincro.espejo === m) Sincro.prepararDibujo(performance.now(), this.efectos);
     if (this.estado !== 'pausa') {
       this.efectos.actualizar(dt);
       this.camara.actualizar(dt, m, this.render.anchoBase);
@@ -187,6 +211,21 @@ const Juego = {
     this.render.dibujarMundo(m, this.camara, this.efectos, this.tiempo, equipos);
     this.efectos.dibujarPantalla(ctx, W, H);
     this.hud.dibujar(ctx, m, W, H, this.efectos, this.tactil.activo);
+    if (typeof EnLinea !== 'undefined' && EnLinea.activo) this.dibujarPing(ctx, W, H);
+  },
+
+  // Indicador pequeño de calidad de conexión (ping)
+  dibujarPing(ctx, W, H) {
+    const p = EnLinea.ping, s = U.clamp(H / 720, 0.6, 1.3);
+    const color = !EnLinea.conectado ? '#ff6b6b' : p == null ? '#cccccc' : p < 100 ? '#69db7c' : p < 200 ? '#ffd43b' : '#ff6b6b';
+    const texto = !EnLinea.conectado ? 'sin conexión' : p == null ? '… ms' : p + ' ms';
+    ctx.font = `bold ${12 * s}px "Trebuchet MS", Arial`;
+    ctx.textAlign = 'left';
+    const x = 8 * s, y = H - 8 * s;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(x - 4, y - 14 * s, ctx.measureText('📶 ' + texto).width + 10, 18 * s);
+    ctx.fillStyle = color;
+    ctx.fillText('📶 ' + texto, x, y);
   },
 };
 

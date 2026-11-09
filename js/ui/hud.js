@@ -176,8 +176,9 @@ class HUD {
     const tam = 30 * s, sep = 7 * s;
     const fila1 = ey + altoEnergia + 8 * s;
     const fila2 = fila1 + tam + 16 * s;
-    const mapa = m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
-    const tactilJ1 = esTactil && j.indice === 0;
+    // En línea cada persona usa los controles de un jugador (m.mapasHud); el remoto se muestra como H1..H4
+    const mapa = m.mapasHud ? m.mapasHud[j.indice] : m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
+    const tactilJ1 = !mapa || (esTactil && j.indice === (m.indiceLocal || 0));
     const posX = (i) => (derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep));
     const nombreTecla = (i) => (tactilJ1 ? 'H' + (i + 1) : mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', ''));
     CONFIG.habilidades.forEach((h, i) => {

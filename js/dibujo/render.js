@@ -73,7 +73,10 @@ class Render {
     const etiquetas = m.jugadores.length > 1;
     // Primero los caídos (quedan detrás)
     const orden = [...m.jugadores].sort((a, b) => (a.vivo ? 1 : 0) - (b.vivo ? 1 : 0));
-    for (const j of orden) dibujarJugador(ctx, j, t, equipos[j.personaje], etiquetas);
+    for (const j of orden) {
+      if (j.ausente) continue; // en línea: el invitado se desconectó y el anfitrión sigue solo
+      dibujarJugador(ctx, j, t, equipos[j.personaje], etiquetas);
+    }
 
     for (const p of m.proyectiles) this.dibujarProyectil(p, t);
     efectos.dibujarMundo(ctx, m);
