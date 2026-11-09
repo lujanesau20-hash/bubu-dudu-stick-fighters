@@ -348,7 +348,7 @@ class Mundo {
         if (!g.hecho && o.t >= g.retraso) {
           g.hecho = true;
           const cant = Math.round(g.cantidad * mult);
-          for (let k = 0; k < cant; k++) this.crearEnemigo(g.tipo || esc.enemigo, k);
+          for (let k = 0; k < cant; k++) this.crearEnemigo(this.ajustarTipoGrupo(o, g.tipo || esc.enemigo), k);
         }
       }
       const todos = o.pendientes.every((g) => g.hecho);
@@ -372,11 +372,17 @@ class Mundo {
       this.limiteDer = sig.zona[1];
       if (sig.fases) {
         // Tramo de la isla: oleadas una tras otra
-        this.oleada = { t: 0, fases: sig.fases, fase: -1, porSalir: 0, espera: 0.6, tSalida: 0 };
+        this.oleada = { t: 0, fases: sig.fases, fase: -1, porSalir: 0, espera: 0.6, tSalida: 0, n: 0 };
+        const total = sig.fases.reduce((s, f) => s + Math.min(BALANCE.isla.maxPorOleada, Math.round(f * mult)), 0);
+        this.oleada.total = total;
+        this.oleada.planDistancia = this.planDistancia(total);
+        this.oleada.avesPorSalir = this.avesParaTramo(this.indiceOleada - 1);
         this.emitir('tramo', { numero: this.indiceOleada, total: esc.oleadas.length });
         return;
       }
       this.oleada = { t: 0, pendientes: sig.grupos.map((g) => ({ ...g, hecho: false })) };
+      this.prepararCuposGrupo(this.oleada, mult);
+      for (let k = 0; k < this.avesParaTramo(this.indiceOleada - 1); k++) this.crearEnemigo('ave', k);
       this.emitir('oleada', { numero: this.indiceOleada, total: esc.oleadas.length });
     } else if (!sig && !this.jefe && esc.zonaJefe && xMax >= esc.zonaJefe.gatillo) {
       this.limiteIzq = esc.zonaJefe.zona[0];
@@ -396,7 +402,7 @@ class Mundo {
     const esc = this.escenario;
     const vivos = this.enemigos.filter((e) => e.vivo).length;
     o.t += dt;
-    if (o.porSalir <= 0) {
+    if (o.porSalir <= 0 && !(o.avesPorSalir > 0 && o.fase >= 0)) {
       if (vivos > 0) return;
       if (o.fase >= o.fases.length - 1) {
         // Tramo limpio
@@ -416,18 +422,86 @@ class Mundo {
       o.k = 0;
       this.emitir('oleada', { numero: o.fase + 1, total: o.fases.length, tramo: this.indiceOleada });
     }
-    // Van entrando de a poco, sin pasar el máximo de vivos
+    // Van entrando de a poco, sin pasar el máximo de vivos (las aves también cuentan)
     o.tSalida -= dt;
+    if (o.avesPorSalir > 0 && o.fase >= 0 && vivos < bi.maxVivos && o.tSalida <= 0) {
+      this.crearEnemigo('ave', o.k++ % 5);
+      o.avesPorSalir--;
+      o.tSalida = 0.12;
+      return;
+    }
     if (o.porSalir > 0 && vivos < bi.maxVivos && o.tSalida <= 0) {
-      this.crearEnemigo(this.elegirTipoOleada(), o.k++ % 5);
+      // ¿Le toca a uno a distancia? (y nunca más de BALANCE.distancia.maxVivos vivos)
+      let tipo;
+      if (o.planDistancia.has(o.n) && this.distanciaVivos() < BALANCE.distancia.maxVivos) tipo = this.elegirTipoOleada('distancia');
+      else {
+        if (o.planDistancia.has(o.n) && o.n + 1 < o.total) o.planDistancia.add(o.n + 1); // se pasa al siguiente
+        tipo = this.elegirTipoOleada('cerca');
+      }
+      this.crearEnemigo(tipo, o.k++ % 5);
+      o.n++;
       o.porSalir--;
       o.tSalida = 0.12;
     }
   }
 
+  // ---------- Enemigos a distancia y aves (config/balance.js -> distancia, aves) ----------
+  esDistancia(tipo) { return BALANCE.distancia.tipos.includes(tipo); }
+  distanciaVivos() { return this.enemigos.filter((e) => e.vivo && this.esDistancia(e.tipo)).length; }
+  // Valor de una tabla según el nivel dentro del mundo (1..10; después, el último)
+  valorPorNivel(tabla) { return tabla[Math.min(tabla.length, this.escenario.numero || 1) - 1]; }
+
+  // Cuántos salen a distancia en este tramo (entre min y max) y en qué orden de salida
+  planDistancia(total) {
+    const bd = BALANCE.distancia;
+    const min = this.valorPorNivel(bd.minPorTramo), max = this.valorPorNivel(bd.maxPorTramo);
+    const n = Math.min(total, min + Math.floor(this.rng() * (max - min + 1)));
+    const plan = new Set();
+    while (plan.size < n) plan.add(Math.floor(this.rng() * total));
+    return plan;
+  }
+
+  // Aves del nivel repartidas entre los tramos (al menos 1 por nivel)
+  avesParaTramo(indice) {
+    const T = this.escenario.oleadas.length;
+    if (!T) return 0;
+    const A = this.valorPorNivel(BALANCE.aves.porNivel);
+    let n = 0;
+    for (let i = 0; i < A; i++) if (Math.min(T - 1, Math.floor(((i + 0.5) * T) / A)) === indice) n++;
+    return n;
+  }
+
+  // Mundos con grupos: respetar mínimo y máximo a distancia por tramo
+  prepararCuposGrupo(o, mult) {
+    const bd = BALANCE.distancia;
+    const planeados = o.pendientes.filter((g) => this.esDistancia(g.tipo || this.escenario.enemigo))
+      .reduce((s, g) => s + Math.round(g.cantidad * mult), 0);
+    o.minDistancia = this.valorPorNivel(bd.minPorTramo);
+    o.maxDistancia = this.valorPorNivel(bd.maxPorTramo);
+    o.faltanDistancia = Math.max(0, o.minDistancia - planeados);
+    o.salidosDistancia = 0;
+  }
+  ajustarTipoGrupo(o, tipo) {
+    if (this.esDistancia(tipo)) {
+      if (o.salidosDistancia >= o.maxDistancia || this.distanciaVivos() >= BALANCE.distancia.maxVivos) return 'normal';
+      o.salidosDistancia++;
+      return tipo;
+    }
+    if (o.faltanDistancia > 0 && this.distanciaVivos() < BALANCE.distancia.maxVivos) {
+      o.faltanDistancia--; o.salidosDistancia++;
+      return 'arquero';
+    }
+    return tipo;
+  }
+
   // Tipo de enemigo al azar según el nivel (BALANCE.isla.tiposDesde y pesos)
-  elegirTipoOleada() {
-    const tipos = this.escenario.tiposOleada || [this.escenario.enemigo];
+  elegirTipoOleada(clase) {
+    let tipos = this.escenario.tiposOleada || [this.escenario.enemigo];
+    if (clase) {
+      const filtrados = tipos.filter((t) => (clase === 'distancia') === this.esDistancia(t));
+      if (filtrados.length) tipos = filtrados;
+      else if (clase === 'distancia') tipos = ['arquero'];
+    }
     const pesos = BALANCE.isla.pesos;
     const total = tipos.reduce((s, t) => s + (pesos[t] || 1), 0);
     let r = this.rng() * total;

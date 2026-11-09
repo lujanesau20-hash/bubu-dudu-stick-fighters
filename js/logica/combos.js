@@ -74,7 +74,7 @@ const COMBOS = {
     });
     m.agregarProyectil(new Proyectil({
       duenio: j, tipo: 'corteVolador', x: j.x + j.dir * 50, y: j.y - j.alto * 0.5,
-      vx: j.dir * d.velocidad, radio: 62, danio: d.danio, vida: 1.4, perfora: true,
+      vx: j.dir * d.velocidad, radio: 62, danio: d.danio, vida: 1.4, perfora: true, empujon: true,
       empujeX: 520, empujeY: 320, color: d.color, chocaSuelo: false,
     }));
     m.emitir('sacudir', { fuerza: 9 });
@@ -94,7 +94,7 @@ const COMBOS = {
       },
     });
     m.agregarGolpe(new Golpe({
-      duenio: j, seguir: j, forma: 'circulo', offX: 0, offY: -j.alto / 2, r: d.radio, radial: true, area: true,
+      duenio: j, seguir: j, forma: 'circulo', offX: 0, offY: -j.alto / 2, r: d.radio, radial: true, area: true, empujon: true,
       intervalo: d.duracion / d.golpes, danio: d.danio, empujeX: 260, empujeY: 200,
       duracion: d.duracion, color: d.color,
     }));
@@ -115,7 +115,7 @@ const COMBOS = {
           jj.vy = 2400;
           if (jj.enSuelo) {
             m.agregarGolpe(new Golpe({
-              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true, area: true,
+              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true, area: true, empujon: true,
               danio: d.danio, empujeX: d.empuje, empujeY: 700, duracion: 0.12, color: d.color,
             }));
             jj.anim.sy = 0.5; jj.anim.sx = 1.5;

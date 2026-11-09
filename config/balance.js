@@ -20,17 +20,23 @@ const BALANCE = {
   habilidades: [
     { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 4,  bloqueo: 0.30 },
     { tecla: 'H2', nombre: 'Espada (tajo)',       mana: 4,  enfriamiento: 0, danio: 10, bloqueo: 0.35 },
-    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 2, danio: 30, bloqueo: 0 },
-    { tecla: 'H4', nombre: 'Onda de choque',      mana: 20, enfriamiento: 5, danio: 80, bloqueo: 0.35, area: true, radio: 250 },
+    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 30, bloqueo: 0 },               // antes 2 s
+    { tecla: 'H4', nombre: 'Onda de choque',      mana: 20, enfriamiento: 7, danio: 80, bloqueo: 0.35, area: true, radio: 250 }, // antes 5 s
   ],
 
   // ---------- 1-3. Combinaciones ----------
   // danio del Torbellino = daño TOTAL repartido entre sus golpes
   combos: [
     { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 28 },
-    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 6,  danio: 70, golpes: 6, area: true, radio: 135 },
-    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 10, danio: 160, area: true, radio: 520 },
+    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 70, golpes: 6, area: true, radio: 135 }, // antes 6 s
+    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 160, area: true, radio: 260 }, // antes 10 s; radio antes 520
   ],
+
+  // ---------- Empujón al golpear enemigos ----------
+  // H1 y H2: no aturden ni empujan (el enemigo puede seguir atacando).
+  // H3, H4 y los combos: no aturden; dan un empujón corto hacia atrás.
+  // Distancia del empujón = pasos x pasoPx (1 paso ≈ el ancho del personaje).
+  empujon: { pasos: 1.5, pasoPx: 40, velocidad: 700 },
 
   // ---------- Daño de área con caída por distancia ----------
   // Las habilidades de área hacen 100% al enemigo más cercano al centro y el daño
@@ -53,6 +59,7 @@ const BALANCE = {
   // ninja 9, espadachín 10; Gigante puño 18, pisotón 15, embestida 22).
   danioEnemigos: {
     normal: 4, arquero: 3, mago: 4, ninja: 4,
+    ave: 4,                   // ave voladora (bola de fuego recta)
     espadachin: 5,            // enemigo con espada (más alcance)
     gigante: { punio: 9, pisoton: 8, embestida: 11 },
     // Jefes de los niveles 2, 3 y 4
@@ -101,9 +108,35 @@ const BALANCE = {
     maxPorOleada: 15,
     maxVivos: 12,             // enemigos vivos a la vez (el resto de la oleada entra al ir muriendo)
     // Tipos de enemigo según el nivel (y su frecuencia relativa)
-    tiposDesde: { normal: 1, espadachin: 1, arquero: 3, ninja: 4, mago: 5 },
+    tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 4, mago: 5 }, // arqueros desde el nivel 1 (antes 3)
     pesos: { normal: 3, espadachin: 2, arquero: 1.5, ninja: 1.5, mago: 1 },
     anchoTramo: 1000,         // largo del mapa por tramo (px)
+  },
+
+  // ---------- Enemigos a distancia (arqueros y magos), en TODOS los mundos ----------
+  // Por tramo: entre min y max según el nivel dentro del mundo (1..10; después se usa el último valor).
+  // Cuentan dentro del máximo por oleada y de vivos a la vez.
+  distancia: {
+    tipos: ['arquero', 'mago'],
+    minPorTramo: [1, 1, 1, 1, 2, 2, 2, 2, 3, 3],
+    maxPorTramo: [3, 3, 3, 3, 4, 4, 4, 5, 5, 5],
+    maxVivos: 5,              // nunca más de 5 a distancia vivos a la vez
+  },
+
+  // ---------- Ave voladora (en TODOS los mundos) ----------
+  // Cantidad de aves en el nivel completo según el nivel dentro del mundo (1..10).
+  aves: {
+    porNivel: [1, 1, 1, 2, 2, 3, 3, 4, 4, 5],
+    alturaVuelo: 180,         // px sobre el suelo
+    velocidadBola: 420,       // la bola de fuego va recta hacia donde estaba el jugador
+  },
+
+  // ---------- Reentrada del invitado en línea ----------
+  reentrada: {
+    distanciaEsquina: 420,    // aparece a un costado de la pantalla, lejos del líder
+    alturaCaida: 480,         // cae desde arriba "como si reapareciera"
+    invulnerable: 2.5,        // segundos sin recibir daño al volver
+    vidaSiEstabaCaido: 0.3,   // si salió estando caído, vuelve con 30% de vida
   },
 
   // ---------- Mundos (se desbloquean en orden) ----------

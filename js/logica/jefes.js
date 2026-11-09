@@ -39,6 +39,7 @@ class Jefe extends Enemigo {
       }
       return;
     }
+    this.aplicarEmpuje(dt);
     if (!this.fase2 && this.vida < this.vidaMax * 0.5) {
       this.fase2 = true;
       m.emitir('banner', { texto: '¡FURIA!', sub: this.nombre, color: '#ff4d4d' });
@@ -58,8 +59,8 @@ class Jefe extends Enemigo {
     if (!this.vivo || this.estado === 'entrando' || this.estado === 'oculto') return false;
     this.vida -= cantidad;
     this.anim.flash = 1;
-    // Empuje muy pequeño (es enorme)
-    if (this.estado !== 'embestida') this.vx += (info.dirX || 1) * Math.min(120, (info.empujeX || 0) * 0.15);
+    // Mismo empujón corto que los demás enemigos (solo H3, H4 y combos); nunca queda "tieso"
+    if (info.empujon && this.estado !== 'embestida' && this.estado !== 'corte') this.empujar(info.dirX || 1);
     if (this.vida <= 0) {
       this.estado = 'muerto';
       this.vida = 0;

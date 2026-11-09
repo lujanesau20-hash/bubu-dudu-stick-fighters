@@ -100,7 +100,9 @@ const Menus = {
     pintar();
   },
 
+  // Menú de pausa de solitario y pareja local (ver js/ui/pausa.js)
   pausa() {
+    if (typeof Pausa !== 'undefined') { Pausa.menuLocal(); return; }
     this.mostrarHTML(`
       <div class="panel">
         <h2>Pausa</h2>

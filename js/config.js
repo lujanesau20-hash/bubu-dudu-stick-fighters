@@ -155,6 +155,9 @@ const CONFIG = {
     // Espadachín: como el normal pero con espada (más alcance y daño)
     espadachin: { nombre: 'Espadachín', color: '#e8590c', vida: 50, velocidad: 125, danio: 10,
       alcance: 92, preparacion: 0.5, ancho: 34, alto: 82, monedas: 4 },
+    // Ave voladora: vuela por arriba y lanza una bola de fuego recta hacia donde estaba el jugador
+    ave: { nombre: 'Ave de fuego', color: '#f76707', vida: 50, velocidad: 170, danio: 4, vuela: true,
+      alcance: 520, preparacion: 0.55, ancho: 40, alto: 46, monedas: 4 },
     ninja: { nombre: 'Ninja', color: '#5c677d', vida: 36, velocidad: 230, danio: 9,
       alcance: 64, preparacion: 0.25, ancho: 32, alto: 80, monedas: 5 },
   },

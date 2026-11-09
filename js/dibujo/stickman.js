@@ -110,6 +110,7 @@ function extremidad(ctx, x, y, angs, largo) {
 }
 
 function dibujarStickman(ctx, e, t) {
+  if (e.tipo === 'ave') { dibujarAve(ctx, e, t); return; }
   const esc = e.alto / 82;
   const muerto = e.estado === 'muerto';
   ctx.save();
@@ -290,5 +291,79 @@ function accesorioDelante(ctx, e, t, d) {
     ctx.beginPath(); ctx.moveTo(cx - 9, cy - 6); ctx.lineTo(cx - 22, cy - 9 + ondea); ctx.lineTo(cx - 21, cy - 3 + ondea); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(20,20,30,0.85)';
     ctx.fillRect(cx - 9, cy + 1, 19, 6);
+  }
+}
+
+/* ---------- Ave voladora (dibujada por código, con alas que aletean) ---------- */
+function dibujarAve(ctx, e, t) {
+  const muerto = e.estado === 'muerto';
+  const cy = e.y - e.alto / 2;
+  ctx.save();
+  // Sombra en el suelo (más chica cuanto más alto vuela)
+  if (!muerto) {
+    const alto = Math.max(0, e.mundo.sueloY - e.y);
+    const k = Math.max(0.3, 1 - alto / 400);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(e.x, e.mundo.sueloY, 20 * k, 5 * k, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.translate(e.x, cy);
+  if (muerto) {
+    ctx.rotate(e.dir * Math.min(1, e.tiempoMuerto / 0.4) * 2.4);
+    ctx.globalAlpha = Math.max(0, 1 - Math.max(0, e.tiempoMuerto - 0.7) / 0.7);
+  }
+  ctx.scale(e.dir, 1);
+  const color = e.anim.flash > 0.5 ? '#ffffff' : e.color;
+  const aleteo = muerto ? 0.2 : Math.sin(t * 14 + e.x * 0.01);
+  ctx.lineJoin = 'round';
+  // Alas (detrás y delante)
+  const ala = (desp, alfa) => {
+    ctx.save();
+    ctx.globalAlpha *= alfa;
+    ctx.fillStyle = color; ctx.strokeStyle = 'rgba(20,20,35,0.85)'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-4 + desp, -2);
+    ctx.lineTo(-22 + desp, -10 - aleteo * 20);
+    ctx.lineTo(-8 + desp, -4 - aleteo * 8);
+    ctx.lineTo(4 + desp, -14 - aleteo * 22);
+    ctx.lineTo(8 + desp, -2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  };
+  ala(4, 0.65);
+  // Cola de plumas
+  ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = 'rgba(20,20,35,0.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-14, 2); ctx.lineTo(-28, -4); ctx.lineTo(-26, 4); ctx.lineTo(-30, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Cuerpo y cabeza
+  ctx.fillStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(0, 2, 15, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(13, -6, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // Pico (brilla al preparar la bola de fuego) y ojo enojado
+  const prep = e.estado === 'preparar';
+  ctx.fillStyle = prep ? '#ffe066' : '#fab005';
+  if (prep) { ctx.shadowColor = '#ff922b'; ctx.shadowBlur = 14; }
+  ctx.beginPath(); ctx.moveTo(19, -8); ctx.lineTo(28, -5); ctx.lineTo(19, -2); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#1a1a2e';
+  if (!muerto) { ctx.fillRect(14, -9, 3, 3); ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(11, -12); ctx.lineTo(17, -10); ctx.stroke(); }
+  else { ctx.font = 'bold 8px Arial'; ctx.fillText('x', 13, -4); }
+  // Patitas
+  ctx.strokeStyle = '#fab005'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-3, 11); ctx.lineTo(-5, 18); ctx.moveTo(4, 11); ctx.lineTo(3, 18); ctx.stroke();
+  ala(-2, 1);
+  ctx.restore();
+  // Aviso "!" antes de lanzar
+  if (e.estado === 'preparar') {
+    ctx.save();
+    ctx.font = '900 26px Arial'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffdd33'; ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 4;
+    const by = cy - 30 - Math.abs(Math.sin(t * 16)) * 5;
+    ctx.strokeText('!', e.x, by); ctx.fillText('!', e.x, by);
+    ctx.restore();
+  }
+  // Vida pequeña si está herida
+  if (!muerto && e.vida < e.vidaMax) {
+    const w = 40, x = e.x - w / 2, y = cy - 26;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x - 1, y - 1, w + 2, 6);
+    ctx.fillStyle = '#ff5050'; ctx.fillRect(x, y, w * Math.max(0, e.vida / e.vidaMax), 4);
   }
 }

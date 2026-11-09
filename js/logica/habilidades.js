@@ -55,7 +55,7 @@ const HABILIDADES = {
       },
     });
     m.agregarGolpe(new Golpe({
-      duenio: j, seguir: j, offX: 0, offY: -j.alto / 2, w: j.ancho + 80, h: j.alto + 24,
+      duenio: j, seguir: j, offX: 0, offY: -j.alto / 2, w: j.ancho + 80, h: j.alto + 24, empujon: true,
       danio: h.danio, empujeX: h.empuje, empujeY: 260, duracion: h.duracion + 0.04, color: '#ffe066',
     }));
     m.emitir('dash', { jugador: j.indice, x: j.x, y: j.y - j.alto / 2, dir: j.dir });
@@ -78,7 +78,7 @@ const HABILIDADES = {
 
   explotarOnda(j, h, m) {
     m.agregarGolpe(new Golpe({
-      duenio: j, forma: 'circulo', x: j.x, y: j.y - 30, r: h.radio, radial: true, area: true,
+      duenio: j, forma: 'circulo', x: j.x, y: j.y - 30, r: h.radio, radial: true, area: true, empujon: true,
       danio: h.danio, empujeX: h.empuje, empujeY: 480, duracion: 0.1, color: '#9fd8ff',
     }));
     j.anim.sy = 0.55; j.anim.sx = 1.4;

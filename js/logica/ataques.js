@@ -19,6 +19,7 @@ class Golpe {
     this.empujeY = o.empujeY ?? 150;
     this.radial = !!o.radial;                 // empuja alejando desde el centro
     this.area = !!o.area;                     // daño de área: baja con la distancia (config/balance.js -> areaDanio)
+    this.empujon = !!o.empujon;               // empuja un poco al enemigo (H3, H4 y combos)
     this.intervalo = o.intervalo || 0;        // >0: puede volver a golpear al mismo objetivo
     this.tInterv = 0;
     this.golpeados = new Set();
@@ -73,7 +74,7 @@ class Golpe {
           danio = this.danio * (completo ? 1 : BALANCE.factorArea(distancias.get(obj) / this.r));
         }
         mundo.aplicarDanio(obj, danio, {
-          atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY,
+          atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
           x: obj.x, y: obj.y - obj.alto * 0.6, color: this.color,
         });
       }
@@ -101,6 +102,7 @@ class Proyectil {
     this.color = o.color || '#fff';
     this.escala = o.escala || 1;
     this.chocaSuelo = o.chocaSuelo ?? true;
+    this.empujon = !!o.empujon;               // empuja un poco al enemigo (combos)
     this.teledirigido = o.teledirigido || 0;   // >0: gira hacia el jugador más cercano (rad/s)
     this.alChocarSuelo = o.alChocarSuelo || null; // función (mundo, proyectil) al tocar el suelo
     this.golpeados = new Set();
@@ -140,7 +142,7 @@ class Proyectil {
       if (U.circuloRect(this.x, this.y, this.radio, U.rectDe(obj))) {
         this.golpeados.add(obj);
         mundo.aplicarDanio(obj, this.danio, {
-          atacante: this.duenio, dirX: U.signo(this.vx || 1), empujeX: this.empujeX, empujeY: this.empujeY,
+          atacante: this.duenio, dirX: U.signo(this.vx || 1), empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
           x: this.x, y: this.y, color: this.color,
         });
         if (!this.perfora) { this.vivo = false; return; }

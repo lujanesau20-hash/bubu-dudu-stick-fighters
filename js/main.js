@@ -27,6 +27,7 @@ const Juego = {
     window.addEventListener('touchstart', () => { this.esTactil = true; }, { once: true, passive: true });
     Guardado.cargar();
     Menus.init(this);
+    Pausa.init(this);
 
     window.addEventListener('resize', () => this.ajustarTamano());
     this.ajustarTamano();
@@ -109,8 +110,9 @@ const Juego = {
     if (this.estado !== 'jugando') return;
     this.estado = 'pausa';
     this.tactil.mostrar(false);
-    Menus.pausa();
-    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.avisarPausa(true);
+    // En línea, el líder pausa a los dos y espera los checks de "Reanudar"
+    if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) { EnLinea.iniciarPausa(); Pausa.menuLider(); }
+    else Pausa.menuLocal();
   },
 
   reanudar() {
@@ -132,8 +134,13 @@ const Juego = {
       else this.actualizarJuego(dt);
     }
     else if (this.estado === 'pausa') {
-      if (this.entrada.consumir(CONFIG.controles.generales.pausa)) this.reanudar();
+      if (this.entrada.consumir(CONFIG.controles.generales.pausa)) {
+        if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.marcarListo(0); // en línea: Esc = mi check de "Reanudar"
+        else this.reanudar();
+      }
     }
+    // Botón "Pausa" visible solo mientras se juega
+    Pausa.actualizarBoton(this.estado === 'jugando' && !!this.mundo && !(typeof EnLinea !== 'undefined' && EnLinea.esInvitado && EnLinea.pausadoPorAnfitrion));
 
     this.dibujar(dt);
     requestAnimationFrame((tt) => this.bucle(tt));

@@ -43,6 +43,7 @@ class Enemigo {
       return;
     }
     if (this.estado === 'entrando') {
+      if (this.cfg.vuela) { this.estado = 'perseguir'; return; } // las aves entran volando
       m.moverCuerpo(this, dt);
       if (this.enSuelo) {
         this.estado = 'perseguir';
@@ -57,9 +58,25 @@ class Enemigo {
       if (this.t <= 0 && this.enSuelo) this.estado = 'perseguir';
       return;
     }
+    this.aplicarEmpuje(dt);
     (IA_ENEMIGOS[this.tipo] || IA_ENEMIGOS.normal)(this, dt, m);
-    m.moverCuerpo(this, dt);
+    m.moverCuerpo(this, dt, !!this.cfg.vuela);
     if (Math.abs(this.vx) > 10) this.anim.fase += dt * Math.abs(this.vx) * 0.05;
+  }
+
+  // Empujón corto hacia atrás (config/balance.js -> empujon). No deja al enemigo "tieso".
+  empujar(dir) {
+    const b = typeof BALANCE !== 'undefined' ? BALANCE.empujon : { pasos: 1.5, pasoPx: 40 };
+    this.empuje = { dir: dir >= 0 ? 1 : -1, restante: b.pasos * b.pasoPx };
+  }
+
+  aplicarEmpuje(dt) {
+    if (!this.empuje) return;
+    const vel = typeof BALANCE !== 'undefined' ? BALANCE.empujon.velocidad : 700;
+    const paso = Math.min(this.empuje.restante, vel * dt);
+    this.x += this.empuje.dir * paso;
+    this.empuje.restante -= paso;
+    if (this.empuje.restante <= 0) this.empuje = null;
   }
 
   recibirDanio(cantidad, info) {
@@ -67,14 +84,9 @@ class Enemigo {
     const m = this.mundo;
     this.vida -= cantidad;
     this.anim.flash = 1;
-    if (!this.superArmadura) {
-      this.estado = 'aturdido';
-      this.t = 0.28 + Math.min(0.4, cantidad / 100);
-      this.vx = (info.dirX || 1) * (info.empujeX || 0);
-      this.vy = -(info.empujeY || 0);
-      this.enSuelo = false;
-      this.dir = -(info.dirX || 1);
-    }
+    // Los golpes ya no dejan al enemigo "tieso": sigue atacando enseguida.
+    // H3, H4 y los combos (info.empujon) le dan un empujón corto; H1 y H2 no lo empujan.
+    if (info.empujon) this.empujar(info.dirX || 1);
     if (this.vida <= 0) this.morir(info);
     return true;
   }

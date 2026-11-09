@@ -166,3 +166,47 @@ Object.assign(IA_ENEMIGOS, {
     IA_ENEMIGOS.normal(e, dt, m);
   },
 });
+
+// ---------------- AVE VOLADORA ----------------
+// Vuela a media altura, guarda distancia y lanza una bola de fuego en LÍNEA RECTA
+// hacia donde estaba el jugador al lanzarla (no lo persigue).
+IA_ENEMIGOS.ave = function (e, dt, m) {
+  const c = e.cfg;
+  const ba = BALANCE.aves;
+  e.ignorarPlataformasHasta = Infinity; // vuela: no se posa en las plataformas
+  // Mantener la altura de vuelo con un pequeño vaivén
+  const yObj = m.sueloY - ba.alturaVuelo + Math.sin(m.tiempo * 2.2 + e.anim.fase) * 14;
+  e.vy = U.clamp((yObj - e.y) * 3, -260, 260);
+  e.anim.fase += dt * 0.5;
+  const obj = m.jugadorMasCercano(e.x, e.y);
+  if (!obj) { e.vx = U.aproximar(e.vx, 0, 600 * dt); e.estado = 'perseguir'; return; }
+  const dx = obj.x - e.x, dist = Math.abs(dx);
+  switch (e.estado) {
+    case 'perseguir':
+      e.dir = dx > 0 ? 1 : -1;
+      mantenerDistancia(e, dt, dx, 200, 360, c.velocidad);
+      if (e.enfriamientoAtaque <= 0 && dist < c.alcance && Math.abs(e.y - yObj) < 60) { e.estado = 'preparar'; e.t = c.preparacion; }
+      break;
+    case 'preparar':
+      e.vx = U.aproximar(e.vx, 0, 1200 * dt);
+      e.dir = dx > 0 ? 1 : -1;
+      e.t -= dt;
+      if (e.t <= 0) {
+        // Apunta UNA vez, al lugar donde está el jugador ahora; luego va recta
+        const x0 = e.x + e.dir * 18, y0 = e.y - e.alto * 0.55;
+        const ang = Math.atan2((obj.y - obj.alto * 0.5) - y0, obj.x - x0);
+        m.agregarProyectil(new Proyectil({
+          duenio: e, tipo: 'bolaFuego', x: x0, y: y0, vx: Math.cos(ang) * ba.velocidadBola, vy: Math.sin(ang) * ba.velocidadBola,
+          radio: 13, danio: c.danio, vida: 3, empujeX: 160, empujeY: 120, color: '#ff922b',
+        }));
+        e.estado = 'atacar'; e.t = 0.3;
+        e.enfriamientoAtaque = m.rng.rango(2.4, 3.4);
+      }
+      break;
+    case 'atacar':
+      e.t -= dt;
+      if (e.t <= 0) e.estado = 'perseguir';
+      break;
+    default: e.estado = 'perseguir';
+  }
+};

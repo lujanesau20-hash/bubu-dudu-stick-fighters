@@ -113,21 +113,27 @@ const EnLinea = {
     this.conn = null;
     if (this.controlRemoto) this.controlRemoto.soltarTodo();
     if (Juego.mundo && this.enPartida && (Juego.estado === 'jugando' || Juego.estado === 'pausa' || Juego.estado === 'carga')) {
-      Juego.estado = 'pausa';
-      Juego.tactil.mostrar(false);
-      Menus.enLineaInvitadoDesconectado(this.codigo);
+      // El líder sigue jugando sin parar; Dudu queda fuera hasta que vuelva con el código
+      this.marcarAusente();
+      Menus.enLineaToast(`${getNombreJugador(Juego.mundo.jugadores[1])} salió. Puede volver con el código ${this.codigo}`, 4500);
+      if (Juego.estado === 'pausa') Pausa.menuLider(); // ahora el líder puede reanudar solo
     } else if (this.esAnfitrion) {
       Menus.enLineaEsperando(this.codigo, 'Dudu salió de la sala. Esperando a que vuelva a entrar…');
     }
   },
 
-  // "Seguir solo": Dudu queda fuera del juego hasta que vuelva
-  seguirSolo() {
+  // Dudu queda fuera del juego (guardando su vida) hasta que vuelva
+  marcarAusente() {
     const d = Juego.mundo && Juego.mundo.jugadores[1];
-    if (d && d.estado !== 'muerto') {
+    if (d && !d.ausente && d.estado !== 'muerto') {
       d.vidaGuardada = d.vida; d.estadoGuardado = d.estado;
       d.estado = 'muerto'; d.ausente = true; d.accion = null;
     }
+  },
+
+  // "Seguir solo" (se mantiene por compatibilidad)
+  seguirSolo() {
+    this.marcarAusente();
     Juego.reanudar();
   },
 
@@ -136,13 +142,20 @@ const EnLinea = {
     const m = Juego.mundo;
     const d = m.jugadores[1], b = m.jugadores[0];
     if (d && d.ausente) {
+      // Reaparece en una esquina de la pantalla (cayendo desde arriba) con la vida que tenía al salir
+      const br = BALANCE.reentrada;
       d.ausente = false;
-      d.estado = d.estadoGuardado === 'caido' ? 'caido' : 'normal';
-      d.vida = Math.max(1, d.vidaGuardada || d.vidaMax * 0.5);
-      d.x = b.x - 60 * b.dir; d.y = b.y - 200; d.vy = 0; d.invulnerable = 2;
+      d.estado = 'normal';
+      d.vida = d.estadoGuardado === 'caido' || !(d.vidaGuardada > 0) ? Math.round(d.vidaMax * br.vidaSiEstabaCaido) : d.vidaGuardada;
+      const lado = b.x - m.limiteIzq > br.distanciaEsquina ? -1 : 1;
+      d.x = U.clamp(b.x + lado * br.distanciaEsquina, m.limiteIzq + 40, m.limiteDer - 40);
+      d.y = m.sueloY - br.alturaCaida; d.vx = 0; d.vy = 0;
+      d.invulnerable = br.invulnerable;
+      m.emitir('teletransporte', { x: d.x, y: d.y, color: '#ff8fab' });
     }
     this.enviar({ t: 'inicio', modo: m.modo, personajes: ['bubu', 'dudu'], escenario: m.escenarioId, semilla: 1, nivel: m.nivel, reingreso: true });
-    if (Juego.estado === 'pausa') Juego.reanudar();
+    // Si el juego estaba en pausa, el invitado entra a la pausa (debe dar su check)
+    if (Juego.estado === 'pausa') { if (this.listos) this.listos[1] = false; this.avisarPausa(true); Pausa.menuLider(); }
     Menus.enLineaToast('¡Dudu volvió a la sala!');
   },
 
@@ -200,6 +213,7 @@ const EnLinea = {
     juego.camara.saltarA(m, juego.render.anchoBase);
     juego.finMostrado = true; // el fin lo avisa el anfitrión
     this.menuAbierto = false;
+    this.pausadoPorAnfitrion = false; // al (re)iniciar un nivel ya no hay pausa
     this.tEnvio = 0;
     this.mantenerPantalla();
     if (d.reingreso) { juego.estado = 'jugando'; Menus.ocultar(); juego.tactil.mostrar(juego.esTactil); return; }
@@ -218,7 +232,8 @@ const EnLinea = {
   actualizarInvitado(juego, dt) {
     if (juego.entrada.consumir(CONFIG.controles.generales.pausa) || juego.tactil.pausaPulsada) {
       juego.tactil.pausaPulsada = false;
-      if (!this.menuAbierto) { this.menuAbierto = true; Menus.enLineaMenuInvitado(); }
+      if (this.pausadoPorAnfitrion) { this.enviar({ t: 'listo' }); Pausa.menuInvitado([this.listosInvitado[0], true]); }
+      else Pausa.pulsar();
     }
     let c = juego.entrada.leer(1)[0];
     if (this.menuAbierto || this.pausadoPorAnfitrion) c = new EstadoControl();
@@ -265,6 +280,21 @@ const EnLinea = {
       case 'fin': this.finInvitado(d); break;
       case 'cerrar': this.salaCerrada('El anfitrión cerró la sala.'); break;
       // --- al anfitrión ---
+      case 'pausaEstado': // (al invitado) el juego se pausó o se reanudó
+        this.pausadoPorAnfitrion = d.on;
+        this.listosInvitado = d.listos || [false, false];
+        if (d.on) { Juego.tactil.mostrar(false); Pausa.menuInvitado(this.listosInvitado); }
+        else if (Juego.estado === 'jugando') { Menus.ocultar(); Juego.tactil.mostrar(Juego.esTactil); }
+        break;
+      case 'finalizar': // (al invitado) el líder terminó la partida
+        this.cerrar(true);
+        Juego.irAlMenu();
+        Menus.enLineaToast('El líder finalizó el juego');
+        break;
+      case 'pedirPausa': // (al líder) el invitado quiere pausar
+        if (this.esAnfitrion && Juego.estado === 'jugando' && Juego.mundo) Pausa.avisoSolicitud(getNombreJugador(Juego.mundo.jugadores[1]));
+        break;
+      case 'listo': this.marcarListo(1); break;
       case 'c': if (this.controlRemoto) this.controlRemoto.recibir(d); break;
       case 'adios': this.invitadoSeFue(); break;
     }
@@ -292,7 +322,29 @@ const EnLinea = {
   },
 
   // Avisos al otro cuando el anfitrión pausa o termina
-  avisarPausa(on) { if (this.esAnfitrion) this.enviar({ t: 'pausa', on }); },
+  avisarPausa(on) {
+    if (!this.esAnfitrion) return;
+    this.enviar({ t: 'pausaEstado', on, listos: this.listos || [false, false] });
+  },
+
+  // ---------- Pausa en línea con checks de "Reanudar" ----------
+  iniciarPausa() {
+    this.listos = [false, false];
+    this.avisarPausa(true);
+  },
+  marcarListo(i) {
+    if (!this.esAnfitrion || Juego.estado !== 'pausa' || !this.listos) return;
+    this.listos[i] = true;
+    const invitadoPresente = this.conectado && Juego.mundo && !Juego.mundo.jugadores[1].ausente;
+    if (this.listos[0] && (this.listos[1] || !invitadoPresente)) { Juego.reanudar(); return; } // reanudar() avisa al invitado
+    this.avisarPausa(true);
+    Pausa.menuLider();
+  },
+  // "Finalizar juego": manda a los dos al menú principal y cierra la sala
+  finalizar() {
+    this.enviar({ t: 'finalizar' });
+    setTimeout(() => { this.cerrar(true); Juego.irAlMenu(); }, 200);
+  },
   avisarFin(tipo, monedas) { if (this.esAnfitrion) { this.enPartida = false; this.enviar({ t: 'fin', tipo, monedas, escenario: Juego.mundo && Juego.mundo.escenarioId }); } },
   volverAlLobby() { this.enPartida = false; this.enviar({ t: 'lobby' }); Menus.enLineaConectado(); },
 

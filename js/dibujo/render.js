@@ -166,6 +166,20 @@ class Render {
         ctx.beginPath(); ctx.arc(p.radio * 0.3, 0, p.radio * 0.55, 0, Math.PI * 2); ctx.fill();
         break;
       }
+      case 'bolaFuego': {
+        // Bola de fuego del ave: va recta (sin seguir al jugador)
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        const gc = ctx.createLinearGradient(-46, 0, 0, 0);
+        gc.addColorStop(0, 'rgba(255,107,0,0)'); gc.addColorStop(1, 'rgba(255,170,60,0.85)');
+        ctx.fillStyle = gc;
+        ctx.beginPath(); ctx.moveTo(-46, 0); ctx.lineTo(0, -p.radio * 0.9); ctx.lineTo(0, p.radio * 0.9); ctx.closePath(); ctx.fill();
+        ctx.shadowColor = '#ff6b00'; ctx.shadowBlur = 18;
+        ctx.fillStyle = '#ff6b00';
+        ctx.beginPath(); ctx.arc(0, 0, p.radio, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffe066';
+        ctx.beginPath(); ctx.arc(2, 0, p.radio * 0.55, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
       case 'shuriken': {
         ctx.rotate(p.rot * 1.5);
         ctx.fillStyle = '#ced4da'; ctx.strokeStyle = '#343a40'; ctx.lineWidth = 1.5;
