@@ -8,7 +8,11 @@ const U = {
     const m = ctx.getTransform();
     const a = m.a || 1;
     const x1 = (0 - m.e) / a, x2 = (ctx.canvas.width - m.e) / a;
-    return { izq: Math.min(x1, x2) - margen, der: Math.max(x1, x2) + margen };
+    // Se reutiliza un objeto por margen (se llama en cada cuadro)
+    const cache = this._rangos || (this._rangos = {});
+    const r = cache[margen] || (cache[margen] = { izq: 0, der: 0 });
+    r.izq = Math.min(x1, x2) - margen; r.der = Math.max(x1, x2) + margen;
+    return r;
   },
   visibleX(v, x, ancho = 0) { return x + ancho >= v.izq && x - ancho <= v.der; },
 

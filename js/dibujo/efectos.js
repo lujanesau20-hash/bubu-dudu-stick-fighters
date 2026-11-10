@@ -82,11 +82,12 @@ class Efectos {
   cant(n) { return Math.max(1, Math.round(n * this.limites().factorParticulas * this.calidad().factorParticulas)); }
 
   // Desglose para el panel de depuración
-  desglose() {
+  desglose(d = {}) {
     let numeros = 0;
     for (const t of this.textos) if (t.quien != null) numeros++;
-    return { particulas: this.particulas.length, numerosDanio: numeros, otrosTextos: this.textos.length - numeros,
-      area: this.anillos.length + this.arcos.length, carteles: this.banners.length };
+    d.particulas = this.particulas.length; d.numerosDanio = numeros; d.otrosTextos = this.textos.length - numeros;
+    d.area = this.anillos.length + this.arcos.length; d.carteles = this.banners.length;
+    return d;
   }
 
   // Partícula nueva (reutiliza una del pool). En el tope, se descarta la partícula más vieja.

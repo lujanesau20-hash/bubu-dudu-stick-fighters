@@ -17,7 +17,8 @@ const Cuadros = {
   cargarImagen(src) {
     return new Promise((ok) => {
       const img = new Image();
-      img.onload = () => ok(img);
+      // Se decodifica al cargar (no la primera vez que se dibuja en el juego)
+      img.onload = () => { if (img.decode) img.decode().then(() => ok(img), () => ok(img)); else ok(img); };
       img.onerror = () => ok(null);
       img.src = src;
     });

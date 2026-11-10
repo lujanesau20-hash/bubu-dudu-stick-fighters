@@ -32,6 +32,16 @@ const RED_CONFIG = {
   estadosPorSegundo: 20,        // anfitrión -> invitado (antes 25, pero en la práctica salían ~20 irregulares)
   retrasoInterpolacion: 100,    // ms de "colchón" para dibujar suave al invitado (antes 110)
 
+  // Predicción del personaje del invitado (su propio Dudu en su pantalla)
+  prediccion: {
+    pasosFijos: true,           // física en pasos de 1/60 s, igual que el líder (antes: tiempo variable de cada cuadro)
+    maxPasosPorCuadro: 5,       // si un cuadro se atrasa mucho, como mucho 5 pasos (como el líder)
+    suavizado: 10,              // rapidez con que se aplica la corrección del líder (por segundo)
+    zonaMuertaPx: 2,            // diferencias menores no se corrigen
+    toleranciaSueloPx: 12,      // parado en el suelo o una plataforma: diferencias de altura menores no se corrigen
+    saltoDirectoPx: { x: 220, y: 260 }, // diferencia mayor: se coloca directo en la posición del líder
+  },
+
   // Si el líder va lento (pocos FPS, p. ej. un celular), envía menos snapshots
   liderLento: { fpsMinimo: 40, estadosPorSegundo: 15, segundosParaCambiar: 2 },
 

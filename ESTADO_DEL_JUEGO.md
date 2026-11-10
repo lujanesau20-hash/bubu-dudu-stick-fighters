@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: menos efectos y calidad automática, texto del tramo más grande en celular y monedas quietas en el suelo; ver la sección 14). **Versión actual: `2026.11.10-3`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: cuadros iguales en los dos lados, pantalla completa, menos tirones en celular y plataformas en línea; ver la sección 15). **Versión actual: `2026.11.10-5`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -659,7 +659,7 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-3`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-5`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
@@ -813,3 +813,47 @@ Los refuerzos de la pelea con el jefe dan 1 moneda cada uno (antes 3 a 5); cuán
 - **Celular (horizontal, pestaña privada):** el panel debe decir "versión 2026.11.10-3" y "Calidad: alta (automática) · tope de efectos 120 (celular)". Lanzar Cataclismo entre muchos enemigos: se ven los anillos y el destello, con menos chispas, y un número de daño por enemigo. El texto "Nivel 1 · Tramo X/7" se ve el doble de grande, debajo de las monedas. Las monedas quedan en el suelo: hay que acercarse para tomarlas; a los 7 s parpadean y a los 10 s desaparecen.
 - **Laptop (F3):** "tope de efectos 300 (laptop)". El tramo queda del tamaño de antes. En una laptop lenta, la calidad pasa sola a "media" o "baja" y vuelve a "alta" cuando mejora.
 - **Pareja / en línea:** la moneda es para el primero que la toque; en línea el invitado ve las mismas monedas y su parpadeo. Cada dispositivo muestra su propia calidad en el panel.
+
+## 15. Cuadros iguales en los dos lados, pantalla completa, menos tirones y plataformas en línea
+
+Versión `2026.11.10-5`. Respaldo: etiqueta de git `respaldo-antes-pantalla-completa-plataformas`. No cambiaron el daño, el balance, los controles, la tienda, los mundos, los niveles ni las monedas. Tampoco las alturas de salto, las velocidades ni la gravedad.
+
+### 1. Cuadros de enfriamiento (`config/interfaz.js` → `habilidades`, `js/ui/hud.js`)
+- Escalas: **celular 4.0 → 2.6** (65%) y **laptop 2.2 → 1.76** (80%).
+- **Por qué el jugador 1 se veía más grande:** cada lado buscaba por su cuenta el tamaño que cabía. El jugador 2 tiene encima los botones táctiles (y en pareja el texto del centro), así que se achicaba solo (por ejemplo, 4.0 a la izquierda y 3.2 a la derecha).
+- **Arreglo:** se busca el tamaño que cabe en cada lado y se usa **el menor para los dos**. Medido: celular 42 px y 42 px; laptop 56 px y 56 px.
+- El acomodo se guarda y solo se recalcula si cambia la pantalla o algún obstáculo (como mucho una vez por segundo). Siguen sin tapar las barras, las monedas, el texto del tramo, la Pausa, el icono de pantalla completa, el joystick ni los botones.
+
+### 2. Pantalla completa (`js/ui/pausa.js` → `PantallaCompleta`, `config/interfaz.js` → `pantallaCompleta`)
+- **Icono pequeño** debajo del botón "Pausa" (34 px en celular, 28 px en laptop, opacidad 0,6); solo se ve mientras se juega.
+- **Botón** "Pantalla completa" / "Salir de pantalla completa" en los tres menús de pausa (solitario/pareja, líder e invitado). El texto cambia solo.
+- **Tecla F** en laptop (no actúa mientras se escribe un código). Aparece en "Cómo jugar" (tablas de PC y de celular).
+- Si el navegador no la permite (por ejemplo, iPhone), **no se muestran** el icono ni el botón, y la tecla F avisa "Este navegador no permite pantalla completa".
+- En celular, al entrar intenta fijar la pantalla en **horizontal** (`bloquearHorizontal: true`), si el navegador lo permite.
+- El botón de pantalla completa del menú principal usa este mismo código.
+
+### 3. Tirones en celular
+- **Lienzo:** `config/interfaz.js` → `lienzo: { dprMax: 2, anchoMaxCelular: 1280, anchoMaxLaptop: 0 }`. En un celular de 844×390 con devicePixelRatio 3: **antes 1688×780 (1,3 millones de píxeles), ahora 1280×591 (0,76 millones; 42% menos)**. El CSS lo estira a la pantalla. El HUD se calcula con el alto del lienzo, así que los textos y los cuadros se ven del mismo tamaño (probado: legibles). En laptop no cambia.
+- **Registro de atrasos** (`config/interfaz.js` → `rendimiento`): con `PerformanceObserver` de "longtask" se guarda cada bloqueo de 50 ms o más. Donde no existe (por ejemplo, iPhone) se usa el temporizador del panel. También se guarda cada cuadro que tarda 100 ms o más ("cuadro"), aunque no sea culpa del código. De cada atraso se guardan la hora, los ms, la memoria de JavaScript (si el navegador la da) y si en ese momento se dibujó **por primera vez** una hoja o un destello. Se ve en el panel ("PEOR MOMENTO": cantidad y el mayor) y al final de "Copiar registro", junto con el tamaño del lienzo y la calidad.
+- **Precarga:** cada hoja se **decodifica** al cargar (`img.decode`) y se dibuja una vez en el lienzo del juego (la sube a la tarjeta gráfica). Además se preparan los **destellos** de "herido" (blanco y rojo) y la **estela del dash**, que antes se creaban la primera vez que pasaban, en plena pelea (12 lienzos, ~270 ms dentro de la pantalla de carga).
+- **Objetos nuevos en cada cuadro — corregidos:** listas de enemigos, proyectiles, golpes, monedas y corazones (ahora se limpian en la misma lista); el objeto de ropa equipada del dibujo; el rango visible de la cámara; el cuadro de animación de cada jugador; el desglose del panel; la lista de obstáculos, el acomodo y los anchos de texto del HUD.
+- **Objetos nuevos en cada cuadro — quedan** (cambiarlos tocaría controles o golpes): la lectura de controles (un `EstadoControl` y su lista de habilidades por jugador y por paso), `objetivosDe` (una lista por golpe activo), `jugadores.filter` en la separación de la pareja y en las oleadas, el objeto que elige la animación de cada jugador y los textos del HUD. Son pocos y pequeños.
+
+### 4. Plataformas en celular (`js/red/sincronizacion.js`, `config/red.js` → `prediccion`)
+- **Diagnóstico** con una simulación del líder y el invitado (ping de 60 a 200 ms, cuadros de celular de 16 a 130 ms, salto doble a una plataforma):
+  - **Solitario y pareja local en celular: no pasa.** El juego ya calcula en pasos fijos de 1/60 s (como mucho 5 por cuadro) y detecta el cruce de la plataforma desde arriba aunque el cuadro se atrase.
+  - **En línea, como invitado: sí pasa.** El líder lo tenía sobre la plataforma, pero en el celular del invitado quedaba hasta ~155 px más abajo, subía y volvía a caer.
+  - **Causa principal (b):** la corrección del invitado con la posición del líder movía a Dudu poco a poco hacia arriba mientras su gravedad lo bajaba. Quedaba justo bajo el borde y la plataforma ya no lo detectaba, así que caía y se repetía. Probado: arreglando solo esto, ya queda bien.
+  - **Causa secundaria (a):** la predicción del invitado usaba el tiempo variable de cada cuadro (el líder usa pasos fijos), así que su salto salía distinto y a veces no llegaba a la plataforma.
+- **Arreglo:**
+  - La predicción del invitado usa **pasos fijos de 1/60 s** con acumulador (como mucho 5 por cuadro), igual que el líder.
+  - La corrección es **suave y con tolerancia:** si los dos dicen "parado" y la diferencia de altura es menor que `toleranciaSueloPx` (12 px), no se corrige ni cambia "sobre el suelo".
+  - Una corrección nunca hunde al personaje bajo una plataforma.
+  - Si el líder lo tiene parado en una plataforma o el suelo y aquí está a menos de 12 px bajando, queda parado ahí.
+- Resultado en la simulación: **0 cuadros debajo de la plataforma** en todos los casos (antes, todos los cuadros medidos).
+- Valores nuevos en `config/red.js` → `prediccion`: `pasosFijos: true`, `maxPasosPorCuadro: 5`, `suavizado: 10`, `zonaMuertaPx: 2`, `toleranciaSueloPx: 12`, `saltoDirectoPx: { x: 220, y: 260 }`. Los últimos tres ya existían como números en el código.
+
+### Cómo probar
+- **Celular (horizontal, pestaña privada):** el panel (5 toques arriba a la izquierda) debe decir "versión 2026.11.10-5" y "Lienzo 1280×…". Los cuadros de Bubu y de Dudu deben medir lo mismo. Tocar el icono pequeño debajo de "Pausa": entra en pantalla completa y queda en horizontal; en el menú de pausa, "Salir de pantalla completa". En iPhone no aparecen el icono ni el botón.
+- **Laptop:** F entra y sale de pantalla completa (también después de salir con Esc). "Cómo jugar" muestra la tecla F. Lienzo igual que antes.
+- **En línea (invitado en celular):** subir con doble salto a una plataforma y quedarse quieto: no debe subir y caer. Tras jugar, "Copiar registro" incluye la lista de atrasos con su hora, memoria y "primera vez".

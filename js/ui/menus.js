@@ -210,6 +210,7 @@ Object.assign(Menus, {
           ${fila('Habilidades H1 · H2 · H3 · H4', m.habilidades.map(teclasTexto).join(' · '))}
           ${revivir ? fila('Revivir al compañero (mantener)', teclasTexto(m.revivir)) : ''}
           ${fila('Pausa', teclasTexto(c.generales.pausa))}
+          ${fila('Pantalla completa (entrar / salir)', teclasTexto([CONFIG.interfaz.pantallaCompleta.tecla]))}
         </tbody></table>`;
       cuerpo = tabla('PC · un jugador', c.solo, false) + tabla('PC · Jugador 1 (dos en el teclado)', c.j1) + tabla('PC · Jugador 2', c.j2) + `
         <h3>Celular</h3>
@@ -219,6 +220,7 @@ Object.assign(Menus, {
           <tr><td>Habilidades</td><td>Botones H1 a H4 alrededor del salto</td></tr>
           <tr><td>Combinaciones</td><td>Desliza el dedo de un botón al vecino sin soltar</td></tr>
           <tr><td>Revivir</td><td>Mantén el botón ♥ que aparece junto al compañero caído</td></tr>
+          <tr><td>Pantalla completa</td><td>Icono pequeño debajo de "Pausa" o botón en el menú de pausa</td></tr>
         </tbody></table>`;
     }
     if (pestana === 'habilidades') {
@@ -294,7 +296,9 @@ Object.assign(Menus, {
   },
 });
 
+// Entra o sale de pantalla completa (ver PantallaCompleta en js/ui/pausa.js)
 function pantallaCompleta() {
+  if (typeof PantallaCompleta !== 'undefined') { PantallaCompleta.alternar(); return; }
   const el = document.documentElement;
   if (!document.fullscreenElement) {
     (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);

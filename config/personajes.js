@@ -73,6 +73,8 @@ const PERSONAJES = {
   // Dibuja un cuadro de una hoja (coordenadas guardadas en tamaño original; la hoja de celular es más chica)
   dibujarCuadro(ctx, hoja, c, x, y, w, h) {
     const f = hoja.cfg.factorImagen || 1;
+    // Primera vez que se dibuja esta hoja (para el registro de atrasos del panel)
+    if (!hoja._dibujada) { hoja._dibujada = true; if (typeof Depuracion !== 'undefined') Depuracion.primeraVez('hoja ' + hoja.cfg.archivo.split('/').pop()); }
     ctx.drawImage(hoja.img, c.x * f, c.y * f, c.w * f, c.h * f, x, y, w, h);
   },
 

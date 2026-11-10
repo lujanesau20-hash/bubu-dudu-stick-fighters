@@ -6,8 +6,9 @@
 CONFIG.interfaz = {
   // Indicadores de habilidades y combos debajo de las barras (no los botones táctiles)
   habilidades: {
-    escalaCelular: 4.0,    // celular (con controles táctiles): el doble de la versión 2026.11.09 (antes 2.0)
-    escalaLaptop: 2.2,     // laptop / PC: el doble de antes (antes 1.1)
+    escalaCelular: 2.6,    // celular (con controles táctiles): 65% de la escala anterior (antes 4.0)
+    escalaLaptop: 1.76,    // laptop / PC: 80% de la escala anterior (antes 2.2)
+    // Los dos jugadores usan SIEMPRE la misma escala: si un lado no cabe, se achican los dos por igual.
     opacidad: 0.8,         // 80%: dejan ver el juego detrás (sin desenfoque); usar entre 0.75 y 0.85
     contorno: 1.5,         // grosor del contorno oscuro de cada ícono (px)
     // Si no caben sin tapar el joystick, los botones, las monedas/nivel o la Pausa,
@@ -24,6 +25,15 @@ CONFIG.interfaz = {
     margen: 6,                // separación de los bordes de la pantalla
     opacidad: 0.85,
     apartarHudJugador2: true, // corre a la izquierda la barra del jugador 2 para que el botón no tape su retrato
+  },
+
+  // Pantalla completa: icono debajo del botón "Pausa", botón en el menú de pausa y tecla F
+  pantallaCompleta: {
+    icono: { celular: 34, laptop: 28 }, // lado del icono (px de pantalla)
+    separacion: 6,            // px entre el botón "Pausa" y el icono
+    opacidad: 0.6,            // discreto
+    tecla: 'KeyF',            // laptop: F para entrar y salir
+    bloquearHorizontal: true, // celular: al entrar, intenta dejar la pantalla fija en horizontal
   },
 
   // Aviso al líder "[nombre] quiere pausar" (en línea)
@@ -46,6 +56,21 @@ CONFIG.interfaz = {
     //   Al llegar al tope se descartan primero las partículas más viejas y luego los textos menos
     //   importantes. Los anillos, ondas y carteles de las habilidades nunca se descartan.
     juntarDanioMs: 150,      // los golpes al mismo enemigo dentro de este tiempo muestran UN número con el total
+  },
+
+  // Resolución interna del lienzo del juego (se escala con CSS a la pantalla)
+  lienzo: {
+    dprMax: 2,                // nunca más de 2 píxeles reales por píxel de pantalla
+    anchoMaxCelular: 1280,    // celular: ancho interno máximo (misma proporción). 0 = sin límite
+    anchoMaxLaptop: 0,        // laptop / PC: sin límite (como antes)
+  },
+
+  // Registro de atrasos (panel de depuración y "Copiar registro")
+  rendimiento: {
+    umbralAtrasoMs: 50,       // se guarda cada bloqueo de al menos esto
+    cuadroLargoMs: 100,       // y cada cuadro que tarde al menos esto (aunque no sea culpa del código)
+    maxAtrasos: 60,           // últimos atrasos guardados
+    ventanaPrimeraVezMs: 150, // "primera vez" cuenta si una imagen se dibujó por primera vez en este margen
   },
 
   // Calidad automática (cada dispositivo decide la suya; también en línea)

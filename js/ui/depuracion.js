@@ -28,6 +28,7 @@ const Depuracion = {
 
   init() {
     this.crearBotonCopiar();
+    this.observarAtrasos();
     const cfg = RED_CONFIG.depuracion;
     window.addEventListener('keydown', (e) => {
       if (e.code === cfg.tecla) { e.preventDefault(); this.alternar(); }
@@ -46,9 +47,56 @@ const Depuracion = {
     let esperado = performance.now() + 50;
     setInterval(() => {
       const ahora = performance.now();
-      this._bloq = Math.max(this._bloq, ahora - esperado);
+      const tarde = ahora - esperado;
+      this._bloq = Math.max(this._bloq, tarde);
+      // Sin PerformanceObserver de "longtask" (por ejemplo iPhone): se usa este temporizador
+      if (!this.fuenteAtrasos && tarde >= CONFIG.interfaz.rendimiento.umbralAtrasoMs && !document.hidden) this.registrarAtraso(esperado - 50, tarde + 50, 'temporizador');
       esperado = ahora + 50;
     }, 50);
+  },
+
+  // ---------- Registro de atrasos (bloqueos de más de 50 ms) ----------
+  // Cada uno con su hora, la memoria de JavaScript (si el navegador la da) y si en ese
+  // momento se dibujó por primera vez una imagen o un destello.
+  observarAtrasos() {
+    this.atrasos = [];
+    this._primeras = [];
+    try {
+      if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).includes('longtask')) {
+        new PerformanceObserver((lista) => {
+          for (const e of lista.getEntries()) this.registrarAtraso(e.startTime, e.duration, 'longtask');
+        }).observe({ type: 'longtask', buffered: true });
+        this.fuenteAtrasos = 'longtask';
+      }
+    } catch (e) { this.fuenteAtrasos = null; }
+  },
+  // Lo llaman las hojas y los destellos al dibujarse por primera vez
+  primeraVez(nombre) {
+    this._primeras.push({ t: performance.now(), nombre });
+    if (this._primeras.length > 40) this._primeras.shift();
+  },
+  registrarAtraso(inicio, ms, fuente) {
+    const c = CONFIG.interfaz.rendimiento;
+    const seg = Math.max(0, (inicio - this._inicio) / 1000);
+    const hora = `${String(Math.floor(seg / 60)).padStart(2, '0')}:${(seg % 60).toFixed(1).padStart(4, '0')}`;
+    const mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null;
+    const primeras = this._primeras.filter((p) => p.t >= inicio - c.ventanaPrimeraVezMs && p.t <= inicio + ms + c.ventanaPrimeraVezMs).map((p) => p.nombre);
+    const a = { hora, ms: Math.round(ms), fuente, memoriaMB: mem, primeraVez: primeras.join(', '), jugando: this.jugando() };
+    this.atrasos.push(a);
+    if (this.atrasos.length > c.maxAtrasos) this.atrasos.shift();
+    if (this.peor && a.jugando && this.peor.mundo === Juego.mundo) {
+      const p = this.peor;
+      p.atrasos = (p.atrasos || 0) + 1;
+      if (!p.atrasoMax || a.ms > p.atrasoMax.ms) p.atrasoMax = a;
+    }
+  },
+  textoAtraso(a) {
+    return `${a.hora} · ${a.ms} ms (${a.fuente})` + (a.memoriaMB != null ? ` · memoria ${a.memoriaMB} MB` : '') + (a.primeraVez ? ` · primera vez: ${a.primeraVez}` : '');
+  },
+  // Tamaño del lienzo y de la pantalla (para el panel y el registro)
+  textoLienzo() {
+    const l = document.getElementById('lienzo');
+    return `Lienzo ${l ? l.width + '×' + l.height : '?'} · pantalla ${window.innerWidth}×${window.innerHeight} · devicePixelRatio ${Math.round((window.devicePixelRatio || 1) * 100) / 100}`;
   },
 
   alternar() {
@@ -87,8 +135,12 @@ const Depuracion = {
     const lineas = [
       `Bubu & Dudu - registro de conexion - version ${VERSION_JUEGO}` + (EL && EL.versionOtro ? ` (la otra persona: ${EL.versionOtro})` : ''),
       `Equipo: ${PERSONAJES.esCelular() ? 'celular' : 'laptop/PC'} · ${navigator.userAgent}`,
+      this.textoLienzo() + (typeof Calidad !== 'undefined' ? ` · calidad ${Calidad.nombre()}` : ''),
       cab.join('\t'),
       ...this.registro.map((f) => f.join('\t')),
+      '',
+      `Atrasos de ${CONFIG.interfaz.rendimiento.umbralAtrasoMs} ms o más (fuente: ${this.fuenteAtrasos || 'temporizador'}; "cuadro" = tiempo entre dos cuadros dibujados):`,
+      ...(this.atrasos.length ? this.atrasos.map((a) => this.textoAtraso(a)) : ['(ninguno)']),
     ];
     return lineas.join('\n');
   },
@@ -130,7 +182,7 @@ const Depuracion = {
   // Animaciones activas por tipo: { particulas, numerosDanio, otrosTextos, area, carteles, monedas, proyectiles, enemigos, total }
   animaciones() {
     const ef = typeof Juego !== 'undefined' && Juego.efectos, m = typeof Juego !== 'undefined' && Juego.mundo;
-    const d = ef ? ef.desglose() : { particulas: 0, numerosDanio: 0, otrosTextos: 0, area: 0, carteles: 0 };
+    const d = ef ? ef.desglose(this._desglose || (this._desglose = {})) : { particulas: 0, numerosDanio: 0, otrosTextos: 0, area: 0, carteles: 0 };
     d.monedas = m ? m.monedas.length : 0;
     d.corazones = m && m.corazones ? m.corazones.length : 0;
     d.proyectiles = m ? m.proyectiles.length : 0;
@@ -163,8 +215,9 @@ const Depuracion = {
     }
     // Pico de animaciones activas en esta partida (con su desglose)
     const a = this.animaciones();
-    if (a.total > (p.animMax ? p.animMax.total : 0)) p.animMax = a;
+    if (a.total > (p.animMax ? p.animMax.total : 0)) p.animMax = Object.assign({}, a); // copia solo al haber un máximo nuevo
     p.colaMax = Math.max(p.colaMax, this.colaActual());
+    if (this._seguido && dt >= CONFIG.interfaz.rendimiento.cuadroLargoMs && !document.hidden) this.registrarAtraso(ahora - dt, dt, 'cuadro');
     this._seguido = true;
   },
 
@@ -276,6 +329,7 @@ const Depuracion = {
     const rend = [
       ['— RENDIMIENTO (prom / máx por cuadro) —'],
       [`FPS: ${this.fps}`],
+      [this.textoLienzo()],
       [`Simulación: ${t('sim')} ms`],
       [`Dibujo: ${t('dibujo')} ms`],
       [`Armado y envío de snapshots: ${t('red')} ms`],
@@ -305,6 +359,8 @@ const Depuracion = {
         rend.push(...lineas(p.animMax));
       }
       rend.push([`Bloqueo máximo del hilo: ${p.bloqueoMax} ms`]);
+      rend.push([`Atrasos ≥${CONFIG.interfaz.rendimiento.umbralAtrasoMs} ms: ${p.atrasos || 0} (${this.fuenteAtrasos || 'temporizador'})`, (p.atrasos || 0) > 0]);
+      if (p.atrasoMax) rend.push(['  mayor: ' + this.textoAtraso(p.atrasoMax), true]);
       rend.push([`Snapshot más grande: ${p.snapMaxBytes} bytes`, p.snapMaxBytes > avisoBytes]);
       rend.push([`Mínimo snapshots/s: ${p.snapsMinPorSeg != null ? p.snapsMinPorSeg : '—'}`]);
       rend.push([`Cola máxima: ${p.colaMax} bytes`]);

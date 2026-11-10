@@ -152,13 +152,20 @@ class Mundo {
     if (this.modo === 'pareja') this.limitarSeparacion();
 
     for (const e of this.enemigos) e.actualizar(dt);
-    this.enemigos = this.enemigos.filter((e) => !e.borrar);
+    // Se quitan los terminados en la MISMA lista (antes se creaba una lista nueva en cada paso)
+    let k = 0;
+    for (const e of this.enemigos) if (!e.borrar) this.enemigos[k++] = e;
+    this.enemigos.length = k;
     if (this.jefe) this.jefe.actualizar(dt);
 
     for (const p of this.proyectiles) p.actualizar(dt, this);
-    this.proyectiles = this.proyectiles.filter((p) => p.vivo);
+    k = 0;
+    for (const p of this.proyectiles) if (p.vivo) this.proyectiles[k++] = p;
+    this.proyectiles.length = k;
     for (const g of this.golpes) g.actualizar(dt, this);
-    this.golpes = this.golpes.filter((g) => g.vivo);
+    k = 0;
+    for (const g of this.golpes) if (g.vivo) this.golpes[k++] = g;
+    this.golpes.length = k;
 
     this.actualizarMonedas(dt);
     this.actualizarCorazones(dt);
@@ -258,7 +265,9 @@ class Mundo {
       }
     }
     // Las del suelo desaparecen a los "duracionMonedaSuelo" segundos
-    this.monedas = this.monedas.filter((c) => !c.recogida && (c.iman || c.t < bm.duracionMonedaSuelo));
+    let k = 0;
+    for (const c of this.monedas) if (!c.recogida && (c.iman || c.t < bm.duracionMonedaSuelo)) this.monedas[k++] = c;
+    this.monedas.length = k;
   }
 
   // ---------- Corazones de curación (config/balance.js -> corazones) ----------
@@ -291,7 +300,9 @@ class Mundo {
         this.emitir('curar', { jugador: j.indice, x: c.x, y: c.y - 20, cantidad: Math.round(j.vida - antes) });
       }
     }
-    this.corazones = this.corazones.filter((c) => !c.tomado && c.t < bc.duracion);
+    let k = 0;
+    for (const c of this.corazones) if (!c.tomado && c.t < bc.duracion) this.corazones[k++] = c;
+    this.corazones.length = k;
   }
 
   // Al limpiar un tramo, cada jugador vivo recupera parte de su vida (config/balance.js -> jugador.curaPorTramo)

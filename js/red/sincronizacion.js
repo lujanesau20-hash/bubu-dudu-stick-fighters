@@ -297,35 +297,88 @@ const Sincro = {
       j.y += (ultimo.y - j.y) * Math.min(1, dt * 15);
       j.enSuelo = ultimo.suelo; j.vx = ultimo.vx; j.vy = ultimo.vy; j.saltosAire = ultimo.saltosAire;
       this.historial.length = 0;
-      this.correccion = { x: 0, y: 0 };
+      this.correccion.x = 0; this.correccion.y = 0;
+      this.acumLocal = 0; this.saltoPendiente = false; this.sueloLider = null;
       return;
     }
+    const cp = RED_CONFIG.prediccion;
+    if (cp.pasosFijos) {
+      // Física en pasos fijos de 1/60 s, igual que el líder: el salto y la caída salen
+      // iguales aunque un cuadro del celular se atrase (antes usaba el tiempo del cuadro).
+      if (c.saltoPulsado) this.saltoPendiente = true;
+      this.acumLocal = Math.min((this.acumLocal || 0) + dt, PASO * cp.maxPasosPorCuadro);
+      while (this.acumLocal >= PASO) {
+        this.pasoLocal(j, c, this.saltoPendiente, PASO);
+        this.saltoPendiente = false;
+        this.acumLocal -= PASO;
+      }
+    } else this.pasoLocal(j, c, c.saltoPulsado, dt);
+
+    // Aplicar poco a poco la corrección pendiente. El historial se mueve igual,
+    // para que la próxima comparación no vuelva a contar lo ya corregido.
+    const f = Math.min(1, dt * cp.suavizado);
+    const cx = this.correccion.x * f, cy = this.correccion.y * f;
+    const yAntes = j.y;
+    j.x += cx; j.y += cy;
+    this.correccion.x -= cx; this.correccion.y -= cy;
+    if (j.y > m.sueloY) j.y = m.sueloY;
+    // La corrección nunca hunde al personaje bajo una plataforma que tenía debajo
+    if (cy > 0 && j.vy >= 0) {
+      const p = this.plataformaCruzada(j, yAntes, j.y);
+      if (p) { j.y = p.y; j.vy = 0; j.enSuelo = true; j.plataforma = p; this.correccion.y = 0; }
+    }
+    // Si el líder lo tiene parado en el suelo o en una plataforma y aquí está casi a esa
+    // altura (bajando o quieto), se deja parado ahí: no queda justo bajo el borde y cae otra vez.
+    const sl = this.sueloLider;
+    if (sl != null && !j.enSuelo && j.vy >= 0 && Math.abs(j.y - sl) <= cp.toleranciaSueloPx) {
+      const p = sl >= m.sueloY ? null : this.plataformaEn(j, sl);
+      if (p || sl >= m.sueloY) {
+        const dy = sl - j.y;
+        j.y = sl; j.vy = 0; j.enSuelo = true; j.plataforma = p; j.saltosAire = 1;
+        this.correccion.y = 0;
+        for (const q of this.historial) q.y += dy;
+      }
+    }
+    if (cx || cy) for (const p of this.historial) { p.x += cx; p.y += cy; }
+
+    this.historial.push({ t: this.reloj(), x: j.x, y: j.y });
+    while (this.historial.length > 120) this.historial.shift();
+  },
+
+  // Un paso de movimiento del personaje local (misma física que el jugador en el líder)
+  pasoLocal(j, c, saltoPulsado, dt) {
+    const m = this.espejo;
     const cj = CONFIG.jugador;
     j.agachado = c.abajo && j.enSuelo;
     const velObj = c.x * (j.agachado ? cj.velocidadAgachado : cj.velocidad);
     j.vx = U.aproximar(j.vx, velObj, (j.enSuelo ? cj.aceleracion : cj.aceleracionAire) * dt);
     if (c.x !== 0) j.dir = c.x > 0 ? 1 : -1;
-    if (c.saltoPulsado && !(c.abajo && j.enSuelo && j.plataforma)) {
+    if (saltoPulsado && !(c.abajo && j.enSuelo && j.plataforma)) {
       if (j.enSuelo) { j.vy = -cj.salto; j.enSuelo = false; }
       else if (j.saltosAire > 0) { j.vy = -cj.dobleSalto; j.saltosAire--; }
     }
-    if (c.saltoPulsado && c.abajo && j.enSuelo && j.plataforma) j.ignorarPlataformasHasta = m.tiempo + 0.3;
+    if (saltoPulsado && c.abajo && j.enSuelo && j.plataforma) j.ignorarPlataformasHasta = m.tiempo + 0.3;
     if (!c.saltoMantenido && j.vy < -380) j.vy += 2600 * dt;
     const antes = j.enSuelo;
     m.moverCuerpo(j, dt);
     if (!antes && j.enSuelo) j.saltosAire = 1;
+  },
 
-    // Aplicar poco a poco la corrección pendiente. El historial se mueve igual,
-    // para que la próxima comparación no vuelva a contar lo ya corregido.
-    const f = Math.min(1, dt * 10);
-    const cx = this.correccion.x * f, cy = this.correccion.y * f;
-    j.x += cx; j.y += cy;
-    this.correccion.x -= cx; this.correccion.y -= cy;
-    if (j.y > m.sueloY) j.y = m.sueloY;
-    if (cx || cy) for (const p of this.historial) { p.x += cx; p.y += cy; }
-
-    this.historial.push({ t: this.reloj(), x: j.x, y: j.y });
-    while (this.historial.length > 120) this.historial.shift();
+  // Plataforma que el cuerpo cruzó hacia abajo entre yAntes y yDespues (o null)
+  plataformaCruzada(j, yAntes, yDespues) {
+    const medio = j.ancho / 2;
+    for (const p of this.espejo.plataformas) {
+      if (j.x + medio > p.x && j.x - medio < p.x + p.w && yAntes <= p.y + 1 && yDespues >= p.y) return p;
+    }
+    return null;
+  },
+  // Plataforma a la altura y debajo de los pies del cuerpo (o null)
+  plataformaEn(j, y) {
+    const medio = j.ancho / 2;
+    for (const p of this.espejo.plataformas) {
+      if (Math.abs(p.y - y) < 1 && j.x + medio > p.x && j.x - medio < p.x + p.w) return p;
+    }
+    return null;
   },
 
   // Compara lo que dice el anfitrión con dónde estábamos hace ~1 RTT
@@ -345,14 +398,20 @@ const Sincro = {
     const p0 = H[i], p1 = H[Math.min(i + 1, H.length - 1)];
     const kk = p1.t > p0.t ? U.clamp((tBuscado - p0.t) / (p1.t - p0.t), 0, 1) : 0;
     const h = { x: p0.x + (p1.x - p0.x) * kk, y: p0.y + (p1.y - p0.y) * kk };
+    const cp = RED_CONFIG.prediccion;
+    // Altura donde el líder lo tiene parado (suelo o plataforma); null si está en el aire
+    this.sueloLider = s.suelo ? s.y : null;
     let ex = s.x - h.x, ey = s.y - h.y;
-    if (Math.abs(ex) < 2) ex = 0;   // zona muerta: no corregir diferencias mínimas
-    if (Math.abs(ey) < 2) ey = 0;
-    if (Math.abs(ex) > 220 || Math.abs(ey) > 260) { // demasiado lejos: saltar directo
-      j.x = s.x; j.y = s.y; j.vx = s.vx; j.vy = s.vy; this.historial.length = 0; this.correccion = { x: 0, y: 0 };
+    if (Math.abs(ex) < cp.zonaMuertaPx) ex = 0;   // zona muerta: no corregir diferencias mínimas
+    if (Math.abs(ey) < cp.zonaMuertaPx) ey = 0;
+    // Parado aquí y allá: una diferencia de altura pequeña no se corrige (no cambia "sobre el suelo")
+    if (j.enSuelo && s.suelo && Math.abs(ey) <= cp.toleranciaSueloPx) ey = 0;
+    if (Math.abs(ex) > cp.saltoDirectoPx.x || Math.abs(ey) > cp.saltoDirectoPx.y) { // demasiado lejos: saltar directo
+      j.x = s.x; j.y = s.y; j.vx = s.vx; j.vy = s.vy; j.enSuelo = s.suelo; this.historial.length = 0;
+      this.correccion.x = 0; this.correccion.y = 0;
       return;
     }
-    this.correccion = { x: ex, y: ey };
+    this.correccion.x = ex; this.correccion.y = ey;
   },
 };
 

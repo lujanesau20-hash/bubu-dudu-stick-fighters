@@ -15,8 +15,39 @@ const SPRITES = {
     Cuadros.preferirGuardados = true; // carga rápida con los cuadros ya detectados
     Cuadros.cargarTodo()
       .then(() => PERSONAJES.verificar())
+      .then(() => this.precalentar())
       .catch((e) => PERSONAJES.error('Error al cargar las hojas: ' + (e && e.message ? e.message : e)))
       .then(alTerminar);
+  },
+
+  // Al inicio (pantalla de carga): cada hoja se dibuja una vez en el lienzo del juego
+  // (sube la imagen a la tarjeta gráfica) y se preparan los destellos de "herido" y la
+  // estela del "dash", que antes se creaban la primera vez que pasaban, en plena partida.
+  precalentar() {
+    const t0 = performance.now();
+    const lienzo = document.getElementById('lienzo');
+    const ctx = lienzo && lienzo.getContext('2d');
+    let hojas = 0, destellos = 0;
+    for (const p of Object.keys(Cuadros.datos)) {
+      for (const [anim, d] of Object.entries(Cuadros.datos[p])) {
+        if (!d.img || !d.cuadros.length) continue;
+        if (ctx) { ctx.drawImage(d.img, 0, 0, 2, 2); hojas++; }
+        d._dibujada = true;
+        // Destellos que se usan en plena pelea
+        const colores = anim === 'herido' ? ['#ffffff', '#ff3b3b'] : anim === 'dash' ? ['#ffffff'] : null;
+        if (!colores) continue;
+        HOJAS_JUEGO.precargando = true;
+        const esc = HOJAS_JUEGO.escala(p, d);
+        for (const c of d.cuadros) for (const col of colores) { HOJAS_JUEGO.tinte(d, c, col, esc); destellos++; }
+        HOJAS_JUEGO.precargando = false;
+      }
+    }
+    // Imágenes de ropa (si hay) y del ave (si se configuró una)
+    for (const grupo of Object.values(ROPA)) for (const prenda of Object.values(grupo)) if (prenda.img && ctx) ctx.drawImage(prenda.img, 0, 0, 2, 2);
+    const ave = typeof imagenAve === 'function' ? imagenAve() : null;
+    if (ave && ctx) ctx.drawImage(ave, 0, 0, 2, 2);
+    if (ctx) ctx.clearRect(0, 0, 4, 4);
+    this.precarga = { hojas, destellos, ms: Math.round(performance.now() - t0) };
   },
 };
 
@@ -171,7 +202,10 @@ const HOJAS_JUEGO = {
     const n = hoja.cuadros.length;
     let i = sustituto ? 0 : Math.floor((m.tiempo - j.vis.t0) * def.fps);
     i = (e.bucle || def.modo === 'bucle') ? ((i % n) + n) % n : Math.max(0, Math.min(i, n - 1));
-    return { hoja, cuadro: hoja.cuadros[i], nombre: e.nombre, sustituto };
+    // Se reutiliza el mismo objeto del jugador (se pide en cada cuadro)
+    const r = j._infoCuadro || (j._infoCuadro = {});
+    r.hoja = hoja; r.cuadro = hoja.cuadros[i]; r.nombre = e.nombre; r.sustituto = sustituto;
+    return r;
   },
 
   escala(p, hoja) {
@@ -183,6 +217,7 @@ const HOJAS_JUEGO = {
     const clave = hoja.cfg.archivo + '|' + c.x + '|' + color;
     let lienzo = this.cacheTintes.get(clave);
     if (!lienzo) {
+      if (typeof Depuracion !== 'undefined' && !this.precargando) Depuracion.primeraVez('destello ' + hoja.cfg.archivo.split('/').pop());
       const k = Math.min(1, escala * 2);
       lienzo = document.createElement('canvas');
       lienzo.width = Math.max(1, Math.round(c.w * k)); lienzo.height = Math.max(1, Math.round(c.h * k));

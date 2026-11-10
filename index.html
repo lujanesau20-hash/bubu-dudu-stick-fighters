@@ -15,7 +15,7 @@
     // Se agrega como ?v=... a todos los archivos (JS, CSS e imágenes de los
     // personajes) para que los celulares bajen los nuevos y no usen copias viejas.
     // =====================================================================
-    var VERSION_JUEGO = '2026.11.10-3';
+    var VERSION_JUEGO = '2026.11.10-5';
     document.write('<link rel="stylesheet" href="css/estilo.css?v=' + VERSION_JUEGO + '">');
   </script>
 </head>
@@ -28,6 +28,8 @@
     <div id="pantallas" class="oculto"></div>
     <!-- Botón de pausa (arriba a la derecha) -->
     <button id="btn-pausa" class="oculto" aria-label="Pausa">Pausa</button>
+    <!-- Icono de pantalla completa (debajo de "Pausa") -->
+    <button id="btn-pantalla" class="oculto" aria-label="Pantalla completa" title="Pantalla completa (F)"></button>
     <!-- Aviso para girar el celular -->
     <div id="girar"><div>📱↻<p>Gira el teléfono para jugar</p></div></div>
   </div>

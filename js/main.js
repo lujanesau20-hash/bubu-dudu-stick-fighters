@@ -49,8 +49,14 @@ const Juego = {
     });
   },
 
+  // Resolución interna del lienzo (config/interfaz.js -> lienzo). En celular se limita el
+  // ancho (por ejemplo 1280 px) con la misma proporción; el CSS lo estira a la pantalla.
+  // El HUD y los textos se calculan con el alto del lienzo, así que se ven del mismo tamaño.
   ajustarTamano() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cl = CONFIG.interfaz.lienzo;
+    let dpr = Math.min(window.devicePixelRatio || 1, cl.dprMax);
+    const max = esDispositivoTactil() ? cl.anchoMaxCelular : cl.anchoMaxLaptop;
+    if (max > 0 && window.innerWidth * dpr > max) dpr = max / window.innerWidth;
     this.lienzo.width = Math.round(window.innerWidth * dpr);
     this.lienzo.height = Math.round(window.innerHeight * dpr);
   },
@@ -283,8 +289,9 @@ const Juego = {
       this.camara.actualizar(dt, m, this.render.anchoBase);
       this.hud.actualizar(dt, m);
     }
-    const equipos = {};
-    for (const id of Object.keys(CONFIG.personajes)) equipos[id] = Guardado.equipo(id);
+    // Ropa equipada: un solo objeto que se reutiliza (antes uno nuevo en cada cuadro)
+    const equipos = this._equipos || (this._equipos = {});
+    for (const id in CONFIG.personajes) equipos[id] = Guardado.equipo(id);
     this.render.dibujarMundo(m, this.camara, this.efectos, this.tiempo, equipos);
     this.efectos.dibujarPantalla(ctx, W, H);
     this.hud.dibujar(ctx, m, W, H, this.efectos, this.tactil.activo);
