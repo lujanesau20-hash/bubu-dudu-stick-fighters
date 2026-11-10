@@ -58,6 +58,13 @@ const Depuracion = {
   // ---------- Registro de atrasos (bloqueos de más de 50 ms) ----------
   // Cada uno con su hora, la memoria de JavaScript (si el navegador la da) y si en ese
   // momento se dibujó por primera vez una imagen o un destello.
+  // Eventos de conexión (cambios ICE/DataChannel, caídas, reconexiones, motivos de fallo)
+  eventoRed(texto) {
+    const lista = this.eventosRed || (this.eventosRed = []);
+    const seg = Math.max(0, (performance.now() - this._inicio) / 1000);
+    lista.push(`${String(Math.floor(seg / 60)).padStart(2, '0')}:${(seg % 60).toFixed(1).padStart(4, '0')} · ${texto}`);
+    if (lista.length > 150) lista.shift();
+  },
   observarAtrasos() {
     this.atrasos = [];
     this._primeras = [];
@@ -124,14 +131,15 @@ const Depuracion = {
     this.registro.push([hora, enLinea ? (EL.esAnfitrion ? 'lider' : 'invitado') : 'local',
       enLinea && EL.pingPromedio != null ? EL.pingPromedio : '', enLinea && EL.jitter != null ? EL.jitter : '',
       this.rttRed != null ? this.rttRed : '', er.env != null ? er.env : '', er.rec != null ? er.rec : '',
-      this.bytesPromedio, this.fps, this.colaActual(), enLinea ? this.tipoConexion : '', this.bloqueoSeg]);
+      this.bytesPromedio, this.fps, this.colaActual(), enLinea ? this.tipoConexion : '', this.bloqueoSeg,
+      enLinea && EL.esInvitado && Sincro.colchon != null ? Math.round(Sincro.colchon) : '']);
     const max = CONFIG.interfaz.medicion.registroMinutos * 60;
     while (this.registro.length > max) this.registro.shift();
   },
   textoRegistro() {
     const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
     const cab = ['hora', 'rol', 'ping_ms', 'jitter_ms', 'ida_vuelta_red_ms', 'snaps_enviados_s', 'snaps_recibidos_s',
-      'bytes_por_snapshot', 'fps', 'cola_bytes', 'conexion', 'bloqueo_hilo_ms'];
+      'bytes_por_snapshot', 'fps', 'cola_bytes', 'conexion', 'bloqueo_hilo_ms', 'interpolacion_ms'];
     const lineas = [
       `Bubu & Dudu - registro de conexion - version ${VERSION_JUEGO}` + (EL && EL.versionOtro ? ` (la otra persona: ${EL.versionOtro})` : ''),
       `Equipo: ${PERSONAJES.esCelular() ? 'celular' : 'laptop/PC'} · ${navigator.userAgent}`,
@@ -141,6 +149,9 @@ const Depuracion = {
       '',
       `Atrasos de ${CONFIG.interfaz.rendimiento.umbralAtrasoMs} ms o más (fuente: ${this.fuenteAtrasos || 'temporizador'}; "cuadro" = tiempo entre dos cuadros dibujados):`,
       ...(this.atrasos.length ? this.atrasos.map((a) => this.textoAtraso(a)) : ['(ninguno)']),
+      '',
+      'Eventos de conexión:',
+      ...((this.eventosRed || []).length ? this.eventosRed : ['(ninguno)']),
     ];
     return lineas.join('\n');
   },
@@ -274,9 +285,11 @@ const Depuracion = {
       const local = stats.get(par.localCandidateId) || {}, remoto = stats.get(par.remoteCandidateId) || {};
       const tipos = [local.candidateType, remoto.candidateType];
       const proto = (local.protocol || '').toUpperCase();
+      const antes = this.tipoConexion;
       if (tipos.includes('relay')) this.tipoConexion = `TURN (relevo) · ${proto}`;
       else if (tipos[0] === 'host' && tipos[1] === 'host') this.tipoConexion = `directa (red local) · ${proto}`;
       else this.tipoConexion = `directa (por el router: ${tipos[0]}/${tipos[1]}) · ${proto}`;
+      if (this.tipoConexion !== antes) this.eventoRed('Tipo de conexión: ' + this.tipoConexion);
       this.rttRed = par.currentRoundTripTime != null ? Math.round(par.currentRoundTripTime * 1000) : null;
     } catch (e) { this.tipoConexion = 'no disponible'; }
   },
@@ -310,6 +323,7 @@ const Depuracion = {
       [`Tamaño promedio: ${this.bytesPromedio} bytes`, this.bytesPromedio > avisoBytes],
       [`Conexión: ${this.tipoConexion}`],
       [`Canal rápido: ${EL && EL.activo ? canal : '—'}`],
+      [`Interpolación: ${EL && EL.esInvitado && Sincro.colchon != null ? Math.round(Sincro.colchon) + ' ms (adaptativa)' : '—'}`],
       [`TURN: ${EL && EL.estadoTurn ? EL.estadoTurn : '—'}`, !!(EL && EL.estadoTurn && EL.estadoTurn.startsWith('no disponible'))],
     );
     // Errores al cargar las hojas de sprites (nunca se usa una imagen vieja en silencio)

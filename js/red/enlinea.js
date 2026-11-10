@@ -26,6 +26,36 @@ const EnLinea = {
 
   disponible() { return typeof Peer !== 'undefined'; },
 
+  // SOLO PRUEBAS (consola): simula que este dispositivo pierde la red durante "ms":
+  // no entra ni sale ningún mensaje del juego. Ej.: EnLinea.simularCorte(10000)
+  simularCorte(ms) { this.cortadoHasta = performance.now() + ms; this.registrarRed(`Prueba: corte de red simulado de ${ms} ms`); },
+  get cortado() { return !!this.cortadoHasta && performance.now() < this.cortadoHasta; },
+
+  // Evento de conexión para "Copiar registro" (ver Depuracion.eventoRed)
+  registrarRed(texto) { if (typeof Depuracion !== 'undefined' && Depuracion.eventoRed) Depuracion.eventoRed(texto); },
+
+  // Estados ICE, de la conexión WebRTC y del canal fiable (para el registro)
+  vigilarConexion(conn) {
+    const pc = conn && conn.peerConnection;
+    if (pc && !pc._vigilada) {
+      pc._vigilada = true;
+      this.registrarRed(`ICE: ${pc.iceConnectionState} · WebRTC: ${pc.connectionState || '?'}`);
+      pc.addEventListener('iceconnectionstatechange', () => this.registrarRed('ICE: ' + pc.iceConnectionState));
+      pc.addEventListener('connectionstatechange', () => this.registrarRed('Conexión WebRTC: ' + pc.connectionState));
+    }
+    const dc = conn && conn.dataChannel;
+    if (dc && !dc._vigilado) {
+      dc._vigilado = true;
+      dc.addEventListener('close', () => this.registrarRed('DataChannel fiable: cerrado'));
+      dc.addEventListener('error', () => this.registrarRed('DataChannel fiable: error'));
+    }
+  },
+  vigilarPeer(peer, quien) {
+    peer.on('open', () => this.registrarRed(`${quien}: conectado al servidor de emparejamiento`));
+    peer.on('disconnected', () => this.registrarRed(`${quien}: se perdió el servidor de emparejamiento`));
+    peer.on('error', (err) => this.registrarRed(`${quien}: error ${err.type || ''} ${err.message || ''}`.trim()));
+  },
+
   opcionesPeer() {
     return Object.assign({ debug: 1, config: { iceServers: RED_CONFIG.iceServers() } }, RED_CONFIG.servidorPeer || {});
   },
@@ -49,6 +79,8 @@ const EnLinea = {
     this.codigo = this.nuevoCodigo();
     const peer = new Peer(RED_CONFIG.prefijoSala + this.codigo, this.opcionesPeer());
     this.peer = peer;
+    this.registrarRed(`Líder: creando sala ${this.codigo}`);
+    this.vigilarPeer(peer, 'Líder');
 
     peer.on('open', () => Menus.enLineaEsperando(this.codigo));
     peer.on('error', (err) => {
@@ -62,27 +94,42 @@ const EnLinea = {
   },
 
   alConectarInvitado(conn) {
-    // La sala admite solo 2 personas
+    // La sala admite solo 2 personas. Pero si es el MISMO invitado que vuelve tras una caída
+    // (misma marca de sesión) o la conexión vieja ya está callada, se cambia por la nueva.
     if (this.conn && this.conectado) {
-      conn.on('open', () => { conn.send({ t: 'llena' }); setTimeout(() => conn.close(), 500); });
-      return;
+      const token = conn.metadata && conn.metadata.token;
+      const mismo = !!token && token === this.tokenInvitado;
+      const callada = performance.now() - this.ultimoMensaje > RED_CONFIG.conexion.liderAceptaTrasMs;
+      if (!mismo && !callada) {
+        this.registrarRed('Líder: rechazada una tercera persona (sala llena)');
+        conn.on('open', () => { conn.send({ t: 'llena' }); setTimeout(() => conn.close(), 500); });
+        return;
+      }
+      this.registrarRed(`Líder: el invitado volvió con una conexión nueva (${mismo ? 'misma sesión' : 'la vieja estaba callada'})`);
+      const vieja = this.conn;
+      this.invitadoSeFue();
+      try { vieja.close(); } catch (e) {}
     }
+    this.tokenInvitado = conn.metadata && conn.metadata.token;
+    this.registrarRed('Líder: llega una conexión del invitado');
     this.conn = conn;
     const lento = setTimeout(() => { if (!this.conectado && this.conn === conn) Menus.enLineaAvisoLento(); }, RED_CONFIG.avisoTurnSegundos * 1000);
     conn.on('open', () => {
       clearTimeout(lento);
       this.conectado = true;
       this.ultimoMensaje = performance.now();
+      this.registrarRed('Líder: canal con el invitado abierto');
+      this.vigilarConexion(conn);
       this.abrirCanalRapido(conn);
       Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
       this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
-      else Menus.enLineaConectado();
+      else { Menus.enLineaConectado(); this.enviar({ t: 'lobby' }); } // si volvía de una partida que ya terminó, va a la sala
     });
     conn.on('data', (d) => this.recibir(d));
-    conn.on('close', () => { if (this.conn === conn) this.invitadoSeFue(); });
-    conn.on('error', () => { if (this.conn === conn) this.invitadoSeFue(); });
+    conn.on('close', () => { if (this.conn === conn) { this.registrarRed('Líder: la conexión del invitado se cerró'); this.invitadoSeFue(); } });
+    conn.on('error', (e) => { if (this.conn === conn) { this.registrarRed('Líder: error en la conexión del invitado ' + (e && e.type ? e.type : '')); this.invitadoSeFue(); } });
   },
 
   // El anfitrión inicia la partida con el nivel elegido
@@ -196,6 +243,7 @@ const EnLinea = {
     // Efectos visuales: por el canal fiable (no se pierden), con la hora del snapshot
     if (eventos.length) this.enviar({ t: 'ev', w: snap.w, v: eventos });
     const o = { t: 'e2', d: Sincro.comprimir(snap) };
+    if (this.cortado) return; // prueba de corte de red
     const texto = JSON.stringify(o);
     if (typeof Depuracion !== 'undefined') Depuracion.registrarSnapshot(texto.length);
     const rc = this.canalRapido;
@@ -236,6 +284,8 @@ const EnLinea = {
         this.recibir(d, ev.data.length, dp);
       };
       this.canalPing = dp;
+      dc.onclose = () => { if (this.canalRapido === dc) this.registrarRed('DataChannel rápido: cerrado'); };
+      dc.onopen = () => this.registrarRed('DataChannel rápido: abierto');
     } catch (e) { console.warn('Canal rápido no disponible', e); this.canalRapido = null; this.canalPing = null; }
   },
   cerrarCanalRapido() {
@@ -247,6 +297,7 @@ const EnLinea = {
 
   // Enviar por el canal rápido (sin orden ni reenvíos); si no está abierto, por el fiable
   enviarRapido(o) {
+    if (this.cortado) return false; // prueba de corte de red
     const rc = this.canalRapido;
     if (rc && rc.readyState === 'open') {
       if (rc.bufferedAmount > RED_CONFIG.cola.maxRapidoBytes) return false; // cola llena: se descarta
@@ -341,7 +392,18 @@ const EnLinea = {
     this.cerrar(true);
     this.rol = 'invitado';
     this.codigo = codigo;
+    // Marca de esta sesión: así el líder reconoce que es el mismo invitado si vuelve tras una caída
+    this.tokenInvitado = this.tokenInvitado || Math.random().toString(36).slice(2, 10);
+    this.registrarRed(`Invitado: uniéndose a la sala ${codigo}`);
     Menus.enLineaUniendo(codigo);
+    // Si no conecta en "tiempoConectarSegundos": aviso con Reintentar y Salir
+    clearTimeout(this.tConectar);
+    const turnoJ = this.turnoSala;
+    this.tConectar = setTimeout(() => {
+      if (turnoJ !== this.turnoSala || !this.esInvitado || this.conectado || this.reconectando) return;
+      this.registrarRed(`Invitado: no se pudo conectar en ${RED_CONFIG.conexion.tiempoConectarSegundos} s`);
+      this.fallaUnirse(codigo, 'No se pudo conectar a la sala (sin respuesta). Revisa el internet de los dos dispositivos.');
+    }, RED_CONFIG.conexion.tiempoConectarSegundos * 1000);
     const turno = this.turnoSala;
     this.prepararIce().then(() => { if (turno === this.turnoSala && this.esInvitado) this.abrirConexionInvitado(codigo); });
   },
@@ -349,28 +411,120 @@ const EnLinea = {
   abrirConexionInvitado(codigo) {
     const peer = new Peer(this.opcionesPeer());
     this.peer = peer;
-    const lento = setTimeout(() => { if (!this.conectado && this.peer === peer) Menus.enLineaAvisoLento(); }, RED_CONFIG.avisoTurnSegundos * 1000);
+    this.vigilarPeer(peer, 'Invitado');
+    const lento = setTimeout(() => { if (!this.conectado && this.peer === peer && !this.reconectando) Menus.enLineaAvisoLento(); }, RED_CONFIG.avisoTurnSegundos * 1000);
     peer.on('open', () => {
-      const conn = peer.connect(RED_CONFIG.prefijoSala + codigo, { reliable: true, serialization: 'json' });
+      if (this.peer !== peer) return;
+      const conn = peer.connect(RED_CONFIG.prefijoSala + codigo, { reliable: true, serialization: 'json', metadata: { token: this.tokenInvitado } });
       this.conn = conn;
       conn.on('open', () => {
-        clearTimeout(lento);
+        if (this.conn !== conn) return;
+        clearTimeout(lento); clearTimeout(this.tConectar);
         this.conectado = true;
         this.ultimoMensaje = performance.now();
+        this.registrarRed('Invitado: canal con el líder abierto' + (this.reconectando ? ` (reconexión, intento ${this.reconectando.intento})` : ''));
+        this.vigilarConexion(conn);
+        if (this.reconectando) {
+          // Volvimos: el líder manda "inicio" con reingreso y el estado completo
+          clearTimeout(this.tReintento);
+          this.reconectando = null;
+          Menus.avisoRed('Conectando…', 'Volviendo a la partida, esperando el estado del líder…', { salir: true });
+        }
         this.abrirCanalRapido(conn);
         this.acumulador = new AcumuladorControl();
         this.enviar({ t: 'version', version: VERSION_JUEGO }); // el líder compara su versión con la nuestra
       });
       conn.on('data', (d) => this.recibir(d));
-      conn.on('close', () => { if (this.conn === conn) this.salaCerrada(); });
-      conn.on('error', () => { if (this.conn === conn) this.salaCerrada(); });
+      // Una caída que no pidió nadie: intentar volver a la sala (no ir al menú)
+      conn.on('close', () => { if (this.conn === conn) this.reconectar('el canal con el líder se cerró'); });
+      conn.on('error', (e) => { if (this.conn === conn) this.reconectar('error en el canal: ' + (e && e.type ? e.type : '?')); });
     });
     peer.on('error', (err) => {
       if (this.peer !== peer) return;
       clearTimeout(lento);
-      if (err.type === 'peer-unavailable') { this.cerrar(true); Menus.enLineaUnirse(codigo, `La sala ${codigo} no existe. Revisa el código.`); return; }
+      if (err.type === 'peer-unavailable') {
+        if (this.reconectando || this.enPartida) { this.finReconexion('La sala ya no existe: el líder la cerró o perdió su conexión.'); return; }
+        this.cerrar(true); Menus.enLineaUnirse(codigo, `La sala ${codigo} no existe. Revisa el código.`); return;
+      }
+      if (this.reconectando) return; // el próximo intento lo vuelve a probar
       this.errorRed(err);
     });
+  },
+
+  // Cierra la conexión del invitado SIN salir de la sala (para reconectar)
+  cerrarConexionInvitado() {
+    const peer = this.peer, conn = this.conn;
+    this.peer = null; this.conn = null; this.conectado = false;
+    this.cerrarCanalRapido();
+    setTimeout(() => { try { if (conn) conn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} }, 0);
+  },
+
+  // ---------- Reconexión automática del invitado (config/red.js -> conexion) ----------
+  reconectar(motivo) {
+    if (!this.esInvitado) return;
+    if (this.reconectando) { this.cerrarConexionInvitado(); this.intentarReconexion(); return; }
+    this.registrarRed('Invitado: conexión perdida (' + motivo + ')');
+    this.reconectando = { intento: 0, motivo };
+    this.cerrarConexionInvitado();
+    this.intentarReconexion();
+  },
+  intentarReconexion() {
+    const r = this.reconectando, cc = RED_CONFIG.conexion;
+    if (!r || !this.esInvitado) return;
+    r.intento++;
+    if (r.intento > cc.reintentos) { this.finReconexion(`No se pudo volver a la sala después de ${cc.reintentos} intentos.`); return; }
+    this.registrarRed(`Invitado: intento de reconexión ${r.intento} de ${cc.reintentos}`);
+    Menus.avisoRed('Reconectando…', `Se perdió la conexión. Intento ${r.intento} de ${cc.reintentos}…`, { salir: true });
+    clearTimeout(this.tReintento);
+    const espera = r.intento === 1 ? 0 : cc.esperaEntreIntentosSegundos * 1000;
+    this.tReintento = setTimeout(() => {
+      if (this.reconectando !== r) return;
+      this.abrirConexionInvitado(this.codigo);
+      this.tReintento = setTimeout(() => {
+        if (this.reconectando !== r || this.conectado) return;
+        this.registrarRed(`Invitado: el intento ${r.intento} no conectó en ${cc.tiempoIntentoSegundos} s`);
+        this.cerrarConexionInvitado();
+        this.intentarReconexion();
+      }, cc.tiempoIntentoSegundos * 1000);
+    }, espera);
+  },
+  finReconexion(texto) {
+    clearTimeout(this.tReintento);
+    this.reconectando = null;
+    this.cerrarConexionInvitado();
+    this.registrarRed('Invitado: ' + texto);
+    Menus.avisoRed('No se pudo conectar', texto, { reintentar: true, salir: true });
+  },
+  // Al unirse (antes de entrar a una partida) no se pudo conectar
+  fallaUnirse(codigo, texto) {
+    this.cerrarConexionInvitado();
+    Menus.avisoRed('No se pudo conectar', texto, {
+      reintentar: () => { Menus.ocultarAvisoRed(); this.unirse(codigo); },
+      salir: true,
+    });
+  },
+
+  // Cada 250 ms (invitado): si en partida no llegan snapshots en ~2 s, aviso claro (nunca pantalla negra)
+  vigilarDatos() {
+    if (!this.esInvitado || this.reconectando) return;
+    const cc = RED_CONFIG.conexion, ahora = performance.now();
+    const enJuego = this.enPartida && (Juego.estado === 'jugando' || Juego.estado === 'carga') && !this.pausadoPorAnfitrion;
+    const ult = Math.max(Sincro.ultimaLlegada || 0, this.tInicioPartida || 0);
+    if (enJuego && this.conectado && ahora - ult > cc.sinDatosSegundos * 1000) {
+      if (!this.avisoSinDatos) {
+        this.avisoSinDatos = true;
+        const nunca = !Sincro.ultimaLlegada;
+        this.registrarRed(nunca ? `Invitado: no llegó ningún snapshot ${cc.sinDatosSegundos} s después de entrar` : `Invitado: sin snapshots hace ${cc.sinDatosSegundos} s`);
+      }
+      const pingVivo = ahora - this.ultimoMensaje < 1500;
+      Menus.avisoRed(pingVivo ? 'Esperando datos del líder…' : 'Reconectando…',
+        pingVivo ? 'La conexión sigue, pero no llega el juego (¿el líder tiene el juego en segundo plano?).' : 'No llegan datos del líder.',
+        { reintentar: () => this.reconectar('botón Reintentar'), salir: true });
+    } else if (this.avisoSinDatos && Sincro.ultimaLlegada && ahora - Sincro.ultimaLlegada < 300) {
+      this.avisoSinDatos = false;
+      this.registrarRed('Invitado: volvieron los snapshots');
+      Menus.ocultarAvisoRed();
+    }
   },
 
   salaCerrada(texto = 'La sala se cerró.') {
@@ -385,6 +539,9 @@ const EnLinea = {
   // Datos de inicio de partida
   alInicio(d) {
     this.enPartida = true;
+    this.tInicioPartida = performance.now();
+    this.avisoSinDatos = false;
+    this.registrarRed(d.reingreso ? 'Invitado: volvió a la partida (estado completo del líder)' : 'Invitado: empieza la partida');
     const juego = Juego;
     juego.modo = d.modo;
     juego.personajes = d.personajes;
@@ -400,16 +557,18 @@ const EnLinea = {
     this.pausadoPorAnfitrion = false; // al (re)iniciar un nivel ya no hay pausa
     this.tEnvio = 0;
     this.mantenerPantalla();
-    if (d.reingreso) { juego.estado = 'jugando'; Menus.ocultar(); juego.tactil.mostrar(juego.esTactil); return; }
     juego.estado = 'carga';
-    Menus.carga(`Nivel ${d.nivel} · ${(ESCENARIOS[d.escenario] || ESCENARIOS.isla).nombre}`);
+    Menus.carga(d.reingreso ? 'Volviendo a la partida…' : `Nivel ${d.nivel} · ${(ESCENARIOS[d.escenario] || ESCENARIOS.isla).nombre}`);
     clearTimeout(this.tCarga);
-    this.tCarga = setTimeout(() => {
-      if (juego.estado !== 'carga') return;
+    // El juego aparece solo cuando ya llegó el primer estado del líder (nunca un mundo vacío)
+    const empezar = () => {
+      if (juego.estado !== 'carga' || juego.mundo !== m) return;
+      if (!Sincro.buffer.length) { this.tCarga = setTimeout(empezar, 150); return; }
       juego.estado = 'jugando';
-      Menus.ocultar();
+      Menus.ocultar(); Menus.ocultarAvisoRed();
       juego.tactil.mostrar(juego.esTactil);
-    }, 1600);
+    };
+    this.tCarga = setTimeout(empezar, d.reingreso ? 0 : 1600);
   },
 
   // Cada cuadro del invitado: leer controles, predecir y enviar
@@ -478,10 +637,12 @@ const EnLinea = {
 
   // ======================= COMÚN =======================
   enviar(o) {
+    if (this.cortado) return; // prueba de corte de red
     if (this.conn && this.conn.open) { try { this.conn.send(o); } catch (e) { /* conexión cerrándose */ } }
   },
 
   recibir(d, bytes, canal) {
+    if (this.cortado) return; // prueba de corte de red
     // Retraso de red simulado (solo pruebas, ver RED_CONFIG.latenciaPrueba). Mantiene el orden.
     const lp = RED_CONFIG.latenciaPrueba;
     if (lp && lp.ms > 0 && !d._retrasado) {
@@ -509,9 +670,9 @@ const EnLinea = {
         break;
       case 'version': this.compararVersion(d.version); break;
       // --- al invitado ---
-      case 'hola': this.compararVersion(d.version); Menus.enLineaConectado(); break;
+      case 'hola': this.compararVersion(d.version); if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } break;
       case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
-      case 'lobby': Juego.mundo = null; Juego.estado = 'menu'; Juego.tactil.mostrar(false); this.enPartida = false; Menus.enLineaConectado(); break;
+      case 'lobby': Juego.mundo = null; Juego.estado = 'menu'; Juego.tactil.mostrar(false); this.enPartida = false; Menus.ocultarAvisoRed(); Menus.enLineaConectado(); break;
       case 'inicio': this.alInicio(d); break;
       case 'e':
         if (this.esInvitado && Sincro.espejo) {
@@ -568,11 +729,12 @@ const EnLinea = {
   tic() {
     if (!this.conectado) return;
     const dp = this.canalPing;
-    if (dp && dp.readyState === 'open') { try { dp.send(JSON.stringify({ t: 'ping', ts: performance.now() })); } catch (e) {} }
+    if (this.cortado) { /* prueba de corte de red: no sale el ping */ }
+    else if (dp && dp.readyState === 'open') { try { dp.send(JSON.stringify({ t: 'ping', ts: performance.now() })); } catch (e) {} }
     else this.enviar({ t: 'ping', ts: performance.now() });
     if (performance.now() - this.ultimoMensaje > RED_CONFIG.silencioDesconexion * 1000) {
-      if (this.esAnfitrion) { if (this.conn) this.conn.close(); this.invitadoSeFue(); }
-      else this.salaCerrada('Se perdió la conexión con la sala.');
+      if (this.esAnfitrion) { this.registrarRed(`Líder: ${RED_CONFIG.silencioDesconexion} s sin mensajes del invitado`); if (this.conn) this.conn.close(); this.invitadoSeFue(); }
+      else this.reconectar(`${RED_CONFIG.silencioDesconexion} s sin mensajes`);
     }
   },
 
@@ -605,8 +767,10 @@ const EnLinea = {
 
   errorRed(err) {
     console.warn('Error de red', err);
+    this.registrarRed('Error de red: ' + (err && err.type ? err.type : '') + ' ' + (err && err.message ? err.message : ''));
     const msg = err.type === 'browser-incompatible' ? 'Este navegador no permite jugar en línea.'
       : 'No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.';
+    if (this.esInvitado && this.codigo && err.type !== 'browser-incompatible') { this.fallaUnirse(this.codigo, msg + ` (motivo: ${err.type || 'desconocido'})`); return; }
     this.cerrar(true);
     Menus.enLineaMensaje(msg, () => Menus.enLineaInicio());
   },
@@ -626,6 +790,9 @@ const EnLinea = {
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pingPromedio = null; this.jitter = 0; this.muestrasPing = []; this.snapsOtro = null; this.versionOtro = null; this.versionDistinta = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
+    this.reconectando = null; this.avisoSinDatos = false;
+    clearTimeout(this.tReintento); clearTimeout(this.tConectar);
+    if (typeof Menus !== 'undefined' && Menus.ocultarAvisoRed) Menus.ocultarAvisoRed();
     Sincro.espejo = null;
     if (Juego.entrada) delete Juego.entrada.fuentesRemotas[1];
     this.soltarPantalla();
@@ -644,6 +811,7 @@ const EnLinea = {
 };
 
 setInterval(() => EnLinea.tic(), RED_CONFIG.pingCadaSegundos * 1000);
+setInterval(() => EnLinea.vigilarDatos(), 250);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && EnLinea.activo && EnLinea.enPartida) { EnLinea.bloqueoPantalla = null; EnLinea.mantenerPantalla(); }
 });

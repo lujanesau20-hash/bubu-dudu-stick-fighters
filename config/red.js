@@ -79,6 +79,27 @@ const RED_CONFIG = {
   silencioDesconexion: 6,       // s sin mensajes = desconectado
   pingCadaSegundos: 1,
 
+  // Interpolación adaptativa del invitado: el "colchón" con que dibuja a los demás sube
+  // cuando la red varía mucho (WiFi que sube y baja) y baja despacio cuando se estabiliza.
+  interpolacion: {
+    base: 100,                  // ms con la red estable (antes: retrasoInterpolacion)
+    max: 200,                   // ms como máximo
+    factorVariacion: 3,         // x la variación de llegada de los snapshots
+    factorJitterPing: 1.5,      // x la variación del ping
+    subidaMsPorSeg: 300,        // sube rápido (para no quedarse sin datos)
+    bajadaMsPorSeg: 15,         // baja despacio (sin saltos)
+  },
+
+  // Conexión: avisos, reintentos y reconexión del invitado
+  conexion: {
+    sinDatosSegundos: 2,        // sin snapshots en partida: aviso "Esperando datos…" / "Reconectando…"
+    tiempoConectarSegundos: 20, // al unirse: si no conecta en este tiempo, "No se pudo conectar"
+    reintentos: 4,              // intentos automáticos de volver a la sala tras una caída
+    tiempoIntentoSegundos: 8,   // cuánto se espera cada intento
+    esperaEntreIntentosSegundos: 2,
+    liderAceptaTrasMs: 1500,    // el líder acepta una conexión nueva si la vieja lleva este tiempo callada
+  },
+
   // SOLO PARA PRUEBAS: simula retraso de red al recibir mensajes (ms de ida y variación).
   // Ej.: { ms: 75, variacion: 25 } en los dos dispositivos ≈ 150 ms de ping. Dejar en 0.
   latenciaPrueba: { ms: 0, variacion: 0 },

@@ -209,3 +209,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
   cursor: pointer; touch-action: none; }
 #btn-pantalla svg { width: 62%; height: 62%; display: block; }
 #btn-pantalla:hover { opacity: 1 !important; }
+
+/* ---------- Aviso de conexión encima del juego (Conectando / Reconectando / No se pudo) ---------- */
+#aviso-red { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 10, 25, 0.35); pointer-events: auto; }
+#aviso-red .caja-aviso-red { background: rgba(26, 26, 46, 0.94); border: 2px solid #ffd84d; border-radius: 14px; padding: 14px 20px;
+  color: #fff; text-align: center; max-width: min(420px, 90%); }
+#aviso-red .caja-aviso-red b { font-size: 20px; }
+#aviso-red .caja-aviso-red p { margin: 8px 0 10px; font-size: 14px; }

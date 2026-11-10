@@ -142,10 +142,14 @@ const Sincro = {
     this.ultimoWDecodificado = null; this.numRecibido = 0; this.ultimosJugadores = null;
     this.proyEspejo = new Map(); this.monedasEspejo = new Map(); this.corazonesEspejo = new Map();
     this.eventosPendientes = [];     // efectos que llegan por el canal fiable
+    this.ultimaLlegada = null;       // hora del último snapshot (para el aviso "sin datos")
+    this.colchon = null;             // retraso de interpolación actual (adaptativo)
     return m;
   },
 
   recibirInstantanea(d) {
+    // Un snapshot que no se pudo rearmar (viejo que llegó tarde, o con datos aún desconocidos) se descarta
+    if (!d) return;
     const llegada = this.reloj();
     // Con el canal rápido pueden llegar desordenados: un snapshot más viejo que el último se descarta
     const ultimo = this.buffer.length ? this.buffer[this.buffer.length - 1].d : null;
@@ -157,6 +161,7 @@ const Sincro = {
     else this.desfase += (muestra - this.desfase) * 0.01;
     this.variacion = this.variacion * 0.95 + Math.abs(muestra - this.desfase) * 0.05;
     this.buffer.push({ llegada, d });
+    this.ultimaLlegada = performance.now(); // último snapshot válido (para el aviso "sin datos")
     if (this.buffer.length > 60) this.buffer.shift();
     this.corregirLocal(d);
   },
@@ -166,8 +171,16 @@ const Sincro = {
     const m = this.espejo;
     if (!m || !this.buffer.length) return;
     const intervalo = 1000 / RED_CONFIG.estadosPorSegundo;
-    const colchon = U.clamp(Math.max(RED_CONFIG.retrasoInterpolacion, intervalo * 1.5 + this.variacion * 3), 60, 350);
-    const tObjetivo = ahora - this.desfase - colchon; // en el reloj del anfitrión
+    // Colchón adaptativo (config/red.js -> interpolacion): sube rápido si la red varía, baja despacio
+    const ci = RED_CONFIG.interpolacion;
+    const jitterPing = typeof EnLinea !== 'undefined' ? EnLinea.jitter || 0 : 0;
+    const objetivo = U.clamp(Math.max(ci.base, intervalo * 1.5 + this.variacion * ci.factorVariacion, jitterPing * ci.factorJitterPing), ci.base, ci.max);
+    const dtc = this._tColchon ? Math.min(0.1, (ahora - this._tColchon) / 1000) : 0;
+    this._tColchon = ahora;
+    if (this.colchon == null) this.colchon = objetivo;
+    else if (objetivo > this.colchon) this.colchon = Math.min(objetivo, this.colchon + ci.subidaMsPorSeg * dtc);
+    else this.colchon = Math.max(objetivo, this.colchon - ci.bajadaMsPorSeg * dtc);
+    const tObjetivo = ahora - this.desfase - this.colchon; // en el reloj del anfitrión
     let a = this.buffer[0], b = this.buffer[this.buffer.length - 1];
     for (let i = 0; i < this.buffer.length - 1; i++) {
       if (this.buffer[i].d.w <= tObjetivo && this.buffer[i + 1].d.w >= tObjetivo) { a = this.buffer[i]; b = this.buffer[i + 1]; break; }

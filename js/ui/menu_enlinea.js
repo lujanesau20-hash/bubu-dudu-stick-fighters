@@ -12,6 +12,7 @@ Object.assign(Menus, {
         ${error ? `<p class="error-red">${error}</p>` : ''}
         <button class="btn grande" data-ir="crear" ${ok ? '' : 'disabled'}>➕ Crear sala</button>
         <button class="btn grande" data-ir="unirse" ${ok ? '' : 'disabled'}>🔑 Unirse a sala</button>
+        <p class="nota-red">💡 Consejo: que cree la sala el dispositivo más potente (por ejemplo, la laptop). Ese dispositivo calcula todo el juego.</p>
         <button class="btn" data-ir="volver">Volver</button>
       </div>`);
     this.conectar({
@@ -186,6 +187,31 @@ Object.assign(Menus, {
     this.mostrarHTML(`<div class="panel panel-enlinea"><h2>Juego en línea</h2><p>${texto}</p>
       <button class="btn grande" data-ir="ok">Aceptar</button></div>`);
     this.conectar({ ok: () => alAceptar() });
+  },
+
+  // Aviso de conexión ENCIMA del juego (el juego sigue visible detrás: nunca pantalla negra).
+  // botones: { reintentar: true | función, salir: true }
+  avisoRed(titulo, texto, botones = {}) {
+    let a = document.getElementById('aviso-red');
+    if (!a) { a = document.createElement('div'); a.id = 'aviso-red'; document.getElementById('juego').appendChild(a); }
+    const clave = titulo + '|' + texto + '|' + Object.keys(botones).join(',');
+    if (a.dataset.clave === clave && !a.classList.contains('oculto')) return; // ya está así (no redibujar)
+    a.dataset.clave = clave;
+    a.innerHTML = `<div class="caja-aviso-red"><b>${titulo}</b><p>${texto}</p><div class="fila-botones">
+      ${botones.reintentar ? '<button class="btn" data-a="reintentar">Reintentar</button>' : ''}
+      ${botones.salir ? '<button class="btn" data-a="salir">Salir</button>' : ''}</div></div>`;
+    a.classList.remove('oculto');
+    const reint = a.querySelector('[data-a="reintentar"]');
+    if (reint) reint.onclick = () => {
+      if (typeof botones.reintentar === 'function') botones.reintentar();
+      else { EnLinea.reconectando = null; EnLinea.reconectar('botón Reintentar'); }
+    };
+    const salir = a.querySelector('[data-a="salir"]');
+    if (salir) salir.onclick = () => { this.ocultarAvisoRed(); EnLinea.cerrar(); };
+  },
+  ocultarAvisoRed() {
+    const a = document.getElementById('aviso-red');
+    if (a) { a.classList.add('oculto'); a.dataset.clave = ''; }
   },
 
   enLineaToast(texto, ms = 2500) {

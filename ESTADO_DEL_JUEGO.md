@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: encuadre y HUD en celular; ver la sección 16). **Versión actual: `2026.11.10-8`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: encuadre y HUD en celular (sección 16) e internet inestable: interpolación adaptativa, avisos y reconexión (sección 17)). **Versión actual: `2026.11.10-10`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -234,6 +234,7 @@ Todo se guarda en el navegador (`localStorage`, clave `bubududu_guardado_v1`): m
 - **Cola:** si hay más de 4000 bytes esperando en el canal rápido (16000 en el fiable), el snapshot se descarta y sale el siguiente, más nuevo. Así nunca se juntan segundos de retraso.
 - **Panel de depuración** (oculto): **F3** en la laptop o **5 toques seguidos en la esquina superior izquierda** en el celular. Muestra: rol (líder/invitado), ping (y por qué canal), ida y vuelta real de la red (WebRTC), snapshots por segundo, tamaño promedio de cada snapshot (en rojo si pasa de 1500 bytes), FPS, **tipo de conexión** (directa en la red local / directa por el router / **TURN (relevo)**), canal rápido, **estado del TURN** (listo / no disponible, en rojo), cola del canal rápido y del fiable, ritmo de envío y snapshots descartados por segundo (líder).
 - **Si el invitado se va:** el líder **sigue jugando**; aviso "Dudu salió. Puede volver con el código". El invitado puede volver a entrar a mitad de partida con el mismo código: reaparece en un costado de la pantalla, cayendo, con la vida que tenía.
+- **Caídas (sección 17):** el invitado reintenta solo volver a la sala (4 intentos) y ve avisos "Esperando datos…" / "Reconectando…" / "No se pudo conectar" con Reintentar y Salir.
 - **Si el líder se va:** el invitado ve "La sala se cerró" y vuelve al menú.
 - **En celular:** pide horizontal y evita que se apague la pantalla (requiere HTTPS).
 
@@ -660,7 +661,7 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-8`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-10`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
@@ -891,3 +892,47 @@ Versión `2026.11.10-8`. Respaldo: etiqueta de git `respaldo-antes-encuadre-celu
 ### Cómo probar
 - **Celular (horizontal):** se ven 4 islas del fondo como en la laptop. El HUD ocupa la franja de arriba (una fila). En un doble salto desde una plataforma alta, la cámara sube un poco y vuelve a bajar al aterrizar. El menú principal no muestra "Niveles en pareja". Panel (5 toques): "Lienzo 1152×…".
 - **Laptop:** todo igual que antes.
+
+## 17. Internet inestable: interpolación adaptativa, avisos y reconexión
+
+Versión `2026.11.10-10`. Respaldo: etiqueta de git `respaldo-antes-red-inestable`. El líder sigue decidiendo todo; no cambió la lógica del juego. El canal rápido, el canal del ping y los límites de cola siguen igual.
+
+### 1. Interpolación adaptativa — `config/red.js` → `interpolacion`
+- El invitado dibuja a los demás con un "colchón" de **100 ms** con la red estable. Si la llegada de los snapshots o el ping varían mucho, sube rápido (300 ms por segundo) hasta **200 ms**. Cuando la red se estabiliza, baja **despacio** (15 ms por segundo).
+- Probado con una red simulada de 30 a 150 ms: 100 → 151 → 187 → 200 ms en ~5 s; al estabilizarse, 186 → 171 → … → 100 en ~7 s, sin avisos ni saltos.
+- Se ve en el panel ("Interpolación: … ms") y en "Copiar registro" (columna `interpolacion_ms`).
+
+### 2. Nunca pantalla negra — `config/red.js` → `conexion`, `Menus.avisoRed`
+- **Aviso encima del juego** (el juego sigue visible detrás), con botones **Reintentar** y **Salir**:
+  - "Esperando datos del líder…": la conexión sigue (llega el ping) pero no llega el juego, por ejemplo con el juego del líder en segundo plano.
+  - "Reconectando…": no llega nada, o se está intentando volver (muestra "intento n de 4").
+  - "No se pudo conectar": se acabaron los intentos, la sala ya no existe o no conectó al unirse (en 20 s), con el motivo.
+- Sale si no llega **ningún snapshot en 2 s** durante la partida (no durante la pausa del líder) y se quita solo cuando vuelven.
+- **Al entrar o volver** a una partida, el juego aparece solo cuando ya llegó el **primer estado** del líder (las imágenes ya están cargadas desde el inicio). El líder siempre manda el estado completo a quien entra.
+- Se corrigió un error que ya existía: un snapshot que no se podía rearmar (uno viejo que llega tarde por el canal rápido) hacía fallar la recepción. Ahora se descarta en silencio.
+
+### 3. Volver a la sala tras una caída (sin perder la partida del líder)
+- **Ya existía:** el líder sigue jugando cuando el invitado se va, y si el invitado vuelve con el código, Dudu reaparece con su vida.
+- **Lo que fallaba y se arregló:**
+  - Ante una caída, el invitado iba al menú. Ahora **reintenta solo**: 4 intentos de 8 s, con el mismo código.
+  - Si el líder todavía no había notado la caída, rechazaba la conexión nueva como "sala llena". Ahora el invitado lleva una **marca de su sesión** y el líder cambia la conexión vieja por la nueva. Si la vieja lleva 1,5 s callada, también la acepta. Una tercera persona sigue viendo "sala llena".
+  - Si el invitado vuelve cuando el nivel ya terminó, el líder lo manda a la sala.
+- Si el líder cierra la sala ("Finalizar") el invitado va al menú como antes, sin reintentar.
+
+### 4. Registro de conexión ("Copiar registro" → "Eventos de conexión")
+Con su hora: cambios de estado ICE y de la conexión WebRTC, apertura y cierre de los DataChannel (fiable y rápido), servidor de emparejamiento conectado o perdido, errores con su tipo, caídas y su motivo, cada intento de reconexión, motivo de fallo al entrar, "no llegó ningún snapshot tras entrar", "volvieron los snapshots" y tipo de conexión (directa / TURN) cada vez que cambia.
+
+### 5. Consejo en la pantalla "Jugar en línea"
+"💡 Que cree la sala el dispositivo más potente (por ejemplo, la laptop). Ese dispositivo calcula todo el juego."
+
+### Herramienta de prueba
+`EnLinea.simularCorte(ms)` en la consola: durante ese tiempo no entra ni sale ningún mensaje del juego en ese dispositivo (como si se cortara el WiFi). `RED_CONFIG.latenciaPrueba = { ms: 45, variacion: 60 }` simula una red que sube y baja.
+
+### Qué se probó (dos pestañas en la misma computadora, conexión real por PeerJS)
+- Corte de 3,5 s en el invitado: aviso a los 2 s, se quita solo, sin reconectar.
+- Corte de 9 s: aviso; a los 6 s, reconexión automática (intento 1) en ~1,6 s; el líder siguió en el mismo nivel y Dudu volvió a la partida.
+- Conexión nueva del invitado con la vieja todavía abierta: el líder la aceptó y mandó el estado completo.
+- El líder cierra de golpe: "Reconectando…" y luego "La sala ya no existe" con Reintentar y Salir; el juego sigue visible detrás.
+- Red inestable (30–150 ms): interpolación 100 → 200 → 100 ms, sin errores.
+
+**No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles, cambio real de WiFi a datos y el TURN (el Worker solo acepta la web publicada, no `localhost`).
