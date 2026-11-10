@@ -10,7 +10,10 @@ const Menus = {
   },
 
   ocultar() { this.cont.innerHTML = ''; this.cont.classList.add('oculto'); },
-  mostrarHTML(html) { this.cont.classList.remove('oculto'); this.cont.innerHTML = html; },
+  mostrarHTML(html) {
+    this.cont.classList.remove('oculto'); this.cont.innerHTML = html;
+    if (typeof PERSONAJES !== 'undefined') PERSONAJES.pintarRetratos(this.cont); // retratos con las hojas actuales
+  },
 
   // Asigna funciones a botones con data-ir
   conectar(acciones) {
@@ -63,7 +66,7 @@ const Menus = {
         let etiqueta = '';
         if (modo !== 'solo') etiqueta = `<div class="etiqueta-j ${id === elegido ? 'j1' : 'j2'}">${id === elegido ? 'J1' : 'J2'}</div>`;
         return `<div class="tarjeta ${modo === 'solo' && id === elegido ? 'elegida' : ''}" data-id="${id}">
-          ${etiqueta}<img src="${CONFIG.personajes[id].sprite}" alt="${CONFIG.personajes[id].nombre}">
+          ${etiqueta}${PERSONAJES.htmlRetrato(id)}
           <div class="nombre">${CONFIG.personajes[id].nombre}</div></div>`;
       }).join('');
       this.mostrarHTML(`

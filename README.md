@@ -19,7 +19,7 @@ Página aparte, solo con Bubu (panda blanco) y Dudu (oso marrón) sobre un suelo
 ```
 index.html                 Página principal (carga todos los scripts en orden)
 css/estilo.css             Menús, tienda y controles táctiles
-assets/personajes/         bubu.png (panda blanco) y dudu.png (oso marrón), recortados de la foto original
+assets/personajes/         bubu/ y dudu/: hojas de sprites animadas; movil/: las mismas a mitad de tamaño para celular
 assets/personajes/originales/  Fotos originales
 assets/ropa/               (vacío) Aquí irán imágenes de ropa para reemplazar el dibujo por código
 
@@ -52,7 +52,7 @@ js/dibujo/                 DIBUJO (solo lee el estado del mundo)
 js/ui/hud.js               Barras de vida (con barra de daño roja), energía, habilidades, jefe
 js/ui/menus.js             Menú principal, selección, pausa, game over, victoria, versus
 js/ui/tienda.js            Tienda de ropa + guardado en localStorage
-js/red/red.js              Fase 2: cliente WebSocket, código de sala, instantáneas (preparado)
+js/red/enlinea.js          Juego en línea con PeerJS (sincronizacion.js: snapshots e interpolación)
 js/main.js                 Arranque y bucle (lógica a 60 pasos fijos por segundo)
 ```
 
@@ -77,5 +77,5 @@ Todas las teclas se cambian en `CONFIG.controles` (`js/config.js`).
 
 - **Mundos y niveles:** Mundo 1 Isla Flotante = 10 niveles (tramos y oleadas definidos en `config/balance.js` -> `isla`, generados en `js/logica/niveles_isla.js`). Los mundos 2-4 (Cielo, Espacio, Ciudad) se desbloquean en orden. Simulaciones: `herramientas/simular_niveles.js` (`simularOleada7`, `tablaNiveles`, `simularJefeNivel`).
 - **Más escenarios:** los 4 niveles (Isla, Cielo, Espacio, Ciudad) están completos. Para agregar otro: datos en `js/logica/escenarios.js`, fondo en `js/dibujo/fondos_nuevos.js`, y si tiene enemigos o jefe propios, su IA en `js/logica/enemigos_nuevos.js` / `js/logica/jefes_nuevos.js`.
-- **Online (fase 2):** ver comentarios en `js/red/red.js`. Hace falta un servidor WebSocket que reenvíe mensajes por sala.
+- **En línea:** PeerJS (WebRTC) con TURN de Cloudflare; ver ESTADO_DEL_JUEGO.md. Archivos viejos sin uso: `_archivo_viejo/`.
 - **Ropa con imágenes:** pon el PNG en `assets/ropa/` y su ruta en `imagen` dentro de `js/dibujo/ropa.js`.

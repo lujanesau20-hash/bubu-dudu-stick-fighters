@@ -303,9 +303,12 @@ const Juego = {
 
   // Indicador pequeño de calidad de conexión (ping)
   dibujarPing(ctx, W, H) {
-    const p = EnLinea.ping, s = U.clamp(H / 720, 0.6, 1.3);
+    // Promedio de los últimos 2 s (no el valor de un instante)
+    const p = EnLinea.pingPromedio != null ? EnLinea.pingPromedio : EnLinea.ping, s = U.clamp(H / 720, 0.6, 1.3);
     const color = !EnLinea.conectado ? '#ff6b6b' : p == null ? '#cccccc' : p < 100 ? '#69db7c' : p < 200 ? '#ffd43b' : '#ff6b6b';
-    const texto = !EnLinea.conectado ? 'sin conexión' : p == null ? '… ms' : p + ' ms';
+    let texto = !EnLinea.conectado ? 'sin conexión' : p == null ? '… ms' : p + ' ms';
+    if (EnLinea.conexionInestable()) texto += ' · Conexión inestable';
+    if (EnLinea.versionDistinta) texto += ' · Versión distinta: recarga';
     ctx.font = `bold ${12 * s}px "Trebuchet MS", Arial`;
     ctx.textAlign = 'left';
     const x = 8 * s, y = H - 8 * s;

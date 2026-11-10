@@ -107,7 +107,7 @@ Object.assign(Menus, {
   enLineaConectado() {
     const anfitrion = EnLinea.esAnfitrion;
     const tarjeta = (id, quien) => `<div class="tarjeta"><div class="etiqueta-j ${id === 'bubu' ? 'j1' : 'j2'}">${quien}</div>
-      <img src="${CONFIG.personajes[id].sprite}" alt="${CONFIG.personajes[id].nombre}"><div class="nombre">${CONFIG.personajes[id].nombre}</div></div>`;
+      ${PERSONAJES.htmlRetrato(id)}<div class="nombre">${CONFIG.personajes[id].nombre}</div></div>`;
     // El anfitrión elige con la misma lista de mundos y niveles (según SU avance)
     if (!this.selRed) this.selRed = this.nuevaSeleccionNivel();
     const sel = this.selRed;

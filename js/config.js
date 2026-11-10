@@ -40,15 +40,13 @@ const CONFIG = {
   },
 
   // ---------------- Personajes ----------------
-  // sprite: imagen original (no se redibuja). mirandoDerecha: hacia dónde mira la imagen.
-  // anclas: posiciones (0..1 dentro del sprite) donde se dibuja la ropa.
+  // Las imágenes de los personajes salen de config/personajes.js (hojas de sprites actuales).
+  // anclas: posiciones (0..1 dentro del retrato) donde se dibuja la ropa en la tienda y el HUD.
   // Bubu = oso panda BLANCO (orejas y parches negros, moño negro).
   // Dudu = oso MARRÓN (sin moño).
   personajes: {
     bubu: {
       nombre: 'Bubu',
-      sprite: 'assets/personajes/bubu.png',
-      mirandoDerecha: true,
       color: '#f2f2f2',
       anclas: {
         cabeza: { x: 0.55, y: 0.08, ancho: 0.55 },
@@ -57,8 +55,6 @@ const CONFIG = {
     },
     dudu: {
       nombre: 'Dudu',
-      sprite: 'assets/personajes/dudu.png',
-      mirandoDerecha: true,
       color: '#c98f7c',
       anclas: {
         cabeza: { x: 0.5, y: 0.07, ancho: 0.62 },

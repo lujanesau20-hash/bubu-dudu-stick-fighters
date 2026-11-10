@@ -194,3 +194,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
 #aviso-pausa.visible { opacity: 1; }
 #aviso-pausa button { font-weight: bold; padding: 6px 12px; color: #1a1a2e; }
 #aviso-pausa .barra-tiempo { position: absolute; left: 0; bottom: 0; width: 100%; transform-origin: left center; }
+
+/* ---------- Retratos de personajes (lienzo con la hoja actual, config/personajes.js) ---------- */
+.tarjeta canvas.retrato-pj { width: 100%; height: 130px; object-fit: contain; display: block; }
+@media (max-height: 500px) { .tarjeta canvas.retrato-pj { height: 90px; } }
+
+/* ---------- Botón "Copiar registro" del panel de depuración ---------- */
+#btn-copiar-registro { position: absolute; z-index: 6; font: inherit; font-size: 13px; font-weight: bold; color: #1a1a2e;
+  background: #b2f2bb; border: 1px solid #1a1a2e; border-radius: 8px; padding: 6px 12px; min-height: 34px; cursor: pointer; touch-action: none; }

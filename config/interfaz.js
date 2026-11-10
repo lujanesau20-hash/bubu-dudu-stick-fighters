@@ -6,9 +6,9 @@
 CONFIG.interfaz = {
   // Indicadores de habilidades y combos debajo de las barras (no los botones táctiles)
   habilidades: {
-    escalaCelular: 1.35,   // +35% en celular (cuando se usan los controles táctiles)
-    escalaLaptop: 1.1,     // +10% en laptop / PC
-    opacidad: 0.75,        // 75%: dejan ver el juego detrás (sin desenfoque)
+    escalaCelular: 2.0,    // el doble en celular (cuando se usan los controles táctiles); antes 1.35
+    escalaLaptop: 1.1,     // +10% en laptop / PC (sin cambios)
+    opacidad: 0.8,         // 80%: dejan ver el juego detrás (sin desenfoque); usar entre 0.75 y 0.85
     contorno: 1.5,         // grosor del contorno oscuro de cada ícono (px)
   },
 
@@ -37,6 +37,15 @@ CONFIG.interfaz = {
     celular: { maxParticulas: 180, factorParticulas: 0.5, maxTextos: 14, sinSombras: true },
     laptop: { maxParticulas: 450, factorParticulas: 1, maxTextos: 30, sinSombras: false },
     // sinSombras: quita el brillo borroso (shadowBlur), lo más caro de dibujar en un celular
+  },
+
+  // Medición de la conexión en línea (solo se muestra; no cambia el envío)
+  medicion: {
+    promedioPingSegundos: 2,     // el ping en pantalla es el promedio de estos segundos
+    muestrasJitter: 10,          // variación del ping: cambio promedio entre las últimas muestras
+    registroMinutos: 5,          // "Copiar registro": segundos guardados (5 min = 300 filas)
+    // "Conexión inestable" si se cumple alguna:
+    inestable: { pingMs: 250, jitterMs: 80, perdidaPorcentaje: 20 },
   },
 
   // Ave enemiga estilo stickman (solo dibujo)

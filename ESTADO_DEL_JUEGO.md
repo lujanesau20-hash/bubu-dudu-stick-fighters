@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: reloj de envío del líder, snapshots "solo cambios" y panel de rendimiento; ver la sección 11).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: fuente única de personajes, versión del juego, cuadros de enfriamiento más grandes y medición de red; ver la sección 12). **Versión actual: `2026.11.09-1`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`
 
 ---
 
@@ -38,16 +38,18 @@ Los niveles se desbloquean **en orden**: para jugar el nivel 2 hay que pasar el 
 ## 2. Estructura de carpetas y archivos
 
 ```
-index.html                  Página del juego. Carga todos los scripts EN ORDEN (el orden importa).
+index.html                  Página del juego. Define VERSION_JUEGO y carga todos los scripts EN ORDEN con ?v=VERSION_JUEGO.
 prueba-personajes.html      Página aparte para revisar las hojas de sprites (visor de animaciones).
 robots.txt                  Pide a los buscadores no indexar (ver límites).
 .nojekyll                   Necesario para GitHub Pages.
 README.md                   Resumen corto del proyecto.
 ESTADO_DEL_JUEGO.md         Este documento.
 CLAUDE.md                   Reglas de trabajo del proyecto (para quien programe).
-cuadros_datos.js            (raíz) Copia suelta descargada desde el visor. NO se usa; el bueno está en js/prueba/.
+_archivo_viejo/             Archivos que ya no se usan (no se cargan). Motivo de cada uno en _archivo_viejo/LEEME.md.
 
 config/
+  personajes.js             ★ FUENTE ÚNICA de Bubu y Dudu: qué hojas usa cada pantalla, versión para celular,
+                            retratos y errores de carga (se muestran en el panel de depuración).
   interfaz.js               Tamaños, opacidades y colores de la interfaz (indicadores H1–H4, botón Pausa,
                             aviso de pausa) y del dibujo del ave. Solo cambia cómo se VE el juego.
   balance.js                ★ TODOS los números de equilibrio (vida, maná, daño, enfriamientos, corazones,
@@ -85,7 +87,7 @@ js/
     camara.js               Cámara única con zoom (sigue a los dos jugadores).
     fondos.js               Fondo con parallax de la Isla (y ayudas para otros fondos).
     fondos_nuevos.js        Fondos de Cielo, Espacio y Ciudad.
-    personajes.js           Dibujo de Bubu/Dudu con hojas de sprites animadas (y respaldo con imagen fija).
+    personajes.js           Dibujo de Bubu/Dudu (local y remoto) con las hojas; retrato del HUD y la tienda.
     stickman.js             Enemigos y jefes con palitos, accesorios por tipo, y el AVE.
     ropa.js                 Prendas de la tienda dibujadas por código (preparadas para imágenes).
     efectos.js              Partículas, números de daño, anillos, explosiones, carteles.
@@ -105,7 +107,6 @@ js/
                             desconexión y reentrada.
     sincronizacion.js       Instantáneas del estado (anfitrión), formato compacto y su lectura, e
                             interpolación/predicción (invitado).
-    red.js                  Esqueleto antiguo con WebSocket (fase 2 original). No se usa.
 
   prueba/                   Hojas de sprites: configuración de animaciones y detección de cuadros
     animaciones.js          Qué hoja es cada animación, fps, escala de cada hoja.
@@ -115,7 +116,7 @@ js/
 
 assets/personajes/
   bubu/, dudu/              Hojas de sprites animadas (una fila de cuadros por animación).
-  bubu.png, dudu.png        Imágenes fijas (retratos del HUD, tienda, selección).
+  movil/bubu/, movil/dudu/  Las mismas hojas a mitad de tamaño, solo para celulares (herramientas/hojas_movil.py).
 BUBU ANIMADO/, DUDU ANIMADO/  Hojas ORIGINALES entregadas (no se tocan; se copiaron a assets/).
 
 turn-worker/                Worker de Cloudflare que entrega credenciales TURN al juego (se despliega aparte).
@@ -124,6 +125,7 @@ turn-worker/                Worker de Cloudflare que entrega credenciales TURN a
   .gitignore, README.md     Archivos locales con secretos que nunca se suben; cómo desplegar.
 
 herramientas/               Simulaciones para la consola del navegador (no forman parte del juego).
+  hojas_movil.py            Crea las hojas a mitad de tamaño para celular (python herramientas/hojas_movil.py).
   simular_jefe.js           Pelea contra un jefe con un jugador automático.
   simular_niveles.js        Oleada de 7, nivel completo, tabla de niveles, jefe con refuerzos.
   simular_red.js            Simula ping/variación para medir la suavidad del invitado en línea.
@@ -325,7 +327,7 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 ### Interfaz — `config/interfaz.js` (`CONFIG.interfaz`)
 | Valor | Número |
 |---|---|
-| Indicadores H1–H4 y combos: escala en celular / laptop | **1.35** (+35%) / **1.1** (+10%) |
+| Indicadores H1–H4 y combos: escala en celular / laptop | **2.0** (el doble; antes 1.35) / **1.1** (+10%) |
 | Indicadores: opacidad | **0.75** (sin desenfoque) |
 | Indicadores: contorno oscuro del ícono | 1.5 px (las letras ya tienen contorno oscuro fino) |
 | Botón Pausa en celular (alto × ancho, letra) | **44 × 78 px**, 16 px |
@@ -409,7 +411,7 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 
 **Visual**
 - La ropa comprada no se ve sobre los sprites animados en el juego (sí en la tienda y en los retratos).
-- Los retratos del HUD y de la selección usan las fotos fijas antiguas de los stickers.
+- Los retratos (selección, sala en línea, HUD y tienda) son el primer cuadro de reposo de la hoja; la ropa de la tienda se ubica sobre ese cuadro con las mismas anclas de antes.
 - Para que el botón "Pausa" no tape el retrato del jugador 2, en pareja su barra queda un poco más a la izquierda (se puede desactivar con `apartarHudJugador2: false`).
 - El ave se dibuja un 20% más grande que su zona de golpe (que no cambió): las puntas de las alas no reciben golpes.
 - El botón de pausa táctil antiguo ("II", abajo al centro) está oculto, no borrado.
@@ -431,7 +433,7 @@ Máximo 5 a distancia vivos a la vez. Aves: vuelan a 180 px del suelo; bola de f
 - `robots.txt` no tiene efecto en GitHub Pages (solo se lee en la raíz del dominio); lo que protege es la etiqueta `noindex`.
 - El escenario `isla` original (un solo nivel) sigue definido en `escenarios.js` porque sirve de base a los 10 niveles; no aparece en los menús.
 - Avance guardado antes de los 10 niveles (ids `isla`, `cielo`...) no se convierte al sistema nuevo.
-- `cuadros_datos.js` en la raíz y `js/red/red.js` no se usan.
+- Archivos sin uso movidos a `_archivo_viejo/` (ver sección 12). Quedan sin mover, por dudosos: `assets/personajes/originales/` (fotos de los stickers) y el botón de pausa táctil viejo "II" (oculto por CSS).
 - El Torbellino reparte 70 de daño en 6 golpes; por redondeo hace 72.
 - La web publicada no se actualiza sola: hay que subir los cambios con `git push` (GitHub tarda 1–2 minutos en publicar).
 
@@ -631,4 +633,71 @@ npx wrangler deploy
 - Con pérdidas muy altas (30% o más) algún dato puede verse viejo hasta 1 s, hasta que esa cosa vuelve a ir completa.
 - El ping de los mensajes siempre incluye la espera del hilo principal de los dos lados (así funciona el navegador). La medida "solo red" es la de WebRTC; el panel muestra las dos y el bloqueo de cada lado.
 - La pestaña del líder debe seguir visible: si se oculta, el juego queda quieto para los dos (igual que antes).
+
+---
+
+## 12. Fuente única de personajes, versión del juego, cuadros de enfriamiento y medición de red
+
+### Por qué la invitada veía un Dudu viejo (pálido, rosado y con guantes rojos)
+- Ese Dudu es el sticker viejo `assets/personajes/dudu.png`.
+- El juego dibujaba a los jugadores con las hojas animadas, pero **si las hojas no estaban listas en ese celular, cambiaba sin avisar al sticker viejo**.
+- En un celular eso puede pasar por **memoria**: las 21 hojas (2172 px de ancho) ocupan ~131 MB ya decodificadas. También puede pasar por la **caché**: GitHub Pages deja los archivos guardados unos 10 minutos.
+- Además, **la selección de personaje, la sala en línea, el avatar del HUD y la tienda siempre usaban los stickers viejos**.
+- El jugador remoto se dibujaba con el mismo código que el local (mismas hojas y escala, sin tinte). Solo tiene la transparencia que ya existía para todos: parpadeo al ser invulnerable y semitransparente al estar "muerto".
+
+### Auditoría (antes → ahora)
+| Pantalla | Antes | Ahora |
+|---|---|---|
+| Selección de personaje | sticker `bubu.png` / `dudu.png` (`<img>`) | primer cuadro de reposo de la hoja (lienzo), desde `config/personajes.js` |
+| Sala en línea (conectado) | sticker | igual que la selección |
+| Avatar del HUD | sticker | cuadro de reposo de la hoja |
+| Vista previa de la tienda | sticker con ropa | cuadro de reposo de la hoja con ropa |
+| Jugador local y remoto | hojas animadas; si fallaban, **sticker viejo sin avisar** | hojas animadas; si fallan, un círculo con "?" y el **error en el panel** |
+| Resultados | sin personajes | sin personajes |
+
+### Cambios
+- **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
+- **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
+- **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.09-1`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
+  - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
+  - el líder ve que el invitado tiene otra versión;
+  - y queda marcado en el panel y junto al ping.
+- **Cuadros de enfriamiento:** escala **2.0 en celular** (antes 1.35; laptop sin cambios, 1.1), opacidad **0.8** (`config/interfaz.js` → `habilidades`). El número de enfriamiento crece con el cuadro y tiene contorno oscuro. Los combos siguen en una segunda fila. Si la barra del jefe no cabe arriba, baja hasta debajo de los cuadros. No tapan el botón Pausa (la barra del jugador 2 ya se corre a la izquierda) ni los controles táctiles.
+- **Medición de red** (sin cambiar el envío ni la interpolación):
+  - El ping en pantalla y en el panel es el **promedio de los últimos 2 s**, con su **variación** (jitter).
+  - El panel muestra **snapshots enviados y recibidos** en los dos equipos, con el % perdido. Cada respuesta de ping lleva los números del otro equipo.
+  - **"Conexión inestable"** (en el panel y junto al ping) si el ping pasa de 250 ms, la variación de 80 ms o se pierde más del 20% de los snapshots (`config/interfaz.js` → `medicion`).
+  - Botón **"Copiar registro"** debajo del panel. Copia en texto simple, segundo a segundo, los últimos 5 minutos: hora, rol, ping, variación, ida y vuelta de la red, snapshots enviados y recibidos, bytes, FPS, cola, conexión (directa/TURN) y bloqueo del hilo, con la versión de cada uno. Funciona en celular y laptop, en el líder y en el invitado.
+
+### Tamaños de las hojas
+| Hoja | Original | Celular |
+|---|---|---|
+| bubu caido, caminar, doble_salto, espada, golpe_suelo, lanzar_cuchilla, reposo | 2172×724 (0.63–0.88 MB) | 1086×362 (0.19–0.25 MB) |
+| bubu agacharse | 1774×887 (0.57 MB) | 887×444 (0.17 MB) |
+| bubu dash | 1352×1024 (0.43 MB) | 676×512 (0.12 MB) |
+| bubu herido | 1536×1024 (1.11 MB) | 768×512 (0.17 MB) |
+| dudu caido, caminar, dash, doble_salto, espada, golpe_suelo, lanzar_cuchilla, reposo, saltar | 2172×724 (0.68–0.94 MB) | 1086×362 (0.19–0.25 MB) |
+| dudu agacharse, herido | 1774×887 (0.55–0.70 MB) | 887×444 (0.15–0.19 MB) |
+| **Memoria al decodificar (todas)** | **131 MB** | **33 MB** |
+
+### Movido a `_archivo_viejo/` (no se borró nada)
+| Archivo | Motivo |
+|---|---|
+| `assets/personajes/bubu.png`, `dudu.png` | Stickers viejos. Ninguna pantalla los usa ya (solo los mencionaba el README, que se actualizó). |
+| `cuadros_datos.js` (raíz) | Copia suelta; el juego y la página de prueba usan `js/prueba/cuadros_datos.js`. |
+| `js/red/red.js` | Red antigua con WebSocket ("fase 2"), nunca usada; ya no se carga. |
+| `codigo/personajes_imagen_fija.js` | Copia del dibujo anterior con la imagen fija y el respaldo silencioso. |
+
+Sin mover (dudosos, para decidir): `assets/personajes/originales/` (fotos de los stickers) y el botón de pausa táctil "II" (oculto). No había `console.log` sobrantes en el juego (solo en la herramienta `simular_jefe.js`, que es su salida) ni líneas de código comentadas.
+
+### Cómo probar
+- **Celular (pestaña privada / incógnito, para que no haya nada en caché):**
+  1. Abrir la web y elegir "Niveles en solitario": los dos retratos deben ser el panda blanco con moño y el oso marrón de las hojas.
+  2. Jugar: los cuadros de habilidades deben verse al doble de tamaño y el número de enfriamiento debe leerse bien.
+  3. Abrir el panel (5 toques en la esquina superior izquierda): "versión 2026.11.09-1", "Hojas de sprites: todas bien (versión celular)".
+- **Laptop:** lo mismo con F3. Los cuadros de habilidades quedan del tamaño de antes.
+- **En línea:** los dos dispositivos deben mostrar la misma versión en el panel. Si no, aparece el aviso y hay que recargar. El panel muestra el ping promedio, la variación, los enviados y recibidos y, si corresponde, "Conexión inestable". Tras jugar, tocar **"Copiar registro"** en cada dispositivo y pegarlo en un mensaje.
+- **Al subir cambios:** cambiar `VERSION_JUEGO` en `index.html`.
 

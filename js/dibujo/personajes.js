@@ -1,132 +1,67 @@
 /* =====================================================================
    DIBUJO DE BUBU Y DUDU
-   Se usan las imágenes originales de assets/personajes (sin redibujar).
-   La animación se hace con transformaciones: rebote, escala (estirar y
-   aplastar), rotación e inclinación.
+   Siempre con las hojas de sprites actuales (fuente única: config/personajes.js).
+   El jugador local y el remoto se dibujan con el MISMO código (dibujarJugador).
+   Si una hoja falla no se usa ninguna imagen vieja: se dibuja un círculo del
+   color del personaje y el error aparece en el panel de depuración.
+   (El código anterior con la imagen fija está en _archivo_viejo/codigo/.)
    ===================================================================== */
 const SPRITES = {
-  imagenes: {},   // personaje -> { img, blanco, rojo }
-
+  // Carga las hojas animadas (con la versión para celular si corresponde) y las verifica
   cargar(alTerminar) {
-    const ids = Object.keys(CONFIG.personajes);
-    let pendientes = ids.length;
-    ids.forEach((id) => {
-      const img = new Image();
-      img.onload = () => {
-        this.imagenes[id] = { img, blanco: this.teñir(img, '#ffffff'), rojo: this.teñir(img, '#ff3b3b') };
-        if (--pendientes === 0) this.cargarHojas(alTerminar);
-      };
-      img.onerror = () => {
-        console.warn('No se pudo cargar el sprite de', id);
-        if (--pendientes === 0) this.cargarHojas(alTerminar);
-      };
-      img.src = CONFIG.personajes[id].sprite;
-    });
     cargarImagenesRopa();
-  },
-
-  // Hojas animadas (bubu/, dudu/). Si fallan, el juego usa el sprite fijo.
-  cargarHojas(alTerminar) {
-    if (typeof Cuadros === 'undefined') { alTerminar(); return; }
+    if (typeof Cuadros === 'undefined') { PERSONAJES.error('No está cargado js/prueba/cuadros.js'); alTerminar(); return; }
+    PERSONAJES.prepararRutas();
     Cuadros.preferirGuardados = true; // carga rápida con los cuadros ya detectados
-    Cuadros.cargarTodo().then(alTerminar, (e) => { console.warn('Hojas animadas no disponibles', e); alTerminar(); });
-  },
-
-  // Copia del sprite de un solo color (para el destello al recibir daño)
-  teñir(img, color) {
-    const c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
-    const x = c.getContext('2d');
-    x.drawImage(img, 0, 0);
-    x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = color;
-    x.fillRect(0, 0, c.width, c.height);
-    return c;
+    Cuadros.cargarTodo()
+      .then(() => PERSONAJES.verificar())
+      .catch((e) => PERSONAJES.error('Error al cargar las hojas: ' + (e && e.message ? e.message : e)))
+      .then(alTerminar);
   },
 };
 
-// Dibuja un personaje en (0,0)=pies con su ropa. Usado en el juego, menús y tienda.
-function dibujarSpritePersonaje(ctx, personaje, equipo, alto, opciones = {}) {
-  const s = SPRITES.imagenes[personaje];
+// Respaldo visible (NO una imagen vieja) si la hoja de un personaje no está lista
+function dibujarFaltaPersonaje(ctx, personaje, alto) {
   const cfg = CONFIG.personajes[personaje];
-  if (!s) {
-    // Respaldo si falta la imagen
-    ctx.fillStyle = cfg.color;
-    ctx.beginPath(); ctx.arc(0, -alto / 2, alto / 2, 0, Math.PI * 2); ctx.fill();
-    return;
-  }
-  const w = (alto * s.img.width) / s.img.height;
-  const voltear = (opciones.dir || 1) * (cfg.mirandoDerecha ? 1 : -1);
+  ctx.save();
+  ctx.fillStyle = cfg.color; ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, -alto / 2, alto / 2.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#1a1a2e'; ctx.font = `bold ${Math.round(alto / 4)}px Arial`; ctx.textAlign = 'center';
+  ctx.fillText('?', 0, -alto / 2 + alto / 12);
+  ctx.restore();
+  PERSONAJES.error(`${personaje}: hojas no listas (se dibuja un círculo)`);
+}
+
+// Retrato del personaje (cuadro de reposo de su hoja) con los pies en (0,0) y su ropa.
+// Lo usan el avatar del HUD y la vista previa de la tienda.
+function dibujarSpritePersonaje(ctx, personaje, equipo, alto, opciones = {}) {
+  const r = PERSONAJES.cuadroRetrato(personaje);
+  if (!r) { dibujarFaltaPersonaje(ctx, personaje, alto); return; }
+  const w = (alto * r.c.w) / r.c.h;
   ctx.save();
   ctx.translate(0, -alto / 2);
-  ctx.scale(voltear, 1);
-  ctx.drawImage(s.img, -w / 2, -alto / 2, w, alto);
+  ctx.scale(opciones.dir || 1, 1); // las hojas miran a la derecha
+  PERSONAJES.dibujarCuadro(ctx, r.hoja, r.c, -w / 2, -alto / 2, w, alto);
   dibujarRopa(ctx, personaje, equipo, w, alto, opciones.tiempo || 0);
   if (opciones.flash > 0) {
     ctx.globalAlpha = Math.min(1, opciones.flash);
-    ctx.drawImage(opciones.flashRojo ? s.rojo : s.blanco, -w / 2, -alto / 2, w, alto);
+    ctx.drawImage(HOJAS_JUEGO.tinte(r.hoja, r.c, opciones.flashRojo ? '#ff3b3b' : '#ffffff', alto / r.c.h), -w / 2, -alto / 2, w, alto);
   }
   ctx.restore();
 }
 
+// Jugador en el juego (local o remoto: el mismo código, las mismas hojas y escala)
 function dibujarJugador(ctx, j, t, equipo, mostrarEtiqueta) {
-  const a = j.anim;
   const H = CONFIG.jugador.altoSprite;
-  const caido = j.estado === 'caido' || j.estado === 'muerto';
-
-  // Con hojas de sprites animadas (assets/personajes/<nombre>/)
-  if (HOJAS_JUEGO.listas(j.personaje)) {
-    dibujarSombraJugador(ctx, j);
-    dibujarJugadorAnimado(ctx, j, t);
-    dibujarExtrasJugador(ctx, j, H * 1.05, mostrarEtiqueta);
-    return;
-  }
-
-  // Estela del dash / combos
-  if (j.estela.length > 1) {
-    j.estela.forEach((p, i) => {
-      ctx.save();
-      ctx.globalAlpha = (i / j.estela.length) * 0.35;
-      ctx.translate(p.x, p.y);
-      dibujarSpritePersonaje(ctx, j.personaje, equipo, H, { dir: j.dir, flash: 1 });
-      ctx.restore();
-    });
-  }
-
   dibujarSombraJugador(ctx, j);
-
-  ctx.save();
-  ctx.translate(j.x, j.y - (caido ? 0 : a.rebote));
-
-  if (caido) {
-    // Tumbado en el suelo: girado 90° con el centro a media altura del sprite acostado
-    const s = SPRITES.imagenes[j.personaje];
-    const anchoSprite = s ? (H * s.img.width) / s.img.height : H;
-    ctx.translate(0, -anchoSprite / 2 + 6);
-    ctx.rotate(-j.dir * Math.PI / 2);
-    ctx.translate(0, H / 2);
-    ctx.globalAlpha = j.estado === 'muerto' ? 0.45 : 0.85;
+  if (HOJAS_JUEGO.listas(j.personaje)) {
+    dibujarJugadorAnimado(ctx, j, t);
   } else {
-    // Parpadeo de invulnerabilidad
-    if (j.invulnerable > 0 && Math.floor(t * 20) % 2 === 0) ctx.globalAlpha = 0.55;
-    // Inclinación (pivota en los pies)
-    ctx.rotate(a.inclinacion + (a.ataque > 0 ? j.dir * 0.25 * a.ataque : 0));
-    // Avance del cuerpo al atacar
-    if (a.ataque > 0) ctx.translate(j.dir * 10 * a.ataque, 0);
+    ctx.save(); ctx.translate(j.x, j.y);
+    dibujarFaltaPersonaje(ctx, j.personaje, H);
+    ctx.restore();
   }
-
-  // Giro (voltereta del doble salto, torbellino, cataclismo) alrededor del centro
-  const giro = a.giro + (a.volteo > 0 ? j.dir * (1 - a.volteo) * Math.PI * 2 : 0);
-  ctx.translate(0, -H * a.sy / 2);
-  ctx.rotate(giro);
-  ctx.scale(a.sx, a.sy);
-  ctx.translate(0, H / 2);
-  dibujarSpritePersonaje(ctx, j.personaje, equipo, H, {
-    dir: j.dir, flash: a.flash * 1.2, flashRojo: a.flash > 0.4, tiempo: t,
-  });
-  ctx.restore();
-
-  dibujarExtrasJugador(ctx, j, H * a.sy + a.rebote, mostrarEtiqueta);
+  dibujarExtrasJugador(ctx, j, H * 1.05, mostrarEtiqueta);
 }
 
 // Etiqueta J1/J2 y, si está caído, cuenta regresiva y círculo de revivir
@@ -252,7 +187,7 @@ const HOJAS_JUEGO = {
       lienzo = document.createElement('canvas');
       lienzo.width = Math.max(1, Math.round(c.w * k)); lienzo.height = Math.max(1, Math.round(c.h * k));
       const x = lienzo.getContext('2d');
-      x.drawImage(hoja.img, c.x, c.y, c.w, c.h, 0, 0, lienzo.width, lienzo.height);
+      PERSONAJES.dibujarCuadro(x, hoja, c, 0, 0, lienzo.width, lienzo.height);
       x.globalCompositeOperation = 'source-atop';
       x.fillStyle = color;
       x.fillRect(0, 0, lienzo.width, lienzo.height);
@@ -267,7 +202,7 @@ function dibujarCuadroHoja(ctx, hoja, c, escala, dir, imagen) {
   ctx.save();
   ctx.scale(dir * escala, escala);
   if (imagen) ctx.drawImage(imagen, c.x - c.pieX, c.y - c.pieY, c.w, c.h);
-  else ctx.drawImage(hoja.img, c.x, c.y, c.w, c.h, c.x - c.pieX, c.y - c.pieY, c.w, c.h);
+  else PERSONAJES.dibujarCuadro(ctx, hoja, c, c.x - c.pieX, c.y - c.pieY, c.w, c.h);
   ctx.restore();
 }
 

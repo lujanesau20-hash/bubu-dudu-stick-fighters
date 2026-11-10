@@ -9,7 +9,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#4fb3f6">
   <title>Bubu & Dudu: Stick Fighters</title>
-  <link rel="stylesheet" href="css/estilo.css">
+  <script>
+    // =====================================================================
+    // VERSIÓN DEL JUEGO: cámbiala en CADA actualización (fecha y número del día).
+    // Se agrega como ?v=... a todos los archivos (JS, CSS e imágenes de los
+    // personajes) para que los celulares bajen los nuevos y no usen copias viejas.
+    // =====================================================================
+    var VERSION_JUEGO = '2026.11.09-1';
+    document.write('<link rel="stylesheet" href="css/estilo.css?v=' + VERSION_JUEGO + '">');
+  </script>
 </head>
 <body>
   <div id="juego">
@@ -24,61 +32,65 @@
     <div id="girar"><div>📱↻<p>Gira el teléfono para jugar</p></div></div>
   </div>
 
-  <!-- Configuración y utilidades -->
-  <script src="js/config.js"></script>
-  <!-- Números de balance (vida, maná, daño, enfriamientos, corazones) -->
-  <script src="config/balance.js"></script>
-  <!-- Tamaños y opacidades de la interfaz (indicadores, botón Pausa, aviso, ave) -->
-  <script src="config/interfaz.js"></script>
-  <script src="js/utilidades.js"></script>
-  <!-- Entrada (teclado y táctil) -->
-  <script src="js/entrada/input.js"></script>
-  <script src="js/entrada/tactil.js"></script>
-  <!-- Lógica del juego (sin dibujo) -->
-  <script src="js/logica/ataques.js"></script>
-  <script src="js/logica/habilidades.js"></script>
-  <script src="js/logica/combos.js"></script>
-  <script src="js/logica/jugador.js"></script>
-  <script src="js/logica/enemigos.js"></script>
-  <script src="js/logica/jefes.js"></script>
-  <!-- Enemigos y jefes de los niveles 2, 3 y 4 -->
-  <script src="js/logica/enemigos_nuevos.js"></script>
-  <script src="js/logica/jefes_nuevos.js"></script>
-  <script src="js/logica/escenarios.js"></script>
-  <!-- Mundo 1: Isla Flotante en 10 niveles (datos en config/balance.js) -->
-  <script src="js/logica/niveles_isla.js"></script>
-  <script src="js/logica/mundo.js"></script>
-  <!-- Hojas de sprites animadas de Bubu y Dudu (las mismas de prueba-personajes.html) -->
-  <script src="js/prueba/animaciones.js"></script>
-  <script src="js/prueba/cuadros_datos.js"></script>
-  <script src="js/prueba/cuadros.js"></script>
-  <!-- Dibujo -->
-  <script src="js/dibujo/camara.js"></script>
-  <script src="js/dibujo/efectos.js"></script>
-  <script src="js/dibujo/fondos.js"></script>
-  <script src="js/dibujo/fondos_nuevos.js"></script>
-  <script src="js/dibujo/stickman.js"></script>
-  <script src="js/dibujo/ropa.js"></script>
-  <script src="js/dibujo/personajes.js"></script>
-  <script src="js/dibujo/render.js"></script>
-  <!-- Interfaz -->
-  <script src="js/ui/hud.js"></script>
-  <script src="js/ui/tienda.js"></script>
-  <script src="js/ui/menus.js"></script>
-  <script src="js/ui/selector_niveles.js"></script>
-  <!-- Red (fase 2, preparada) -->
-  <script src="js/red/red.js"></script>
-  <!-- Juego en línea: PeerJS (versión fija) + configuración + sincronización -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-  <script src="config/red.js"></script>
-  <script src="js/red/sincronizacion.js"></script>
-  <script src="js/red/enlinea.js"></script>
-  <script src="js/ui/menu_enlinea.js"></script>
-  <!-- Botón y menús de pausa (solitario, pareja local y en línea) -->
-  <script src="js/ui/pausa.js"></script>
-  <!-- Panel de depuración de red (F3 o 5 toques en la esquina superior izquierda) -->
-  <script src="js/ui/depuracion.js"></script>
-  <!-- Arranque -->
-  <script src="js/main.js"></script>
+  <!-- Todos los archivos del juego, en orden, con ?v=VERSION_JUEGO -->
+  <script>
+    (function () {
+      var archivos = [
+        // Configuración y utilidades
+        'js/config.js',
+        'config/balance.js',          // números de balance
+        'config/interfaz.js',         // tamaños y opacidades de la interfaz
+        'config/personajes.js',       // fuente única de Bubu y Dudu (hojas de sprites)
+        'js/utilidades.js',
+        // Entrada (teclado y táctil)
+        'js/entrada/input.js',
+        'js/entrada/tactil.js',
+        // Lógica del juego (sin dibujo)
+        'js/logica/ataques.js',
+        'js/logica/habilidades.js',
+        'js/logica/combos.js',
+        'js/logica/jugador.js',
+        'js/logica/enemigos.js',
+        'js/logica/jefes.js',
+        'js/logica/enemigos_nuevos.js',
+        'js/logica/jefes_nuevos.js',
+        'js/logica/escenarios.js',
+        'js/logica/niveles_isla.js',  // Mundo 1: Isla Flotante en 10 niveles
+        'js/logica/mundo.js',
+        // Hojas de sprites animadas (las mismas de prueba-personajes.html)
+        'js/prueba/animaciones.js',
+        'js/prueba/cuadros_datos.js',
+        'js/prueba/cuadros.js',
+        // Dibujo
+        'js/dibujo/camara.js',
+        'js/dibujo/efectos.js',
+        'js/dibujo/fondos.js',
+        'js/dibujo/fondos_nuevos.js',
+        'js/dibujo/stickman.js',
+        'js/dibujo/ropa.js',
+        'js/dibujo/personajes.js',
+        'js/dibujo/render.js',
+        // Interfaz
+        'js/ui/hud.js',
+        'js/ui/tienda.js',
+        'js/ui/menus.js',
+        'js/ui/selector_niveles.js',
+        // Juego en línea: PeerJS (versión fija, sin ?v) + configuración + sincronización
+        'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js',
+        'config/red.js',
+        'js/red/sincronizacion.js',
+        'js/red/enlinea.js',
+        'js/ui/menu_enlinea.js',
+        'js/ui/pausa.js',             // botón y menús de pausa
+        'js/ui/depuracion.js',        // panel de depuración (F3 o 5 toques en la esquina)
+        // Arranque
+        'js/main.js',
+      ];
+      for (var i = 0; i < archivos.length; i++) {
+        var url = /^https?:/.test(archivos[i]) ? archivos[i] : archivos[i] + '?v=' + encodeURIComponent(VERSION_JUEGO);
+        document.write('<script src="' + url + '"><\/script>');
+      }
+    })();
+  </script>
 </body>
 </html>

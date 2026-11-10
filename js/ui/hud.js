@@ -32,6 +32,7 @@ class HUD {
 
   dibujar(ctx, m, W, H, efectos, esTactil) {
     const s = U.clamp(H / 720, 0.55, 1.4);
+    this.fondoIconos = 0; // parte de abajo de los cuadros de habilidades (para no tapar la barra del jefe)
     const margen = 16 * s;
     const anchoBarra = Math.min(440 * s, W * 0.34);
     // Si el botón "Pausa" está visible, el bloque del jugador 2 se corre a la izquierda para no quedar tapado
@@ -88,7 +89,8 @@ class HUD {
       const w = Math.min(W * 0.55, 700 * s), h = 18 * s;
       // Si no cabe entre las barras de los jugadores, va debajo de ellas
       const cabeArriba = w < W - 2 * (anchoBarra + margen * 2);
-      const x = (W - w) / 2, y = margen + (cabeArriba ? (m.modo === 'pareja' ? 84 : 62) : 196) * s;
+      // Si no cabe arriba, va debajo de las barras y de los cuadros de habilidades (más grandes en celular)
+      const x = (W - w) / 2, y = cabeArriba ? margen + (m.modo === 'pareja' ? 84 : 62) * s : Math.max(margen + 196 * s, this.fondoIconos + 30 * s);
       const real = Math.max(0, m.jefe.vida / m.jefe.vidaMax);
       this.texto(ctx, m.jefe.nombre, W / 2, y - 6 * s, 18 * s, m.jefe.fase2 ? '#ff6b6b' : '#ffd84d', 'center');
       ctx.fillStyle = 'rgba(10,10,25,0.75)';
@@ -212,6 +214,7 @@ class HUD {
         j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true);
     });
     ctx.restore();
+    this.fondoIconos = Math.max(this.fondoIconos || 0, fila2 + tam + 12 * si);
   }
 
   // Un ícono de habilidad o combo
@@ -238,7 +241,8 @@ class HUD {
       const k = Math.min(1, cdRestante / cdTotal);
       ctx.fillStyle = 'rgba(0,0,0,0.62)';
       ctx.fillRect(x, y + tam * (1 - k), tam, tam * k);
-      this.texto(ctx, cdRestante >= 1 ? String(Math.ceil(cdRestante)) : cdRestante.toFixed(1), x + tam / 2, y + tam * 0.66, 14 * s, '#ffffff', 'center');
+      // Número de enfriamiento: crece con el cuadro y lleva contorno oscuro para leerse bien
+      this.texto(ctx, cdRestante >= 1 ? String(Math.ceil(cdRestante)) : cdRestante.toFixed(1), x + tam / 2, y + tam * 0.7, 16 * s, '#ffffff', 'center');
     }
     // Tecla (esquina) y costo de maná (debajo)
     this.texto(ctx, etiqueta, x + tam - 2, y + 9 * s, (esCombo ? 8 : 10) * s, '#ffe066', 'right', true);

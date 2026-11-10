@@ -7,7 +7,9 @@
    Columna derecha (RENDIMIENTO): FPS, tiempo por cuadro de simulación, dibujo
    y armado/envío de snapshots, bloqueo del hilo principal, cuadros sin
    dibujar, enemigos y efectos, y el PEOR MOMENTO de la partida.
-   Valores en config/red.js.
+   También: versión del juego, errores de las hojas de sprites y el botón
+   "Copiar registro" (últimos 5 minutos, segundo a segundo, en texto simple).
+   Valores en config/red.js y config/interfaz.js (medicion).
    ===================================================================== */
 const Depuracion = {
   visible: false,
@@ -21,8 +23,11 @@ const Depuracion = {
   med: {},                  // tiempos por cuadro del último segundo: { sim, dibujo, red } -> { prom, max }
   _cuadros: 0, _snaps: 0, _bytes: 0, _toques: [], _omitidos: 0, _bloq: 0, _med: {},
   peor: null,               // el peor momento de la partida actual (se reinicia con cada partida)
+  registro: [],             // una fila por segundo (últimos minutos) para "Copiar registro"
+  _inicio: performance.now(),
 
   init() {
+    this.crearBotonCopiar();
     const cfg = RED_CONFIG.depuracion;
     window.addEventListener('keydown', (e) => {
       if (e.code === cfg.tecla) { e.preventDefault(); this.alternar(); }
@@ -46,7 +51,62 @@ const Depuracion = {
     }, 50);
   },
 
-  alternar() { this.visible = !this.visible; if (this.visible) this.leerConexion(); },
+  alternar() {
+    this.visible = !this.visible;
+    if (this.visible) this.leerConexion();
+    if (this.botonCopiar) this.botonCopiar.classList.toggle('oculto', !this.visible);
+  },
+
+  // ---------- Registro segundo a segundo y botón "Copiar registro" ----------
+  crearBotonCopiar() {
+    const b = document.createElement('button');
+    b.id = 'btn-copiar-registro';
+    b.className = 'oculto';
+    b.textContent = 'Copiar registro';
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.copiarRegistro(); });
+    (document.getElementById('juego') || document.body).appendChild(b);
+    this.botonCopiar = b;
+  },
+  agregarFilaRegistro() {
+    const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
+    const enLinea = !!(EL && EL.activo);
+    const er = enLinea ? EL.snapsEnviadosRecibidos() : { env: null, rec: null };
+    const seg = Math.round((performance.now() - this._inicio) / 1000);
+    const hora = `${String(Math.floor(seg / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`;
+    this.registro.push([hora, enLinea ? (EL.esAnfitrion ? 'lider' : 'invitado') : 'local',
+      enLinea && EL.pingPromedio != null ? EL.pingPromedio : '', enLinea && EL.jitter != null ? EL.jitter : '',
+      this.rttRed != null ? this.rttRed : '', er.env != null ? er.env : '', er.rec != null ? er.rec : '',
+      this.bytesPromedio, this.fps, this.colaActual(), enLinea ? this.tipoConexion : '', this.bloqueoSeg]);
+    const max = CONFIG.interfaz.medicion.registroMinutos * 60;
+    while (this.registro.length > max) this.registro.shift();
+  },
+  textoRegistro() {
+    const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
+    const cab = ['hora', 'rol', 'ping_ms', 'jitter_ms', 'ida_vuelta_red_ms', 'snaps_enviados_s', 'snaps_recibidos_s',
+      'bytes_por_snapshot', 'fps', 'cola_bytes', 'conexion', 'bloqueo_hilo_ms'];
+    const lineas = [
+      `Bubu & Dudu - registro de conexion - version ${VERSION_JUEGO}` + (EL && EL.versionOtro ? ` (la otra persona: ${EL.versionOtro})` : ''),
+      `Equipo: ${PERSONAJES.esCelular() ? 'celular' : 'laptop/PC'} · ${navigator.userAgent}`,
+      cab.join('\t'),
+      ...this.registro.map((f) => f.join('\t')),
+    ];
+    return lineas.join('\n');
+  },
+  async copiarRegistro() {
+    const texto = this.textoRegistro();
+    let ok = false;
+    try { await navigator.clipboard.writeText(texto); ok = true; } catch (e) {
+      // Respaldo para navegadores sin portapapeles moderno (o sin HTTPS)
+      const t = document.createElement('textarea');
+      t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select();
+      try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      t.remove();
+    }
+    if (typeof Menus !== 'undefined' && Menus.enLineaToast) {
+      Menus.enLineaToast(ok ? `Registro copiado (${this.registro.length} segundos)` : 'No se pudo copiar el registro', 3500);
+    }
+  },
 
   // Tiempo (ms) de una parte del trabajo: 'sim', 'dibujo' o 'red' (armado y envío de snapshots)
   medir(etq, ms) {
@@ -123,8 +183,10 @@ const Depuracion = {
         if (EL && EL.activo && EL.conectado) p.snapsMinPorSeg = p.snapsMinPorSeg == null ? this.snapsPorSeg : Math.min(p.snapsMinPorSeg, this.snapsPorSeg);
       }
     }
+    this.agregarFilaRegistro();
     this._cuadros = 0; this._snaps = 0; this._bytes = 0; this._omitidos = 0; this._bloq = 0;
-    if (this.visible) this.leerConexion();
+    // El tipo de conexión se lee también con el panel cerrado (para el registro)
+    if (this.visible || (typeof EnLinea !== 'undefined' && EnLinea.activo)) this.leerConexion();
   },
 
   // Tipo de conexión real con getStats de WebRTC
@@ -161,18 +223,30 @@ const Depuracion = {
     const avisoBytes = RED_CONFIG.compacto.avisoBytes;
 
     // ---- Columna RED ----
+    const en = EL && EL.activo;
+    const er = en ? EL.snapsEnviadosRecibidos() : { env: null, rec: null };
+    const inestable = en && EL.conexionInestable();
     const red = [
-      ['— RED —'],
+      [`— RED — versión ${VERSION_JUEGO}`],
       [`Rol: ${rol}`],
-      [`Ping (mensajes): ${EL && EL.ping != null ? EL.ping + ' ms' : '—'}`],
+    ];
+    if (en && EL.versionOtro) red.push([`Versión de la otra persona: ${EL.versionOtro}`, EL.versionDistinta]);
+    if (en && EL.versionDistinta) red.push([EL.esInvitado ? 'Tu versión es distinta a la del líder, recarga la página' : 'El invitado tiene otra versión: que recargue', true]);
+    if (inestable) red.push(['¡Conexión inestable!', true]);
+    red.push(
+      [`Ping (promedio 2 s): ${en && EL.pingPromedio != null ? EL.pingPromedio + ' ms' : '—'} · variación ${en ? (EL.jitter || 0) + ' ms' : '—'}`],
+      [`Snapshots/s: enviados ${er.env != null ? er.env : '—'} · recibidos ${er.rec != null ? er.rec : '—'}${en && EL.perdidaPorcentaje ? ` (−${EL.perdidaPorcentaje}%)` : ''}`],
       [`Ida y vuelta red (WebRTC): ${this.rttRed != null ? this.rttRed + ' ms' : '—'}`],
       [`Bloqueo del hilo del otro: ${EL && EL.activo && EL.bloqueoOtro != null ? EL.bloqueoOtro + ' ms' : '—'}`],
-      [`Snapshots/s ${lider ? 'ENVIADOS' : 'RECIBIDOS'}: ${this.snapsPorSeg}`],
       [`Tamaño promedio: ${this.bytesPromedio} bytes`, this.bytesPromedio > avisoBytes],
       [`Conexión: ${this.tipoConexion}`],
       [`Canal rápido: ${EL && EL.activo ? canal : '—'}`],
       [`TURN: ${EL && EL.estadoTurn ? EL.estadoTurn : '—'}`, !!(EL && EL.estadoTurn && EL.estadoTurn.startsWith('no disponible'))],
-    ];
+    );
+    // Errores al cargar las hojas de sprites (nunca se usa una imagen vieja en silencio)
+    const errs = typeof PERSONAJES !== 'undefined' ? PERSONAJES.errores : [];
+    red.push([`Hojas de sprites: ${errs.length ? errs.length + ' con error' : 'todas bien'}${typeof PERSONAJES !== 'undefined' && PERSONAJES.usaMovil ? ' (versión celular)' : ''}`, errs.length > 0]);
+    errs.slice(0, 4).forEach((e) => red.push(['  ' + e, true]));
     if (EL && EL.canalRapido) red.push([`Cola rápida: ${EL.canalRapido.bufferedAmount} bytes`]);
     if (EL && EL.conn && EL.conn.dataChannel) red.push([`Cola fiable: ${EL.conn.dataChannel.bufferedAmount} bytes`]);
     if (lider) {
@@ -226,6 +300,16 @@ const Depuracion = {
     const ancho = caja(red, x, y);
     caja(rend, x + ancho + 6 * s, y);
     ctx.restore();
+    // Botón "Copiar registro" (HTML) justo debajo de la columna RED
+    if (this.botonCopiar) {
+      const k = W / Math.max(1, window.innerWidth); // píxeles del lienzo por píxel de pantalla
+      const top = Math.round((y + alto * red.length + 12 * s) / k), left = Math.round(x / k);
+      if (top !== this._topBoton || left !== this._leftBoton) {
+        this._topBoton = top; this._leftBoton = left;
+        this.botonCopiar.style.top = Math.min(top, window.innerHeight - 40) + 'px';
+        this.botonCopiar.style.left = left + 'px';
+      }
+    }
   },
 };
 

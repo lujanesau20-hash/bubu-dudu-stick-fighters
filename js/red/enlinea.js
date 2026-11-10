@@ -76,7 +76,7 @@ const EnLinea = {
       this.abrirCanalRapido(conn);
       Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
-      this.enviar({ t: 'hola', personaje: 'dudu' });
+      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
       else Menus.enLineaConectado();
     });
@@ -359,6 +359,7 @@ const EnLinea = {
         this.ultimoMensaje = performance.now();
         this.abrirCanalRapido(conn);
         this.acumulador = new AcumuladorControl();
+        this.enviar({ t: 'version', version: VERSION_JUEGO }); // el líder compara su versión con la nuestra
       });
       conn.on('data', (d) => this.recibir(d));
       conn.on('close', () => { if (this.conn === conn) this.salaCerrada(); });
@@ -438,6 +439,43 @@ const EnLinea = {
     juego.tactil.actualizarVisual(yo, !!(caido && caido !== yo && yo.vivo && Math.abs(yo.x - caido.x) <= CONFIG.revivir.distancia));
   },
 
+  // ======================= MEDICIÓN Y VERSIONES =======================
+  // Ping: se guardan las muestras para mostrar el PROMEDIO de los últimos segundos y la variación (jitter)
+  registrarPing(ms) {
+    const cfg = CONFIG.interfaz.medicion;
+    const ahora = performance.now();
+    const m = this.muestrasPing || (this.muestrasPing = []);
+    m.push({ t: ahora, ms });
+    while (m.length > 60) m.shift();
+    const recientes = m.filter((x) => ahora - x.t <= cfg.promedioPingSegundos * 1000 + 50);
+    this.pingPromedio = recientes.length ? Math.round(recientes.reduce((a, x) => a + x.ms, 0) / recientes.length) : ms;
+    const ult = m.slice(-cfg.muestrasJitter);
+    let suma = 0;
+    for (let i = 1; i < ult.length; i++) suma += Math.abs(ult[i].ms - ult[i - 1].ms);
+    this.jitter = ult.length > 1 ? Math.round(suma / (ult.length - 1)) : 0;
+  },
+  // Snapshots enviados (líder) y recibidos (invitado) por segundo, desde este lado
+  snapsEnviadosRecibidos() {
+    const propio = typeof Depuracion !== 'undefined' ? Depuracion.snapsPorSeg : 0;
+    return this.esAnfitrion ? { env: propio, rec: this.snapsOtro } : { env: this.snapsOtro, rec: propio };
+  },
+  // ¿Conexión inestable? (ping alto, mucha variación o muchos snapshots perdidos)
+  conexionInestable() {
+    if (!this.conectado || !this.enPartida) return false;
+    const c = CONFIG.interfaz.medicion.inestable;
+    const { env, rec } = this.snapsEnviadosRecibidos();
+    const perdida = env > 0 && rec != null ? Math.max(0, (env - rec) / env) * 100 : 0;
+    this.perdidaPorcentaje = Math.round(perdida);
+    return (this.pingPromedio || 0) > c.pingMs || (this.jitter || 0) > c.jitterMs || perdida > c.perdidaPorcentaje;
+  },
+  compararVersion(v) {
+    this.versionOtro = v || '(desconocida)';
+    this.versionDistinta = this.versionOtro !== VERSION_JUEGO;
+    if (!this.versionDistinta) return;
+    Menus.enLineaToast(this.esInvitado ? 'Tu versión es distinta a la del líder, recarga la página'
+      : 'El invitado tiene otra versión del juego: que recargue la página', 8000);
+  },
+
   // ======================= COMÚN =======================
   enviar(o) {
     if (this.conn && this.conn.open) { try { this.conn.send(o); } catch (e) { /* conexión cerrándose */ } }
@@ -457,14 +495,21 @@ const EnLinea = {
     switch (d.t) {
       case 'ping': { // se responde enseguida, aquí mismo (no en el bucle del juego), por el mismo canal
         // "b": cuánto se atrasó nuestro hilo principal en el último segundo (eso también suma al ping)
-        const r = { t: 'pong', ts: d.ts, b: typeof Depuracion !== 'undefined' ? Depuracion.bloqueoSeg : 0 };
+        // También mandamos nuestros snapshots enviados (líder) o recibidos (invitado) por segundo
+        const D = typeof Depuracion !== 'undefined' ? Depuracion : null;
+        const r = { t: 'pong', ts: d.ts, b: D ? D.bloqueoSeg : 0, s: D ? D.snapsPorSeg : 0 };
         if (canal && canal.readyState === 'open') { try { canal.send(JSON.stringify(r)); } catch (e) {} }
         else this.enviar(r);
         break;
       }
-      case 'pong': this.ping = Math.round(performance.now() - d.ts); this.pingCanal = canal ? 'propio' : 'fiable'; this.bloqueoOtro = d.b || 0; break;
+      case 'pong':
+        this.ping = Math.round(performance.now() - d.ts); this.pingCanal = canal ? 'propio' : 'fiable'; this.bloqueoOtro = d.b || 0;
+        this.snapsOtro = d.s; // líder: recibidos/s del invitado · invitado: enviados/s del líder
+        this.registrarPing(this.ping);
+        break;
+      case 'version': this.compararVersion(d.version); break;
       // --- al invitado ---
-      case 'hola': Menus.enLineaConectado(); break;
+      case 'hola': this.compararVersion(d.version); Menus.enLineaConectado(); break;
       case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
       case 'lobby': Juego.mundo = null; Juego.estado = 'menu'; Juego.tactil.mostrar(false); this.enPartida = false; Menus.enLineaConectado(); break;
       case 'inicio': this.alInicio(d); break;
@@ -579,6 +624,7 @@ const EnLinea = {
     clearTimeout(this.tReloj);
     this.turnoSala = (this.turnoSala || 0) + 1; // anula una sala que aún esperaba credenciales TURN
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
+    this.pingPromedio = null; this.jitter = 0; this.muestrasPing = []; this.snapsOtro = null; this.versionOtro = null; this.versionDistinta = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
     Sincro.espejo = null;
     if (Juego.entrada) delete Juego.entrada.fuentesRemotas[1];
