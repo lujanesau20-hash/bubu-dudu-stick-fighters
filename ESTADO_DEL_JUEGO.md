@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: fuente única de personajes, versión del juego, cuadros de enfriamiento más grandes y medición de red; ver la sección 12). **Versión actual: `2026.11.09-1`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: cuadros de enfriamiento al doble en celular y laptop, que se acomodan solos; ver la sección 13). **Versión actual: `2026.11.10-1`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -659,12 +659,12 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.09-1`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-1`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
   - y queda marcado en el panel y junto al ping.
-- **Cuadros de enfriamiento:** escala **2.0 en celular** (antes 1.35; laptop sin cambios, 1.1), opacidad **0.8** (`config/interfaz.js` → `habilidades`). El número de enfriamiento crece con el cuadro y tiene contorno oscuro. Los combos siguen en una segunda fila. Si la barra del jefe no cabe arriba, baja hasta debajo de los cuadros. No tapan el botón Pausa (la barra del jugador 2 ya se corre a la izquierda) ni los controles táctiles.
+- **Cuadros de enfriamiento:** escala **2.0 en celular** (antes 1.35; laptop sin cambios, 1.1), opacidad **0.8** (`config/interfaz.js` → `habilidades`). El número de enfriamiento crece con el cuadro y tiene contorno oscuro. Los combos siguen en una segunda fila. Si la barra del jefe no cabe arriba, baja hasta debajo de los cuadros. No tapan el botón Pausa (la barra del jugador 2 ya se corre a la izquierda) ni los controles táctiles. *(Cambiado en la sección 13: ahora 4.0 en celular y 2.2 en laptop.)*
 - **Medición de red** (sin cambiar el envío ni la interpolación):
   - El ping en pantalla y en el panel es el **promedio de los últimos 2 s**, con su **variación** (jitter).
   - El panel muestra **snapshots enviados y recibidos** en los dos equipos, con el % perdido. Cada respuesta de ping lleva los números del otro equipo.
@@ -701,3 +701,41 @@ Sin mover (dudosos, para decidir): `assets/personajes/originales/` (fotos de los
 - **En línea:** los dos dispositivos deben mostrar la misma versión en el panel. Si no, aparece el aviso y hay que recargar. El panel muestra el ping promedio, la variación, los enviados y recibidos y, si corresponde, "Conexión inestable". Tras jugar, tocar **"Copiar registro"** en cada dispositivo y pegarlo en un mensaje.
 - **Al subir cambios:** cambiar `VERSION_JUEGO` en `index.html`.
 
+
+## 13. Cuadros de enfriamiento al doble (celular y laptop) y acomodo automático
+
+Los cuadros de habilidades y combos que se ven **debajo de la barra de vida** (no los botones táctiles) eran muy pequeños para leer los segundos. Ahora miden el **doble que en la versión anterior** en los dos tipos de pantalla.
+
+### Qué cambió
+- `config/interfaz.js` → `habilidades` (se mantienen los mismos nombres):
+  - `escalaCelular: 4.0` (antes 2.0) — con controles táctiles.
+  - `escalaLaptop: 2.2` (antes 1.1) — laptop / PC.
+  - `opacidad: 0.8` (sin cambios; usar entre 0.75 y 0.85).
+  - Nuevos: `achicarHasta: 0.4`, `separacionObstaculos: 8` (px) y `altoMaximo: 0.65`.
+- `js/ui/hud.js`: los cuadros **no tapan** el joystick (en su lugar de reposo), los botones de habilidad, salto y revivir, el botón "Pausa", ni las monedas, "Revivir ♥♥" y "Nivel · Tramo" del centro. Si chocan:
+  1. la fila de combos (segunda fila) se corre hacia el centro (en celular se corre a la derecha del joystick);
+  2. si aun así no cabe, los cuadros se achican en pasos de 5% hasta que quepan (nunca menos de `achicarHasta`).
+  Igual para el jugador 1 (izquierda) y el jugador 2 (derecha). Nunca pasan la mitad de la pantalla.
+- Si los cuadros llegan hasta donde iría la barra del jefe, la barra baja debajo de ellos.
+- El número de segundos crece con el cuadro y tiene contorno oscuro (como antes).
+- Las posiciones del joystick, los botones y la Pausa se miden como mucho una vez por segundo (no afecta el rendimiento).
+
+### Cómo se ve (probado)
+| Pantalla | Tamaño | Escala usada |
+|---|---|---|
+| Laptop 1366×768, solitario y pareja | ~61–70 px | 2.2 completa, los dos jugadores |
+| Celular 844×390, solitario | ~65 px | 4.0 completa (combos corridos a la derecha del joystick) |
+| Celular 844×390, pareja (jugador 2 sobre los botones) | 65 / 52 px | J1 4.0 · J2 3.2 |
+| Celular pequeño 667×375, pareja | 50 / 34 px | J1 3.2 · J2 2.2 |
+
+### Cómo ajustarlo
+- Más grandes o más chicos: cambiar `escalaCelular` o `escalaLaptop` en `config/interfaz.js`.
+- Más o menos transparentes: `opacidad`.
+- Más espacio libre alrededor del joystick, los botones y la Pausa: `separacionObstaculos`.
+- Si se prefiere que no se achiquen tanto (aunque tapen algo): subir `achicarHasta` (por ejemplo 0.7).
+
+### Cómo probar
+- **Celular (horizontal, pestaña privada):** jugar en solitario y usar H3 y H4: los cuadros se ven grandes, con el número de segundos bien legible, sin tapar el joystick ni los botones. En el panel (5 toques arriba a la izquierda) debe decir "versión 2026.11.10-1".
+- **Laptop:** lo mismo (panel con F3). En pareja local, los cuadros de Dudu quedan a la izquierda del botón "Pausa".
+- **En línea:** como invitado (Dudu) en celular, los cuadros de la derecha se achican un poco para no tapar los botones H3 y H4.
+- **Respaldo:** etiqueta de git `respaldo-antes-cuadros-enfriamiento-x2-ambos`.

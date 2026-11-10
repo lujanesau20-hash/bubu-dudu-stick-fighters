@@ -42,6 +42,9 @@ class HUD {
       const mb = Pausa.medidasBoton();
       apartar = Math.max(0, (mb.ancho + mb.margen + 4) * (W / Math.max(1, window.innerWidth)) - margen);
     }
+    // Zonas que los cuadros de habilidades no deben tapar (joystick, botones, Pausa, monedas/nivel)
+    this.obstaculos = this.medirObstaculos(ctx, m, W, H, s, esTactil, margen);
+    this.rectsIconos = [];
     m.jugadores.forEach((j) => {
       const derecha = j.indice === 1;
       this.barraJugador(ctx, j, derecha ? W - margen - anchoBarra - apartar : margen, margen, anchoBarra, s, derecha, efectos, esTactil, m);
@@ -88,7 +91,10 @@ class HUD {
     if (m.jefe && m.jefe.estado !== 'entrando' && (m.jefe.vivo || m.jefe.tiempoMuerto < 2)) {
       const w = Math.min(W * 0.55, 700 * s), h = 18 * s;
       // Si no cabe entre las barras de los jugadores, va debajo de ellas
-      const cabeArriba = w < W - 2 * (anchoBarra + margen * 2);
+      // (tampoco cabe arriba si los cuadros de habilidades llegan hasta donde iría la barra)
+      const yArriba = margen + (m.modo === 'pareja' ? 84 : 62) * s;
+      const rectArriba = { x: (W - w) / 2 - 3, y: yArriba - 24 * s, w: w + 6, h: h + 30 * s };
+      const cabeArriba = w < W - 2 * (anchoBarra + margen * 2) && !this.rectsIconos.some((r) => this.chocan(r, rectArriba));
       // Si no cabe arriba, va debajo de las barras y de los cuadros de habilidades (más grandes en celular)
       const x = (W - w) / 2, y = cabeArriba ? margen + (m.modo === 'pareja' ? 84 : 62) * s : Math.max(margen + 196 * s, this.fondoIconos + 30 * s);
       const real = Math.max(0, m.jefe.vida / m.jefe.vidaMax);
@@ -192,16 +198,19 @@ class HUD {
     // y apagado si no hay maná suficiente.
     // Tamaño y opacidad de los indicadores (config/interfaz.js): más grandes en celular
     const ch = CONFIG.interfaz.habilidades;
-    const si = s * (esTactil ? ch.escalaCelular : ch.escalaLaptop);
-    const tam = 30 * si, sep = 7 * si;
     const fila1 = ey + altoEnergia + 8 * s;
-    const fila2 = fila1 + tam + 16 * si;
+    // Escala y lugar de las dos filas: se achican o se corren solos si tapan algo
+    const lay = this.acomodarIconos(s * (esTactil ? ch.escalaCelular : ch.escalaLaptop), bx, bw, fila1, derecha);
+    const si = lay.si, tam = 30 * si, sep = 7 * si;
+    const fila2 = lay.fila2;
     ctx.save();
     ctx.globalAlpha = ch.opacidad;
     // En línea cada persona usa los controles de un jugador (m.mapasHud); el remoto se muestra como H1..H4
     const mapa = m.mapasHud ? m.mapasHud[j.indice] : m.jugadores.length > 1 ? (j.indice === 0 ? CONFIG.controles.j1 : CONFIG.controles.j2) : CONFIG.controles.solo;
     const tactilJ1 = !mapa || (esTactil && j.indice === (m.indiceLocal || 0));
     const posX = (i) => (derecha ? bx + bw - (i + 1) * (tam + sep) + sep : bx + i * (tam + sep));
+    const posX2 = (k) => lay.x2 + k * (tam + sep); // fila de combos (de izquierda a derecha)
+    const nCombos = CONFIG.combos.lista.length;
     const nombreTecla = (i) => (tactilJ1 ? 'H' + (i + 1) : mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', ''));
     CONFIG.habilidades.forEach((h, i) => {
       this.iconoHabilidad(ctx, posX(i), fila1, tam, si, h.icono, h.energia, j.energia,
@@ -210,11 +219,108 @@ class HUD {
     CONFIG.combos.lista.forEach((c, k) => {
       const [a, b] = c.habilidades;
       const etiqueta = tactilJ1 ? `H${a + 1}+H${b + 1}` : `${nombreTecla(a)}+${nombreTecla(b)}`;
-      this.iconoHabilidad(ctx, posX(k) + (derecha ? -tam / 2 : tam / 2), fila2, tam, si, c.icono || '✦', c.energia, j.energia,
+      // El jugador 2 (a la derecha) ordena los combos de derecha a izquierda, como antes
+      this.iconoHabilidad(ctx, posX2(derecha ? nCombos - 1 - k : k), fila2, tam, si, c.icono || '✦', c.energia, j.energia,
         j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true);
     });
     ctx.restore();
     this.fondoIconos = Math.max(this.fondoIconos || 0, fila2 + tam + 12 * si);
+    this.rectsIconos.push(...lay.rects);
+  }
+
+  // ¿Se tocan dos rectángulos {x, y, w, h}?
+  chocan(a, b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  }
+
+  // Zonas prohibidas para los cuadros de habilidades, en px del lienzo.
+  // Los rectángulos de la página (joystick, botones, Pausa) se leen como mucho 1 vez por segundo.
+  medirObstaculos(ctx, m, W, H, s, esTactil, margen) {
+    const ch = CONFIG.interfaz.habilidades;
+    const k = W / Math.max(1, window.innerWidth); // px de pantalla -> px del lienzo
+    const pad = ch.separacionObstaculos * k;
+    const ahora = performance.now();
+    const pausaVisible = typeof Pausa !== 'undefined' && Pausa.visible && Pausa.boton;
+    const c = this._cacheDom;
+    const clave = `${W}x${H}|${esTactil}|${!!pausaVisible}`;
+    if (!c || c.clave !== clave || ahora - c.t > 1000) {
+      const rects = [];
+      const agregar = (el) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) rects.push({ x: r.left * k - pad, y: r.top * k - pad, w: r.width * k + 2 * pad, h: r.height * k + 2 * pad });
+      };
+      if (pausaVisible) agregar(Pausa.boton);
+      const tactil = esTactil && document.getElementById('tactil');
+      if (tactil) {
+        tactil.querySelectorAll('.btn-hab, .btn-salto, .btn-revivir').forEach(agregar);
+        // Joystick: se mide en su lugar de reposo (al tocar se mueve a donde está el dedo)
+        const base = tactil.querySelector('.joy-base');
+        if (base) {
+          const L = base.style.left, T = base.style.top;
+          base.style.left = ''; base.style.top = '';
+          agregar(base);
+          base.style.left = L; base.style.top = T;
+        }
+      }
+      this._cacheDom = { clave, t: ahora, rects };
+    }
+    const lista = this._cacheDom.rects.slice();
+
+    // Centro de arriba: monedas, "Revivir ♥♥", "Tramo X/Y" o marcador de versus
+    const medir = (t, tam, fino) => { ctx.font = `${fino ? 'bold' : '900'} ${tam}px "Trebuchet MS", Arial`; return ctx.measureText(t).width; };
+    let mitad, abajo;
+    if (m.modo === 'versus') {
+      mitad = Math.max(medir(`RONDA ${m.ronda}`, 26 * s) / 2, (40 + CONFIG.versus.rondasParaGanar * 26) * s);
+      abajo = margen + 62 * s;
+    } else {
+      const monedas = String(Guardado.datos.monedas + (m.monedasGuardadas ? 0 : m.monedasGanadas));
+      mitad = Math.max(47 * s, -14 * s + medir(monedas, 26 * s)) * 1.25; // 1.25: las monedas laten al ganar
+      abajo = margen + 34 * s;
+      if (m.modo === 'pareja') { mitad = Math.max(mitad, medir('Revivir: ♥♥♥', 18 * s) / 2); abajo = margen + 64 * s; }
+      if (m.totalTramos && !(m.jefe && m.jefe.vivo)) {
+        const nombre = m.escenario && m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '';
+        mitad = Math.max(mitad, medir(nombre + 'Tramo 00/00', 15 * s, true) / 2);
+        abajo = margen + (m.modo === 'pareja' ? 86 : 64) * s;
+      }
+    }
+    lista.push({ x: W / 2 - mitad - pad, y: 0, w: 2 * (mitad + pad), h: abajo + pad });
+    this._limiteAlto = H * ch.altoMaximo;
+    this._centro = W / 2;
+    this._pad = pad;
+    return lista;
+  }
+
+  // Busca la escala más grande (hasta la de la configuración) en la que las dos filas
+  // no tapan nada. Fila 1 = habilidades, fila 2 = combos (se puede correr hacia el centro).
+  acomodarIconos(siDeseada, bx, bw, fila1, derecha) {
+    const ch = CONFIG.interfaz.habilidades;
+    const obst = this.obstaculos || [];
+    const nH = CONFIG.habilidades.length, nC = CONFIG.combos.lista.length;
+    const libre = (r) => r.y + r.h <= this._limiteAlto && r.x >= 0 &&
+      (derecha ? r.x >= this._centro + this._pad : r.x + r.w <= this._centro - this._pad) &&
+      !obst.some((o) => this.chocan(r, o));
+    let ultimo = null;
+    for (let f = 1; f >= ch.achicarHasta - 1e-6; f -= 0.05) {
+      const si = siDeseada * f, tam = 30 * si, sep = 7 * si;
+      const alto = tam + 15 * si; // cuadro + costo de maná debajo
+      const ancho1 = nH * tam + (nH - 1) * sep, ancho2 = nC * tam + (nC - 1) * sep;
+      const r1 = { x: derecha ? bx + bw - ancho1 : bx, y: fila1, w: ancho1, h: alto };
+      const fila2 = fila1 + tam + 16 * si;
+      // Lugar normal de la fila 2: medio cuadro hacia adentro
+      let x2 = derecha ? bx + bw - tam / 2 - ancho2 : bx + tam / 2;
+      ultimo = { si, fila2, x2, rects: [r1, { x: x2, y: fila2, w: ancho2, h: alto }] };
+      if (!libre(r1)) continue;
+      // Si la fila 2 choca (por ejemplo con el joystick), se corre hacia el centro
+      for (let intento = 0; intento < 4; intento++) {
+        const r2 = { x: x2, y: fila2, w: ancho2, h: alto };
+        if (libre(r2)) return { si, fila2, x2, rects: [r1, r2] };
+        const o = obst.find((q) => this.chocan(r2, q));
+        if (!o || r2.y + r2.h > this._limiteAlto) break;
+        x2 = derecha ? o.x - ancho2 : o.x + o.w;
+      }
+    }
+    return ultimo; // no cabe ni al mínimo: se usa el tamaño mínimo
   }
 
   // Un ícono de habilidad o combo

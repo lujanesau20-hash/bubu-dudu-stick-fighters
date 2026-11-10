@@ -6,10 +6,15 @@
 CONFIG.interfaz = {
   // Indicadores de habilidades y combos debajo de las barras (no los botones táctiles)
   habilidades: {
-    escalaCelular: 2.0,    // el doble en celular (cuando se usan los controles táctiles); antes 1.35
-    escalaLaptop: 1.1,     // +10% en laptop / PC (sin cambios)
+    escalaCelular: 4.0,    // celular (con controles táctiles): el doble de la versión 2026.11.09 (antes 2.0)
+    escalaLaptop: 2.2,     // laptop / PC: el doble de antes (antes 1.1)
     opacidad: 0.8,         // 80%: dejan ver el juego detrás (sin desenfoque); usar entre 0.75 y 0.85
     contorno: 1.5,         // grosor del contorno oscuro de cada ícono (px)
+    // Si no caben sin tapar el joystick, los botones, las monedas/nivel o la Pausa,
+    // primero se corre la fila de combos y, si no alcanza, se achican solos (nunca menos que esto):
+    achicarHasta: 0.4,     // fracción mínima de la escala de arriba (0.4 = hasta 40%)
+    separacionObstaculos: 8, // espacio libre (px de pantalla) alrededor de joystick, botones, Pausa y centro
+    altoMaximo: 0.65,      // los cuadros no bajan de este % del alto de la pantalla
   },
 
   // Botón "Pausa" (esquina superior derecha). Medidas en px de pantalla.
