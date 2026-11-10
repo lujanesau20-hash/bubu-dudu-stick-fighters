@@ -66,7 +66,7 @@ class Jefe extends Enemigo {
       this.vida = 0;
       this.vx = (info.dirX || 1) * 200;
       this.vy = -400;
-      this.mundo.soltarMonedas(this.x, this.y - this.alto / 2, this.cfg.monedas);
+      this.mundo.soltarMonedas(this.x, this.y - this.alto / 2, this.cfg.monedas, true); // jefe: igual que antes (con imán)
       this.mundo.emitir('muerteJefe', { x: this.x, y: this.y - this.alto / 2, color: this.color });
       this.mundo.emitir('sacudir', { fuerza: 30 });
     }

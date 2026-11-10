@@ -37,11 +37,14 @@ class HUD {
     const anchoBarra = Math.min(440 * s, W * 0.34);
     // Si el botón "Pausa" está visible, el bloque del jugador 2 se corre a la izquierda para no quedar tapado
     const cp = CONFIG.interfaz.botonPausa;
-    let apartar = 0;
-    if (cp.apartarHudJugador2 && typeof Pausa !== 'undefined' && Pausa.visible && Pausa.medidasBoton) {
+    let apartar = 0, anchoPausa = 0;
+    if (typeof Pausa !== 'undefined' && Pausa.visible && Pausa.medidasBoton) {
       const mb = Pausa.medidasBoton();
-      apartar = Math.max(0, (mb.ancho + mb.margen + 4) * (W / Math.max(1, window.innerWidth)) - margen);
+      anchoPausa = (mb.ancho + mb.margen + 4) * (W / Math.max(1, window.innerWidth));
+      if (cp.apartarHudJugador2) apartar = Math.max(0, anchoPausa - margen);
     }
+    // Texto "Nivel X · Tramo Y/Z": tamaño y lugar (más grande en celular, sin tocar barras ni Pausa)
+    this.tramo = this.medidaTramo(ctx, m, W, s, esTactil, margen, anchoBarra, apartar, anchoPausa);
     // Zonas que los cuadros de habilidades no deben tapar (joystick, botones, Pausa, monedas/nivel)
     this.obstaculos = this.medirObstaculos(ctx, m, W, H, s, esTactil, margen);
     this.rectsIconos = [];
@@ -79,13 +82,8 @@ class HUD {
       }
     }
 
-    // Indicador pequeño "Tramo X/Y"
-    if (m.modo !== 'versus' && m.totalTramos && !(m.jefe && m.jefe.vivo)) {
-      const enJefe = m.escenario.zonaJefe && m.indiceOleada >= m.totalTramos && !m.oleada;
-      const txt = enJefe ? 'Jefe final ➜' : `Tramo ${Math.max(1, m.tramoActual || 0)}/${m.totalTramos}`;
-      const y = margen + (m.modo === 'pareja' ? 80 : 58) * s;
-      this.texto(ctx, (m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '') + txt, W / 2, y, 15 * s, '#e9ecef', 'center', true);
-    }
+    // Indicador "Nivel X · Tramo Y/Z" (tamaño y lugar calculados en medidaTramo)
+    if (this.tramo) this.texto(ctx, this.tramo.texto, W / 2, this.tramo.y, this.tramo.tam, '#e9ecef', 'center', true);
 
     // Barra del jefe
     if (m.jefe && m.jefe.estado !== 'entrando' && (m.jefe.vivo || m.jefe.tiempoMuerto < 2)) {
@@ -228,6 +226,31 @@ class HUD {
     this.rectsIconos.push(...lay.rects);
   }
 
+  // Texto "Nivel X · Tramo Y/Z": escala de config/interfaz.js -> textoTramo (celular / laptop).
+  // Va debajo de las monedas (o de "Revivir ♥♥" en pareja) y se achica si no cabe entre
+  // las barras de vida (con su aviso COMBO) y el botón Pausa. Nunca más chico que en laptop.
+  medidaTramo(ctx, m, W, s, esTactil, margen, anchoBarra, apartar, anchoPausa) {
+    if (m.modo === 'versus' || !m.totalTramos || (m.jefe && m.jefe.vivo)) return null;
+    const enJefe = m.escenario.zonaJefe && m.indiceOleada >= m.totalTramos && !m.oleada;
+    const txt = enJefe ? 'Jefe final ➜' : `Tramo ${Math.max(1, m.tramoActual || 0)}/${m.totalTramos}`;
+    const texto = (m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '') + txt;
+    const ct = CONFIG.interfaz.textoTramo;
+    const base = 15 * s;
+    let tam = base * (esTactil ? ct.escalaCelular : ct.escalaLaptop);
+    const bordeIzq = margen + anchoBarra + 56 * s;    // barra del jugador 1 + "COMBO"
+    const bordeDer = m.jugadores.length > 1 ? W - margen - anchoBarra - apartar - 56 * s : W - anchoPausa - 8 * s;
+    const mitadLibre = Math.min(W / 2 - bordeIzq, bordeDer - W / 2);
+    ctx.font = `bold ${tam}px "Trebuchet MS", Arial`;
+    let ancho = ctx.measureText(texto).width;
+    if (mitadLibre > 0 && ancho / 2 > mitadLibre) {
+      const k = Math.max(base / tam, (2 * mitadLibre) / ancho);
+      tam *= k; ancho *= k;
+    }
+    const arriba = margen + (m.modo === 'pareja' ? 64 : 36) * s; // borde de abajo de "Revivir" o de las monedas
+    const y = Math.max(margen + (m.modo === 'pareja' ? 80 : 58) * s, arriba + tam * 0.8);
+    return { texto, tam, y, mitad: ancho / 2 + tam * 0.2, abajo: y + tam * 0.3 };
+  }
+
   // ¿Se tocan dos rectángulos {x, y, w, h}?
   chocan(a, b) {
     return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -278,11 +301,7 @@ class HUD {
       mitad = Math.max(47 * s, -14 * s + medir(monedas, 26 * s)) * 1.25; // 1.25: las monedas laten al ganar
       abajo = margen + 34 * s;
       if (m.modo === 'pareja') { mitad = Math.max(mitad, medir('Revivir: ♥♥♥', 18 * s) / 2); abajo = margen + 64 * s; }
-      if (m.totalTramos && !(m.jefe && m.jefe.vivo)) {
-        const nombre = m.escenario && m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '';
-        mitad = Math.max(mitad, medir(nombre + 'Tramo 00/00', 15 * s, true) / 2);
-        abajo = margen + (m.modo === 'pareja' ? 86 : 64) * s;
-      }
+      if (this.tramo) { mitad = Math.max(mitad, this.tramo.mitad); abajo = Math.max(abajo, this.tramo.abajo); }
     }
     lista.push({ x: W / 2 - mitad - pad, y: 0, w: 2 * (mitad + pad), h: abajo + pad });
     this._limiteAlto = H * ch.altoMaximo;

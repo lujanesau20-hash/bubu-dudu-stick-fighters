@@ -139,6 +139,8 @@ const CONFIG = {
   },
 
   // ---------------- Enemigos ----------------
+  // "monedas" de cada enemigo ya no se usa: todos sueltan config/balance.js -> monedas.monedasPorEnemigo
+  // (se deja el número de antes como referencia). Los jefes sí siguen usando su "monedas".
   // Cada escenario usa un tipo. "normal" está completo; el resto usa la IA base
   // hasta que se programe su comportamiento propio (ver logica/enemigos.js).
   enemigos: {

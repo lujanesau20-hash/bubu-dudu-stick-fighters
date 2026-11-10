@@ -68,6 +68,17 @@ const BALANCE = {
     ninjaSombra: { corte: 9, shuriken: 4 },
   },
 
+  // ---------- Monedas que sueltan los enemigos ----------
+  // Caen al suelo o a la plataforma donde estaba el enemigo, se quedan quietas
+  // y hay que ir a tocarlas (sin imán). En pareja, para el primero que la toque.
+  monedas: {
+    monedasPorEnemigo: 1,       // normales, arqueros, magos, ninjas, espadachines, aves y refuerzos (antes 3 a 5 según el tipo)
+    duracionMonedaSuelo: 10,    // segundos en el suelo antes de desaparecer
+    parpadeoMoneda: 3,          // parpadea los últimos segundos (como los corazones)
+    radioRecogida: { celular: 45, laptop: 20 }, // px del mundo alrededor del cuerpo del jugador (en línea se usa el de celular)
+    // El JEFE no cambia: suelta CONFIG.jefes[...].monedas (80 a 110) con imán, como antes.
+  },
+
   // ---------- 4. Corazones de curación ----------
   corazones: {
     intervalo: 18,            // segundos de juego entre caídas (se detiene en pausa; se reinicia en cada nivel)

@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: cuadros de enfriamiento al doble en celular y laptop, que se acomodan solos; ver la sección 13). **Versión actual: `2026.11.10-1`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: menos efectos y calidad automática, texto del tramo más grande en celular y monedas quietas en el suelo; ver la sección 14). **Versión actual: `2026.11.10-3`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -212,7 +212,7 @@ herramientas/               Simulaciones para la consola del navegador (no forma
 Si un jugador cae, queda en el suelo 15 s con una cuenta regresiva. El compañero, a su lado, mantiene la tecla de revivir 4 s (círculo de progreso; si lo golpean se interrumpe). Revive con 30% de vida. Máximo 2 revivires por nivel. Si los dos caen: game over.
 
 ### Tienda y monedas
-- Los enemigos sueltan monedas que vuelan hacia el jugador; cada nivel da además un bono.
+- Cada enemigo suelta **1 moneda** que cae al suelo o a la plataforma y se queda quieta: hay que ir a tocarla. Desaparece a los 10 s. El jefe suelta sus monedas con imán, como antes. Cada nivel da además un bono (ver sección 14).
 - Tienda: 7 conjuntos de ropa (calle → oro) y 4 piezas de cabeza (gorra, casco, sombrero, corona), combinables. Se ven en la vista previa de la tienda y en los retratos (ver límites).
 
 ### Guardado
@@ -659,7 +659,7 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-1`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-3`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
@@ -739,3 +739,77 @@ Los cuadros de habilidades y combos que se ven **debajo de la barra de vida** (n
 - **Laptop:** lo mismo (panel con F3). En pareja local, los cuadros de Dudu quedan a la izquierda del botón "Pausa".
 - **En línea:** como invitado (Dudu) en celular, los cuadros de la derecha se achican un poco para no tapar los botones H3 y H4.
 - **Respaldo:** etiqueta de git `respaldo-antes-cuadros-enfriamiento-x2-ambos`.
+
+## 14. Menos efectos y calidad automática, texto del tramo más grande en celular y monedas en el suelo
+
+Versión `2026.11.10-3`. Respaldo: etiqueta de git `respaldo-antes-efectos-calidad-monedas`. No cambió el daño, el balance, los controles, la red, la tienda, los mundos ni los niveles.
+
+### 1. Menos efectos y calidad adaptable (`js/dibujo/efectos.js`, `config/interfaz.js`)
+- **Tope de efectos a la vez** (partículas + textos + efectos de área + carteles): `efectos.celular.topeTotal: 120`, `efectos.laptop.topeTotal: 300`. Al llegar al tope se descartan primero las **partículas más viejas**, después los textos de menor importancia ("¡PUM!", "+1"). Los anillos, las ondas, los arcos y los carteles de las habilidades **nunca se descartan**: Cataclismo sigue con sus dos anillos, el destello y la sacudida.
+- **Calidad automática** (`calidad` en `config/interfaz.js`): alta → media → baja si los FPS quedan **bajo 45 durante 2 s**; sube un nivel si quedan **sobre 55 durante 5 s**. Solo cuenta mientras se juega (no en pausa ni con la pestaña oculta). Cada dispositivo decide la suya, también en línea.
+
+  | Nivel | Partículas por efecto | Tope | Brillo (shadowBlur) | Efectos menores (polvo, chispas pequeñas, "¡PUM!", anillo del doble salto) |
+  |---|---|---|---|---|
+  | alta | 100% | 100% | sí en laptop (en celular siempre apagado) | sí |
+  | media | 60% | 75% | no | sí |
+  | baja | 30% | 50% | no | no |
+- **Números de daño juntos:** los golpes al mismo enemigo dentro de `efectos.juntarDanioMs: 150` ms se suman en **un solo número** (pasa a grande desde 40). El golpe lleva el número del enemigo (`quien`); en línea viaja dentro del mismo efecto, sin cambios en la red.
+- **Pool:** partículas, textos y anillos se reutilizan (no se crean objetos nuevos). En celular el brillo borroso sigue apagado; en laptop también se apaga en calidad media o baja. No se usan filtros (`ctx.filter`).
+- **Panel de depuración** (F3 o 5 toques arriba a la izquierda), columna RENDIMIENTO: "Calidad", "tope de efectos", "Animaciones activas" con el desglose (partículas, números de daño, otros textos, área, carteles, monedas, corazones, proyectiles, enemigos) y, en "PEOR MOMENTO", el **máximo de animaciones** de la partida con su desglose.
+
+**Cataclismo con 25 enemigos (máximo de animaciones a la vez):**
+
+| | Laptop antes | Laptop ahora (alta / media / baja) | Celular antes | Celular ahora (alta / media / baja) |
+|---|---|---|---|---|
+| Partículas | 450 | 267 / 192 / 120 | 180 | 103 / 73 / 43 |
+| Números de daño y textos | 30 | 30 / 30 / 27 | 14 | 14 / 14 / 14 |
+| Efectos de área | 2 | 2 | 2 | 2 |
+| Carteles | 1 | 1 | 1 | 1 |
+| Monedas | 97 | 18–25 | 97 | 16–25 |
+| Proyectiles | 6 | 6–8 | 6 | 4–6 |
+| Enemigos | 25 | 25 | 25 | 25 |
+| **Total** | **611** | **350 / 278 / 201** | **325** | **166 / 137 / 107** |
+
+### 2. Limpieza (solo efectos y animaciones)
+- No había `console.log`, líneas de código comentadas ni funciones repetidas en el código de efectos y dibujo.
+- Se quitó el caso vacío `case 'avanzar': break;` de los efectos (no hacía nada). La versión anterior completa quedó en `_archivo_viejo/codigo/efectos_antes_de_calidad.js`.
+- Sin tocar (dudosos): el evento `corazonAparece` se emite pero nada lo escucha (quizá para un sonido futuro); `U.dist` no se usa (es una utilidad general, no de efectos).
+
+### 3. Texto "Nivel X · Tramo Y/Z" más grande en celular (`js/ui/hud.js`)
+- `config/interfaz.js` → `textoTramo: { escalaCelular: 2.0, escalaLaptop: 1.0 }` (laptop igual que antes).
+- Va debajo de las monedas (o debajo de "Revivir ♥♥" en pareja). Si no cabe entre las barras de vida (con el aviso COMBO) y el botón Pausa, se achica, nunca menos que el tamaño de laptop. Los cuadros de habilidades lo esquivan. Los avisos de oleada van al centro de la pantalla y no lo tocan.
+
+### 4. Monedas: una por enemigo y quietas en el suelo (`js/logica/mundo.js`, `config/balance.js`)
+- `config/balance.js` → `monedas`: `monedasPorEnemigo: 1`, `duracionMonedaSuelo: 10`, `parpadeoMoneda: 3`, `radioRecogida: { celular: 45, laptop: 20 }` (px alrededor del cuerpo; en línea se usa el de celular).
+- Todos los enemigos (normales, arqueros, magos, ninjas, espadachines, aves y refuerzos) sueltan 1 moneda. Cae al suelo o a la plataforma donde estaba, **sin imán**, y se queda quieta. Se recoge tocándola (en pareja, el primero que la toque). Se mantiene el "+1" y el pulso del contador.
+- En línea el líder decide dónde caen y quién las recoge; el invitado las ve por el snapshot de siempre y cuenta su parpadeo desde que le aparecen.
+- **Jefe sin cambios:** sigue soltando sus monedas **con imán** (Gigante 80, Arquero Maestro 90, Mago Cósmico 100, Ninja Sombra 110). Sin imán y con 10 s, se perderían casi todas.
+- `CONFIG.enemigos[...].monedas` (`js/config.js`) ya no se usa; se dejó como referencia.
+- El nivel termina 4 s después del último enemigo aunque quede una moneda en el suelo (regla de antes, sin cambios).
+
+**Antes por enemigo:** normal 3 · arquero 4 · mago 5 · espadachín 4 · ave 4 · ninja 5 (los refuerzos, según su tipo).
+
+**Monedas por nivel, antes y ahora** (si se recogen todas; en pareja se juntan en un solo contador):
+
+| Nivel | Enemigos solo / pareja | Monedas antes solo / pareja | Ahora solo / pareja | + bono | + jefe |
+|---|---|---|---|---|---|
+| Isla 1 | 133 / 199 | 463 / 677 | 133 / 199 | 60 | — |
+| Isla 2 | 167 / 243 | 589 / 825 | 167 / 243 | 60 | — |
+| Isla 3 | 202 / 284 | 702 / 972 | 202 / 284 | 60 | — |
+| Isla 4 | 243 / 336 | 923 / 1251 | 243 / 336 | 60 | — |
+| Isla 5 | 282 / 383 | 1076 / 1463 | 282 / 383 | 60 | — |
+| Isla 6 | 292 / 394 | 1114 / 1509 | 292 / 394 | 60 | — |
+| Isla 7 | 298 / 398 | 1153 / 1541 | 298 / 398 | 60 | — |
+| Isla 8 | 342 / 451 | 1313 / 1749 | 342 / 451 | 60 | — |
+| Isla 9 | 348 / 454 | 1318 / 1735 | 348 / 454 | 60 | — |
+| Isla 10 | 289 / 380 | 1131 / 1465 | 289 / 380 | 60 | 80 |
+| Cielo | 16 / 25 | 57 / 85 | 16 / 25 | 60 | 90 |
+| Espacio | 15 / 23 | 61 / 88 | 15 / 23 | 60 | 100 |
+| Ciudad | 16 / 25 | 73 / 115 | 16 / 25 | 60 | 110 |
+
+Los refuerzos de la pelea con el jefe dan 1 moneda cada uno (antes 3 a 5); cuántos salen depende de cuánto dure la pelea. Ahora se gana entre **3,5 y 4,5 veces menos** por enemigo. Los precios de la tienda no cambiaron.
+
+### Cómo probar
+- **Celular (horizontal, pestaña privada):** el panel debe decir "versión 2026.11.10-3" y "Calidad: alta (automática) · tope de efectos 120 (celular)". Lanzar Cataclismo entre muchos enemigos: se ven los anillos y el destello, con menos chispas, y un número de daño por enemigo. El texto "Nivel 1 · Tramo X/7" se ve el doble de grande, debajo de las monedas. Las monedas quedan en el suelo: hay que acercarse para tomarlas; a los 7 s parpadean y a los 10 s desaparecen.
+- **Laptop (F3):** "tope de efectos 300 (laptop)". El tramo queda del tamaño de antes. En una laptop lenta, la calidad pasa sola a "media" o "baja" y vuelve a "alta" cuando mejora.
+- **Pareja / en línea:** la moneda es para el primero que la toque; en línea el invitado ve las mismas monedas y su parpadeo. Cada dispositivo muestra su propia calidad en el panel.

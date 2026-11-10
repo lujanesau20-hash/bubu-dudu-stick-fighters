@@ -52,13 +52,22 @@ class Render {
     const v = U.rangoVisibleX(ctx);
     this.rangoVisible = v;
 
-    // Monedas
+    // Monedas: las del suelo tienen "y" abajo y parpadean antes de desaparecer (como los corazones).
+    // En el invitado no llega su tiempo: se cuenta desde que aparece en su pantalla.
+    const bm = BALANCE.monedas;
     for (const c of m.monedas) {
       if (!U.visibleX(v, c.x, 10)) continue;
+      const enSuelo = !c.iman;
+      if (enSuelo) {
+        if (c.t == null && c._t0 == null) c._t0 = t;
+        const edad = c.t != null ? c.t : t - c._t0;
+        if (bm.duracionMonedaSuelo - edad < bm.parpadeoMoneda && Math.floor(t * 8) % 2 === 0) continue;
+      }
       const giro = Math.abs(Math.cos(t * 8 + c.x));
+      const y = enSuelo ? c.y - 8 : c.y;
       ctx.fillStyle = '#ffcf33';
       ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(c.x, c.y, 8 * giro + 1, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(c.x, y, 8 * giro + 1, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
     // Corazones de curación (parpadean al final)

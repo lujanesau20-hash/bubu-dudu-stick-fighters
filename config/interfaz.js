@@ -39,10 +39,32 @@ CONFIG.interfaz = {
 
   // Rendimiento de los efectos visuales (no cambian la jugabilidad, solo cuánto se dibuja)
   efectos: {
-    celular: { maxParticulas: 180, factorParticulas: 0.5, maxTextos: 14, sinSombras: true },
-    laptop: { maxParticulas: 450, factorParticulas: 1, maxTextos: 30, sinSombras: false },
+    celular: { maxParticulas: 180, factorParticulas: 0.5, maxTextos: 14, sinSombras: true, topeTotal: 120 },
+    laptop: { maxParticulas: 450, factorParticulas: 1, maxTextos: 30, sinSombras: false, topeTotal: 300 },
     // sinSombras: quita el brillo borroso (shadowBlur), lo más caro de dibujar en un celular
+    // topeTotal: máximo de efectos a la vez (partículas + textos + efectos de área + carteles).
+    //   Al llegar al tope se descartan primero las partículas más viejas y luego los textos menos
+    //   importantes. Los anillos, ondas y carteles de las habilidades nunca se descartan.
+    juntarDanioMs: 150,      // los golpes al mismo enemigo dentro de este tiempo muestran UN número con el total
   },
+
+  // Calidad automática (cada dispositivo decide la suya; también en línea)
+  calidad: {
+    automatica: true,
+    inicial: 'alta',
+    bajarSiFpsMenorA: 45, segundosParaBajar: 2,   // FPS bajo durante 2 s -> baja un nivel
+    subirSiFpsMayorA: 55, segundosParaSubir: 5,   // FPS alto durante 5 s -> sube un nivel
+    // factorParticulas: cuántas partículas sale por efecto · factorTope: parte del topeTotal
+    // brillos: brillo borroso (shadowBlur) · efectosMenores: polvo, chispas pequeñas, "¡PUM!", anillo del doble salto
+    niveles: {
+      alta: { factorParticulas: 1, factorTope: 1, brillos: true, efectosMenores: true },
+      media: { factorParticulas: 0.6, factorTope: 0.75, brillos: false, efectosMenores: true },
+      baja: { factorParticulas: 0.3, factorTope: 0.5, brillos: false, efectosMenores: false },
+    },
+  },
+
+  // Texto "Nivel X · Tramo Y/Z" arriba al centro
+  textoTramo: { escalaCelular: 2.0, escalaLaptop: 1.0 },
 
   // Medición de la conexión en línea (solo se muestra; no cambia el envío)
   medicion: {

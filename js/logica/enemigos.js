@@ -98,7 +98,8 @@ class Enemigo {
     this.vx = (info.dirX || 1) * 380;
     this.vy = -520;
     this.enSuelo = false;
-    m.soltarMonedas(this.x, this.y - this.alto / 2, this.cfg.monedas || 1);
+    // Monedas por enemigo: config/balance.js -> monedas.monedasPorEnemigo (cfg.monedas ya no se usa)
+    m.soltarMonedas(this.x, this.y - this.alto / 2, BALANCE.monedas.monedasPorEnemigo);
     m.emitir('muerteEnemigo', { x: this.x, y: this.y - this.alto / 2, color: this.color });
   }
 

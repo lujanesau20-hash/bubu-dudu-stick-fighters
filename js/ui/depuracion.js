@@ -125,7 +125,18 @@ const Depuracion = {
   jugando() { return typeof Juego !== 'undefined' && Juego.estado === 'jugando' && !!Juego.mundo; },
   efectosVivos() {
     const ef = typeof Juego !== 'undefined' && Juego.efectos;
-    return ef ? ef.particulas.length + ef.textos.length + ef.anillos.length + ef.arcos.length : 0;
+    return ef ? ef.total() : 0;
+  },
+  // Animaciones activas por tipo: { particulas, numerosDanio, otrosTextos, area, carteles, monedas, proyectiles, enemigos, total }
+  animaciones() {
+    const ef = typeof Juego !== 'undefined' && Juego.efectos, m = typeof Juego !== 'undefined' && Juego.mundo;
+    const d = ef ? ef.desglose() : { particulas: 0, numerosDanio: 0, otrosTextos: 0, area: 0, carteles: 0 };
+    d.monedas = m ? m.monedas.length : 0;
+    d.corazones = m && m.corazones ? m.corazones.length : 0;
+    d.proyectiles = m ? m.proyectiles.length : 0;
+    d.enemigos = m ? m.enemigos.length + (m.jefe ? 1 : 0) : 0;
+    d.total = d.particulas + d.numerosDanio + d.otrosTextos + d.area + d.carteles + d.monedas + d.corazones + d.proyectiles + d.enemigos;
+    return d;
   },
   colaActual() {
     const EL = typeof EnLinea !== 'undefined' ? EnLinea : null;
@@ -150,6 +161,9 @@ const Depuracion = {
       p.efectos = this.efectosVivos();
       p.sim = u.sim || 0; p.dibujo = u.dibujo || 0; p.red = u.red || 0;
     }
+    // Pico de animaciones activas en esta partida (con su desglose)
+    const a = this.animaciones();
+    if (a.total > (p.animMax ? p.animMax.total : 0)) p.animMax = a;
     p.colaMax = Math.max(p.colaMax, this.colaActual());
     this._seguido = true;
   },
@@ -162,6 +176,8 @@ const Depuracion = {
 
   cadaSegundo() {
     this.fps = this._cuadros;
+    // Calidad automática de los efectos según los FPS de este dispositivo
+    if (typeof Calidad !== 'undefined') Calidad.registrarFps(this.fps, this.jugando());
     this.snapsPorSeg = this._snaps;
     this.omitidosPorSeg = this._omitidos;
     this.bloqueoSeg = Math.round(this._bloq);
@@ -265,15 +281,29 @@ const Depuracion = {
       [`Armado y envío de snapshots: ${t('red')} ms`],
       [`Bloqueo del hilo (este equipo): ${this.bloqueoSeg} ms`, this.bloqueoSeg > 100],
       [`Cuadros sin dibujar/s: ${this.omitidosPorSeg}`],
-      [`Ahora: ${Juego.mundo ? Juego.mundo.enemigos.length : 0} enemigos, ${this.efectosVivos()} efectos`],
-      ['— PEOR MOMENTO (esta partida) —'],
     ];
+    // Calidad y animaciones activas por tipo
+    const ef = Juego.efectos, an = this.animaciones();
+    // Dos renglones: efectos visuales y cosas del juego
+    const lineas = (d) => [[`  partículas ${d.particulas} · números de daño ${d.numerosDanio} · otros textos ${d.otrosTextos}`],
+      [`  área ${d.area} · carteles ${d.carteles} · monedas ${d.monedas} · corazones ${d.corazones} · proyectiles ${d.proyectiles} · enemigos ${d.enemigos}`]];
+    rend.push(
+      [`Calidad: ${typeof Calidad !== 'undefined' ? Calidad.nombre() : '—'}${CONFIG.interfaz.calidad.automatica ? ' (automática)' : ''}` +
+        ` · tope de efectos ${ef ? ef.tope() : '—'} (${Juego.esTactil ? 'celular' : 'laptop'})`],
+      [`Animaciones activas: ${an.total} (efectos ${ef ? ef.total() : 0}, descartados ${ef ? ef.descartados : 0})`],
+      ...lineas(an),
+      ['— PEOR MOMENTO (esta partida) —'],
+    );
     const p = this.peor && Juego.mundo && this.peor.mundo === Juego.mundo ? this.peor : null;
     if (p) {
       rend.push([`FPS mínimo: ${p.fpsMin != null ? p.fpsMin : '…'}`]);
       rend.push([`Cuadro más largo: ${p.cuadroMaxMs} ms`]);
       rend.push([`  en ese cuadro: sim ${f1(p.sim)} · dibujo ${f1(p.dibujo)} · red ${f1(p.red)} ms`]);
       rend.push([`  ${p.enemigos} enemigos, ${p.efectos} efectos`]);
+      if (p.animMax) {
+        rend.push([`Máximo de animaciones: ${p.animMax.total}`]);
+        rend.push(...lineas(p.animMax));
+      }
       rend.push([`Bloqueo máximo del hilo: ${p.bloqueoMax} ms`]);
       rend.push([`Snapshot más grande: ${p.snapMaxBytes} bytes`, p.snapMaxBytes > avisoBytes]);
       rend.push([`Mínimo snapshots/s: ${p.snapsMinPorSeg != null ? p.snapsMinPorSeg : '—'}`]);

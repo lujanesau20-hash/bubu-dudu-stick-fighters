@@ -2,7 +2,42 @@
    EFECTOS VISUALES: partículas, textos flotantes, anillos, explosiones,
    carteles grandes (combos, jefe, rondas) y destellos de pantalla.
    Se alimenta de los eventos que emite el Mundo.
+   Rendimiento (config/interfaz.js -> efectos y calidad):
+   - Tope de efectos a la vez según el dispositivo; al llegar, se descartan
+     primero las partículas más viejas y los textos menos importantes.
+   - Calidad automática (alta, media, baja) según los FPS de este dispositivo.
+   - Números de daño juntos: uno por enemigo con el total de ~150 ms.
+   - Partículas, textos y anillos se reutilizan (pool): no se crean objetos nuevos.
    ===================================================================== */
+
+// ---------- Calidad automática (cada dispositivo decide la suya) ----------
+const Calidad = {
+  orden: ['alta', 'media', 'baja'],
+  nivel: null,
+  cambios: 0,      // cuántas veces cambió en esta sesión (para el panel)
+  _malos: 0,       // segundos seguidos con FPS bajo
+  _buenos: 0,      // segundos seguidos con FPS alto
+  cfg() { return CONFIG.interfaz.calidad; },
+  nombre() { if (!this.nivel) this.nivel = this.cfg().inicial; return this.nivel; },
+  actual() { return this.cfg().niveles[this.nombre()]; },
+
+  // Se llama una vez por segundo con los cuadros dibujados en ese segundo
+  registrarFps(fps, jugando) {
+    const c = this.cfg();
+    this.nombre();
+    if (!c.automatica || !jugando || document.hidden) { this._malos = 0; this._buenos = 0; return; }
+    if (fps < c.bajarSiFpsMenorA) { this._malos++; this._buenos = 0; }
+    else if (fps > c.subirSiFpsMayorA) { this._buenos++; this._malos = 0; }
+    else { this._malos = 0; this._buenos = 0; }
+    const i = this.orden.indexOf(this.nivel);
+    if (this._malos >= c.segundosParaBajar && i < this.orden.length - 1) {
+      this.nivel = this.orden[i + 1]; this._malos = 0; this.cambios++;
+    } else if (this._buenos >= c.segundosParaSubir && i > 0) {
+      this.nivel = this.orden[i - 1]; this._buenos = 0; this.cambios++;
+    }
+  },
+};
+
 class Efectos {
   constructor(camara) {
     this.camara = camara;
@@ -10,35 +45,90 @@ class Efectos {
   }
 
   reiniciar() {
+    // Objetos usados que se vuelven a usar (no se crean nuevos)
+    this.pool = this.pool || [];
+    this.poolTextos = this.poolTextos || [];
+    this.poolAnillos = this.poolAnillos || [];
+    this.danioPorQuien = this.danioPorQuien || new Map(); // enemigo -> su número de daño que se está juntando
     if (this.particulas) for (const p of this.particulas) this.devolver(p);
-    this.pool = this.pool || [];   // partículas usadas que se vuelven a usar (no se crean nuevas)
+    if (this.textos) for (const t of this.textos) this.devolverTexto(t);
+    if (this.anillos) for (const a of this.anillos) this.devolverAnillo(a);
+    this.danioPorQuien.clear();
     this.particulas = [];
     this.textos = [];
     this.anillos = [];
     this.arcos = [];
     this.banners = [];
+    this.descartados = 0;     // efectos quitados por el tope (para el panel)
     this.destello = 0;
     this.colorDestello = '#fff';
     this.alertasEnergia = {}; // jugador -> tiempo (la barra tiembla)
     this.monedasHud = 0;      // pulso del contador de monedas
   }
 
-  // ---------- Rendimiento: límites (config/interfaz.js -> efectos) ----------
+  // ---------- Rendimiento: límites (config/interfaz.js -> efectos y calidad) ----------
   limites() {
     const cfg = CONFIG.interfaz.efectos;
     return (typeof Juego !== 'undefined' && Juego.esTactil) ? cfg.celular : cfg.laptop;
   }
-  // Cantidad de partículas de un evento, ajustada al dispositivo
-  cant(n) { return Math.max(1, Math.round(n * this.limites().factorParticulas)); }
+  calidad() { return Calidad.actual(); }
+  // ¿Se dibujan los efectos secundarios (polvo, chispas pequeñas, "¡PUM!")?
+  menores() { return this.calidad().efectosMenores; }
+  // Máximo de efectos a la vez para este dispositivo y esta calidad
+  tope() { return Math.max(20, Math.round(this.limites().topeTotal * this.calidad().factorTope)); }
+  // Efectos visuales vivos ahora (lo que cuenta para el tope)
+  total() { return this.particulas.length + this.textos.length + this.anillos.length + this.arcos.length + this.banners.length; }
+  // Cantidad de partículas de un evento, ajustada al dispositivo y a la calidad
+  cant(n) { return Math.max(1, Math.round(n * this.limites().factorParticulas * this.calidad().factorParticulas)); }
 
-  // Partícula nueva (reutiliza una del pool). Si ya hay el máximo, no se agrega.
+  // Desglose para el panel de depuración
+  desglose() {
+    let numeros = 0;
+    for (const t of this.textos) if (t.quien != null) numeros++;
+    return { particulas: this.particulas.length, numerosDanio: numeros, otrosTextos: this.textos.length - numeros,
+      area: this.anillos.length + this.arcos.length, carteles: this.banners.length };
+  }
+
+  // Partícula nueva (reutiliza una del pool). En el tope, se descarta la partícula más vieja.
   particula(x, y, vx, vy, dur, color, tam, grav = 0, tipo = null) {
-    if (this.particulas.length >= this.limites().maxParticulas) return;
+    if (this.particulas.length >= this.limites().maxParticulas || this.total() >= this.tope()) {
+      if (!this.particulas.length) { this.descartados++; return; } // el tope lo llenan efectos más importantes
+      this.devolver(this.particulas.shift());
+      this.descartados++;
+    }
     const p = this.pool.pop() || {};
     p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.t = 0; p.dur = dur; p.color = color; p.tam = tam; p.grav = grav; p.tipo = tipo;
     this.particulas.push(p);
   }
-  devolver(p) { if (this.pool && this.pool.length < 800) this.pool.push(p); }
+  devolver(p) { if (this.pool.length < 800) this.pool.push(p); }
+  devolverTexto(t) {
+    if (t.quien != null && this.danioPorQuien.get(t.quien) === t) this.danioPorQuien.delete(t.quien);
+    t.quien = null;
+    if (this.poolTextos.length < 100) this.poolTextos.push(t);
+  }
+  devolverAnillo(a) { if (this.poolAnillos.length < 60) this.poolAnillos.push(a); }
+
+  // Hace lugar para un efecto principal (anillo, arco, cartel): nunca se descarta,
+  // se quitan antes partículas viejas y textos de poca importancia.
+  hacerEspacio() {
+    while (this.total() >= this.tope()) {
+      if (this.particulas.length) { this.devolver(this.particulas.shift()); this.descartados++; continue; }
+      const k = this.textos.findIndex((t) => t.prioridad === 0);
+      if (k < 0) break;
+      this.devolverTexto(this.textos.splice(k, 1)[0]);
+      this.descartados++;
+    }
+  }
+
+  // Anillo (onda, explosión, aviso en el suelo...) reutilizando objetos
+  anillo(x, y, r, rMax, dur, color, ancho, plano = false, aviso = false, t = 0) {
+    this.hacerEspacio();
+    const a = this.poolAnillos.pop() || {};
+    a.x = x; a.y = y; a.r = r; a.rMax = rMax; a.t = t; a.dur = dur; a.color = color; a.ancho = ancho; a.plano = plano; a.aviso = aviso;
+    this.anillos.push(a);
+  }
+  arco(datos) { this.hacerEspacio(); this.arcos.push(datos); }
+  banner(datos) { this.hacerEspacio(); this.banners.push(datos); }
 
   // Quita de la lista lo que terminó, sin crear una lista nueva
   compactar(lista, alQuitar) {
@@ -56,26 +146,27 @@ class Efectos {
       switch (e.tipo) {
         case 'impacto':
           this.chispas(e.x, e.y, e.color || '#fff', 8 + Math.min(14, e.danio / 3));
-          this.texto(e.x, e.y - 20, String(e.danio), e.aJugador ? '#ff6b6b' : '#ffffff', e.danio >= 40);
+          this.numeroDanio(e);
           break;
-        case 'chispa': this.chispas(e.x, e.y, e.color, 5); break;
+        case 'chispa': if (this.menores()) this.chispas(e.x, e.y, e.color, 5); break;
         case 'polvo': this.polvo(e.x, e.y, e.cantidad || 5); break;
         case 'dobleSalto':
-          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 50, t: 0, dur: 0.3, color: '#ffffff', ancho: 4, plano: true });
+          if (this.menores()) this.anillo(e.x, e.y, 10, 50, 0.3, '#ffffff', 4, true);
           break;
-        case 'lanzar': this.chispas(e.x, e.y, '#dfe9f5', 3); break;
-        case 'arco': this.arcos.push({ jugador: e.jugador, dir: e.dir, radio: e.radio, color: e.color, t: 0, dur: 0.22, tipo: 'arco' }); break;
+        case 'lanzar': if (this.menores()) this.chispas(e.x, e.y, '#dfe9f5', 3); break;
+        case 'arco': this.arco({ jugador: e.jugador, dir: e.dir, radio: e.radio, color: e.color, t: 0, dur: 0.22, tipo: 'arco' }); break;
         case 'dash':
           for (let i = 0, n = this.cant(10); i < n; i++) this.particula(e.x, e.y + (Math.random() - 0.5) * 60, -e.dir * (200 + Math.random() * 300), 0, 0.3, '#ffe066', 3, 0, 'linea');
           break;
-        case 'torbellino': this.arcos.push({ jugador: e.jugador, radio: e.radio, color: e.color, t: 0, dur: e.duracion, tipo: 'torbellino' }); break;
+        case 'torbellino': this.arco({ jugador: e.jugador, radio: e.radio, color: e.color, t: 0, dur: e.duracion, tipo: 'torbellino' }); break;
         case 'onda':
-          this.anillos.push({ x: e.x, y: e.y, r: 20, rMax: e.radio, t: 0, dur: 0.4, color: e.color, ancho: 10, plano: true });
+          this.anillo(e.x, e.y, 20, e.radio, 0.4, e.color, 10, true);
           this.polvo(e.x, e.y, 14);
           break;
         case 'explosion':
-          this.anillos.push({ x: e.x, y: e.y, r: 30, rMax: e.radio, t: 0, dur: 0.55, color: e.color, ancho: 26 });
-          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: e.radio * 0.7, t: 0, dur: 0.4, color: '#fff3b0', ancho: 14 });
+          // Cataclismo: los anillos y el destello (lo principal) siempre se ven; las partículas bajan con la calidad
+          this.anillo(e.x, e.y, 30, e.radio, 0.55, e.color, 26);
+          this.anillo(e.x, e.y, 10, e.radio * 0.7, 0.4, '#fff3b0', 14);
           for (let i = 0, n = this.cant(60); i < n; i++) {
             const a = Math.random() * Math.PI, v = 300 + Math.random() * 900;
             this.particula(e.x, e.y, Math.cos(a) * v * (Math.random() < 0.5 ? 1 : -1), -Math.sin(a) * v, 0.6 + Math.random() * 0.6, Math.random() < 0.5 ? e.color : '#ffd36b', 4 + Math.random() * 6, 1400);
@@ -84,22 +175,22 @@ class Efectos {
           this.flash('#ffb37a', 0.7);
           break;
         case 'combo':
-          this.banners.push({ texto: e.nombre, sub: 'COMBINACIÓN', color: e.color, t: 0, dur: 1.4, combo: true });
-          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 160, t: 0, dur: 0.35, color: e.color, ancho: 8 });
+          this.banner({ texto: e.nombre, sub: 'COMBINACIÓN', color: e.color, t: 0, dur: 1.4, combo: true });
+          this.anillo(e.x, e.y, 10, 160, 0.35, e.color, 8);
           this.flash(e.color, 0.35);
           break;
-        case 'banner': this.banners.push({ texto: e.texto, sub: e.sub, color: e.color, t: 0, dur: 2.2 }); break;
+        case 'banner': this.banner({ texto: e.texto, sub: e.sub, color: e.color, t: 0, dur: 2.2 }); break;
         case 'sacudir': this.camara.sacudir(e.fuerza); break;
         case 'muerteEnemigo':
           this.chispas(e.x, e.y, e.color, 18);
-          this.texto(e.x, e.y - 50, '¡PUM!', '#ffd84d', false);
+          if (this.menores()) this.texto(e.x, e.y - 50, '¡PUM!', '#ffd84d', false, false, 0);
           break;
         case 'muerteJefe':
-          for (let k = 0; k < 4; k++) this.anillos.push({ x: e.x + (Math.random() - 0.5) * 80, y: e.y + (Math.random() - 0.5) * 120, r: 10, rMax: 220, t: -k * 0.2, dur: 0.5, color: '#ffd84d', ancho: 16 });
+          for (let k = 0; k < 4; k++) this.anillo(e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 120, 10, 220, 0.5, '#ffd84d', 16, false, false, -k * 0.2);
           this.chispas(e.x, e.y, e.color, 50);
           this.flash('#ffffff', 0.8);
           break;
-        case 'moneda': this.texto(e.x, e.y - 10, '+' + e.valor, '#ffd84d', false, true); this.monedasHud = 1; break;
+        case 'moneda': this.texto(e.x, e.y - 10, '+' + e.valor, '#ffd84d', false, true, 0); this.monedasHud = 1; break;
         case 'texto': this.texto(e.x, e.y, e.texto, e.color, e.grande); break;
         case 'sinEnergia': {
           // Aviso pequeño sobre el jugador (sin repetirlo mientras tiembla la barra)
@@ -110,27 +201,46 @@ class Efectos {
         }
         case 'curar':
           this.texto(e.x, e.y - 30, '+' + e.cantidad + ' ♥', '#7dff9b', true);
-          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 80, t: 0, dur: 0.4, color: '#ff6b8a', ancho: 6 });
+          this.anillo(e.x, e.y, 10, 80, 0.4, '#ff6b8a', 6);
           this.chispas(e.x, e.y, '#ff8fab', 14);
           break;
         case 'caido': this.chispas(e.x, e.y - 40, '#ff6b6b', 20); this.camara.sacudir(10); break;
         case 'revivido':
-          this.anillos.push({ x: e.x, y: e.y - 40, r: 20, rMax: 140, t: 0, dur: 0.5, color: '#7dff9b', ancho: 10 });
+          this.anillo(e.x, e.y - 40, 20, 140, 0.5, '#7dff9b', 10);
           this.texto(e.x, e.y - 110, '¡REVIVIDO!', '#7dff9b', true);
           break;
-        case 'avanzar': break;
         // Aviso en el suelo antes de un ataque de área (lluvia de flechas, meteoritos)
         case 'avisoSuelo':
-          this.anillos.push({ x: e.x, y: e.y, r: e.radio, rMax: e.radio, t: 0, dur: e.duracion, color: e.color, ancho: 5, plano: true, aviso: true });
+          this.anillo(e.x, e.y, e.radio, e.radio, e.duracion, e.color, 5, true, true);
           break;
         case 'teletransporte':
-          this.anillos.push({ x: e.x, y: e.y, r: 10, rMax: 70, t: 0, dur: 0.35, color: e.color || '#b197fc', ancho: 6 });
+          this.anillo(e.x, e.y, 10, 70, 0.35, e.color || '#b197fc', 6);
           for (let i = 0, n = this.cant(14); i < n; i++) this.particula(e.x + (Math.random() - 0.5) * 40, e.y + (Math.random() - 0.5) * 80, (Math.random() - 0.5) * 120, -60 - Math.random() * 160, 0.5, e.color || '#b197fc', 4);
           break;
-        case 'oleada': this.banners.push({ texto: e.tramo ? `OLEADA ${e.numero}/${e.total}` : `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
-        case 'tramo': this.banners.push({ texto: `TRAMO ${e.numero}/${e.total}`, sub: '', color: '#ffe066', t: 0, dur: 1.4, pequeno: true }); break;
+        case 'oleada': this.banner({ texto: e.tramo ? `OLEADA ${e.numero}/${e.total}` : `OLEADA ${e.numero}`, sub: '', color: '#ffffff', t: 0, dur: 1.2, pequeno: true }); break;
+        case 'tramo': this.banner({ texto: `TRAMO ${e.numero}/${e.total}`, sub: '', color: '#ffe066', t: 0, dur: 1.4, pequeno: true }); break;
         case 'refuerzo': this.texto(e.x, 120, '¡REFUERZO!', '#ff8787', false, true); break;
       }
+    }
+  }
+
+  // Número de daño: los golpes al mismo enemigo en ~150 ms se suman en un solo número
+  numeroDanio(e) {
+    const color = e.aJugador ? '#ff6b6b' : '#ffffff';
+    const juntar = (CONFIG.interfaz.efectos.juntarDanioMs || 0) / 1000;
+    if (e.quien != null && juntar > 0) {
+      const t = this.danioPorQuien.get(e.quien);
+      if (t && t.t <= juntar && t.aJugador === !!e.aJugador) {
+        t.valor += e.danio;
+        t.texto = String(t.valor);
+        if (!t.grande && t.valor >= 40) { t.grande = true; t.dur = 1.1; t.prioridad = 2; }
+        return;
+      }
+    }
+    const t = this.texto(e.x, e.y - 20, String(e.danio), color, e.danio >= 40);
+    if (t && e.quien != null) {
+      t.quien = e.quien; t.valor = e.danio; t.aJugador = !!e.aJugador;
+      this.danioPorQuien.set(e.quien, t);
     }
   }
 
@@ -142,20 +252,38 @@ class Efectos {
     }
   }
 
+  // Polvo: efecto secundario (no se dibuja en calidad baja)
   polvo(x, y, n) {
+    if (!this.menores()) return;
     n = this.cant(n);
     for (let i = 0; i < n; i++) {
       this.particula(x + (Math.random() - 0.5) * 30, y - 4, (Math.random() - 0.5) * 300, -Math.random() * 120, 0.4 + Math.random() * 0.3, 'rgba(240,235,220,0.8)', 6 + Math.random() * 8, 0, 'humo');
     }
   }
 
-  texto(x, y, texto, color, grande = false, chico = false) {
-    // Muchos números de daño a la vez no se leen y cuestan: con el máximo, se reemplaza el más viejo
-    if (this.textos.length >= this.limites().maxTextos) {
-      if (!grande) return;
-      this.textos.shift();
+  // Texto flotante. prioridad: 0 = menor ("¡PUM!", "+1"), 1 = normal (daño), 2 = importante (grande).
+  // Con el máximo, se quita el más viejo de menor (o igual) importancia; si no hay, no se agrega.
+  texto(x, y, texto, color, grande = false, chico = false, prioridad = grande ? 2 : 1) {
+    const max = this.limites().maxTextos;
+    // En el tope total, primero se quitan partículas viejas
+    while (this.total() >= this.tope() && this.particulas.length && this.textos.length < max) {
+      this.devolver(this.particulas.shift()); this.descartados++;
     }
-    this.textos.push({ x: x + (Math.random() - 0.5) * 16, y, texto, color, t: 0, dur: grande ? 1.1 : 0.75, grande, chico });
+    if (this.textos.length >= max || this.total() >= this.tope()) {
+      let k = -1;
+      for (let i = 0; i < this.textos.length; i++) {
+        if (this.textos[i].prioridad <= prioridad && (k < 0 || this.textos[i].prioridad < this.textos[k].prioridad)) k = i;
+      }
+      this.descartados++;
+      if (k < 0) return null;
+      this.devolverTexto(this.textos.splice(k, 1)[0]);
+    }
+    const t = this.poolTextos.pop() || {};
+    t.x = x + (Math.random() - 0.5) * 16; t.y = y; t.texto = texto; t.color = color; t.t = 0;
+    t.dur = grande ? 1.1 : 0.75; t.grande = grande; t.chico = chico; t.prioridad = prioridad;
+    t.quien = null; t.valor = 0; t.aJugador = false;
+    this.textos.push(t);
+    return t;
   }
 
   flash(color, intensidad) { this.destello = Math.max(this.destello, intensidad); this.colorDestello = color; }
@@ -167,13 +295,17 @@ class Efectos {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.tipo === 'humo') { p.vx *= 0.92; p.vy *= 0.92; }
     }
-    // Se quitan los terminados sin crear listas nuevas (las partículas vuelven al pool)
-    if (!this._devolver) this._devolver = (p) => this.devolver(p);
+    // Se quitan los terminados sin crear listas nuevas (vuelven a su pool)
+    if (!this._devolver) {
+      this._devolver = (p) => this.devolver(p);
+      this._devolverTexto = (t) => this.devolverTexto(t);
+      this._devolverAnillo = (a) => this.devolverAnillo(a);
+    }
     this.compactar(this.particulas, this._devolver);
     for (const t of this.textos) { t.t += dt; t.y -= dt * (t.grande ? 50 : 80); }
-    this.compactar(this.textos);
+    this.compactar(this.textos, this._devolverTexto);
     for (const a of this.anillos) a.t += dt;
-    this.compactar(this.anillos);
+    this.compactar(this.anillos, this._devolverAnillo);
     for (const a of this.arcos) a.t += dt;
     this.compactar(this.arcos);
     for (const b of this.banners) b.t += dt;

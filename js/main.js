@@ -76,6 +76,9 @@ const Juego = {
     const c = CONFIG.controles;
     this.entrada.configurar(modo === 'solo' ? [c.solo] : [c.j1, c.j2]);
     this.mundo = new Mundo({ modo, personajes, escenario: modo === 'versus' ? 'isla' : this.escenario, semilla: Math.floor(Math.random() * 1e9) });
+    // Radio para recoger monedas: generoso en celular y en línea (config/balance.js -> monedas.radioRecogida)
+    const enLinea = typeof EnLinea !== 'undefined' && EnLinea.activo;
+    this.mundo.radioMonedas = BALANCE.monedas.radioRecogida[this.esTactil || enLinea ? 'celular' : 'laptop'];
     this.efectos.reiniciar();
     this.hud.reiniciar();
     this.camara.saltarA(this.mundo, this.render.anchoBase);
@@ -293,7 +296,9 @@ const Juego = {
   // Solo cambia el brillo de algunos efectos; config/interfaz.js -> efectos.*.sinSombras
   aplicarSombras() {
     const cfg = CONFIG.interfaz.efectos;
-    const sin = !!(this.esTactil ? cfg.celular.sinSombras : cfg.laptop.sinSombras);
+    // Sin brillo: en celular siempre, y en cualquier equipo si la calidad automática bajó (media o baja)
+    const sinCalidad = typeof Calidad !== 'undefined' && !Calidad.actual().brillos;
+    const sin = !!(this.esTactil ? cfg.celular.sinSombras : cfg.laptop.sinSombras) || sinCalidad;
     if (sin === this._sinSombras) return;
     this._sinSombras = sin;
     const ctx = this.render.ctx;

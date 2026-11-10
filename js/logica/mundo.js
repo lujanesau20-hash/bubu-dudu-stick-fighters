@@ -112,7 +112,9 @@ class Mundo {
     const a = info.atacante;
     if (a && a.esJugador) a.energia = Math.min(CONFIG.energia.max, a.energia + CONFIG.energia.porGolpe);
     this.congelar = Math.max(this.congelar, Math.min(0.09, 0.025 + danio * 0.0012));
-    this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador });
+    // "quien": número del que recibe el golpe, para juntar sus números de daño en uno
+    if (obj._idDanio == null) obj._idDanio = (this._siguienteIdDanio = (this._siguienteIdDanio || 0) + 1);
+    this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador, quien: obj._idDanio });
     if (danio >= 30) this.emitir('sacudir', { fuerza: Math.min(14, danio / 4) });
   }
 
@@ -126,9 +128,17 @@ class Mundo {
     return mejor;
   }
 
-  soltarMonedas(x, y, cantidad) {
+  // iman = true: monedas del jefe, que saltan y vuelan hacia el jugador (como siempre).
+  // iman = false: monedas de enemigos, caen y se quedan quietas en el suelo o la plataforma.
+  soltarMonedas(x, y, cantidad, iman = false) {
     for (let i = 0; i < cantidad; i++) {
-      this.monedas.push({ x, y, vx: this.rng.rango(-220, 220), vy: this.rng.rango(-650, -350), t: 0, valor: 1, ancho: 14, alto: 14, enSuelo: false });
+      if (iman) {
+        this.monedas.push({ x, y, vx: this.rng.rango(-220, 220), vy: this.rng.rango(-650, -350), t: 0, valor: 1, ancho: 14, alto: 14, enSuelo: false, iman: true });
+      } else {
+        // Varias monedas (si se configuran) quedan una al lado de la otra; "y" es la parte de abajo
+        const dx = (i - (cantidad - 1) / 2) * 20;
+        this.monedas.push({ x: x + dx, y, vx: 0, vy: -200, t: 0, valor: 1, ancho: 14, alto: 14, enSuelo: false, iman: false });
+      }
     }
   }
 
@@ -206,8 +216,28 @@ class Mundo {
 
   // ---------- Monedas ----------
   actualizarMonedas(dt) {
+    const bm = BALANCE.monedas;
+    const r = this.radioMonedas || bm.radioRecogida.laptop;
     for (const c of this.monedas) {
       c.t += dt;
+      if (!c.iman) {
+        // Moneda de enemigo: cae y se queda quieta; la recoge el primero que la toque
+        if (!c.enSuelo) this.moverCuerpo(c, dt);
+        const cy = c.y - 8; // centro de la moneda
+        for (const p of this.jugadores) {
+          if (!p.vivo) continue;
+          const dx = Math.max(0, Math.abs(c.x - p.x) - p.ancho / 2);
+          const dy = cy < p.y - p.alto ? p.y - p.alto - cy : cy > p.y ? cy - p.y : 0;
+          if (dx * dx + dy * dy <= r * r) {
+            c.recogida = true;
+            this.monedasGanadas += c.valor;
+            this.emitir('moneda', { x: c.x, y: cy, valor: c.valor });
+            break;
+          }
+        }
+        continue;
+      }
+      // Moneda del jefe (con imán), sin cambios
       const obj = c.t > 0.55 ? this.jugadorMasCercano(c.x, c.y) : null;
       if (obj) {
         // Imán hacia el jugador
@@ -227,7 +257,8 @@ class Mundo {
         if (c.y > this.sueloY - 7) { c.y = this.sueloY - 7; c.vy *= -0.45; c.vx *= 0.7; }
       }
     }
-    this.monedas = this.monedas.filter((c) => !c.recogida);
+    // Las del suelo desaparecen a los "duracionMonedaSuelo" segundos
+    this.monedas = this.monedas.filter((c) => !c.recogida && (c.iman || c.t < bm.duracionMonedaSuelo));
   }
 
   // ---------- Corazones de curación (config/balance.js -> corazones) ----------

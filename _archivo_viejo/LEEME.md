@@ -8,6 +8,7 @@ Archivos que el juego **ya no usa**. No se borraron: se movieron aquí por si ha
 | `assets/personajes/dudu.png` | `assets/personajes/` | Sticker viejo de Dudu (pálido, rosado, con guantes rojos). Era el que aparecía cuando las hojas animadas fallaban en un celular. |
 | `cuadros_datos.js` | raíz del proyecto | Copia suelta descargada desde el visor. El juego y la página de prueba usan `js/prueba/cuadros_datos.js`. |
 | `js/red/red.js` | `js/red/` | Esqueleto antiguo de red con WebSocket ("fase 2"). Nunca se activó; el juego en línea usa `js/red/enlinea.js` y `js/red/sincronizacion.js`. |
+| `codigo/efectos_antes_de_calidad.js` | (copia de `js/dibujo/efectos.js`) | Versión de los efectos antes del tope por dispositivo, la calidad automática y los números de daño juntos (2026-11-10). Incluye el caso vacío `case 'avanzar': break;` que se quitó (no hacía nada). |
 | `codigo/personajes_imagen_fija.js` | (copia) | Copia de `js/dibujo/personajes.js` antes de la fuente única: carga de los stickers, dibujo con imagen fija y el respaldo que usaba el sticker viejo sin avisar. |
 
 Si algo vuelve a hacer falta, se puede mover de vuelta a su carpeta original.
