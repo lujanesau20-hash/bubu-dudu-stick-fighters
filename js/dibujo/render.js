@@ -11,18 +11,42 @@ class Render {
 
   get W() { return this.lienzo.width; }
   get H() { return this.lienzo.height; }
+  // ¿Encuadre de celular? En una pantalla más ancha que una laptop 16:10 se ve el MISMO
+  // ancho de mundo que en la laptop (config/interfaz.js -> encuadreCelular). En laptop: no.
+  get encuadreCelular() {
+    const c = CONFIG.interfaz.encuadreCelular;
+    return !!(c.activo && typeof Juego !== 'undefined' && Juego.esTactil && this.W / this.H > c.relacionLaptop);
+  }
+  // Alto del mundo visible con zoom 1 (720 en laptop; menos en un celular ancho)
+  get altoVista() {
+    return this.encuadreCelular ? (CONFIG.vista.alto * CONFIG.interfaz.encuadreCelular.relacionLaptop) / (this.W / this.H) : CONFIG.vista.alto;
+  }
   // Ancho del mundo visible con zoom 1
-  get anchoBase() { return (this.W / this.H) * CONFIG.vista.alto; }
+  get anchoBase() { return (this.W / this.H) * this.altoVista; }
 
   dibujarFondo(escenario, cam, t) {
     const f = FONDOS[escenario] || FONDOS.isla;
-    f.fondo(this.ctx, cam, this.W, this.H, t);
+    this.pintarFondo(f, cam, t);
+  }
+
+  // Fondo (parallax). En laptop, igual que siempre. En el encuadre de celular el fondo se arma
+  // con la misma escala que en laptop (mismas islas y nubes a lo ancho) y se corre hacia arriba
+  // para que su suelo coincida con el de la pantalla; acompaña un poco la subida de la cámara.
+  pintarFondo(f, cam, t) {
+    const ctx = this.ctx;
+    if (!this.encuadreCelular) { f.fondo(ctx, cam, this.W, this.H, t); return; }
+    const ce = CONFIG.interfaz.encuadreCelular, av = this.altoVista, k = this.H / av;
+    const desplaz = (ce.sueloEnPantalla * (CONFIG.vista.alto - av) - (cam.subida || 0) * ce.paralajeFondo) * k;
+    ctx.save();
+    ctx.translate(0, -desplaz);
+    f.fondo(ctx, cam, this.W, CONFIG.vista.alto * k, t);
+    ctx.restore();
   }
 
   // Aplica la cámara: (x,y) del mundo en el centro de la pantalla
   aplicarCamara(cam) {
     const ctx = this.ctx;
-    const esc = (this.H / CONFIG.vista.alto) * cam.zoom;
+    const esc = (this.H / this.altoVista) * cam.zoom;
     ctx.translate(this.W / 2 + cam.offX * esc, this.H / 2 + cam.offY * esc);
     ctx.scale(esc, esc);
     ctx.translate(-cam.x, -cam.y);
@@ -31,7 +55,7 @@ class Render {
   dibujarMundo(m, cam, efectos, t, equipos) {
     const ctx = this.ctx;
     const fondo = FONDOS[m.escenario.fondo] || FONDOS.isla;
-    fondo.fondo(ctx, cam, this.W, this.H, t);
+    this.pintarFondo(fondo, cam, t);
 
     ctx.save();
     this.aplicarCamara(cam);
@@ -55,8 +79,10 @@ class Render {
     // Monedas: las del suelo tienen "y" abajo y parpadean antes de desaparecer (como los corazones).
     // En el invitado no llega su tiempo: se cuenta desde que aparece en su pantalla.
     const bm = BALANCE.monedas;
+    // Más grandes en celular (config/interfaz.js -> monedas); en laptop, como siempre
+    const rm = (typeof Juego !== 'undefined' && Juego.esTactil) ? CONFIG.interfaz.monedas.radioCelular : CONFIG.interfaz.monedas.radioLaptop;
     for (const c of m.monedas) {
-      if (!U.visibleX(v, c.x, 10)) continue;
+      if (!U.visibleX(v, c.x, rm + 2) || !U.visibleY(v, c.y, rm + 10)) continue;
       const enSuelo = !c.iman;
       if (enSuelo) {
         if (c.t == null && c._t0 == null) c._t0 = t;
@@ -64,10 +90,10 @@ class Render {
         if (bm.duracionMonedaSuelo - edad < bm.parpadeoMoneda && Math.floor(t * 8) % 2 === 0) continue;
       }
       const giro = Math.abs(Math.cos(t * 8 + c.x));
-      const y = enSuelo ? c.y - 8 : c.y;
+      const y = enSuelo ? c.y - rm : c.y;
       ctx.fillStyle = '#ffcf33';
       ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(c.x, y, 8 * giro + 1, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(c.x, y, rm * giro + 1, rm, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
     // Corazones de curación (parpadean al final)
@@ -81,7 +107,8 @@ class Render {
       }
     }
 
-    for (const e of m.enemigos) if (U.visibleX(v, e.x, 80)) dibujarStickman(ctx, e, t);
+    // Enemigos fuera de cámara (a los lados, o todavía arriba cayendo) no se dibujan
+    for (const e of m.enemigos) if (U.visibleX(v, e.x, 80) && e.y >= v.arriba - 20 && e.y - 260 <= v.abajo) dibujarStickman(ctx, e, t);
     if (m.jefe) dibujarStickman(ctx, m.jefe, t);
 
     const etiquetas = m.jugadores.length > 1;
@@ -94,7 +121,7 @@ class Render {
       }
     }
 
-    for (const p of m.proyectiles) if (U.visibleX(v, p.x, 120)) this.dibujarProyectil(p, t);
+    for (const p of m.proyectiles) if (U.visibleX(v, p.x, 120) && U.visibleY(v, p.y, 120)) this.dibujarProyectil(p, t);
     efectos.dibujarMundo(ctx, m);
     ctx.restore();
   }

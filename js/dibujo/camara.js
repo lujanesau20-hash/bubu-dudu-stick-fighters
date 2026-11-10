@@ -7,11 +7,13 @@ class Camara {
     this.x = 640; this.y = 360; this.zoom = 1;
     this.sacudida = 0;
     this.offX = 0; this.offY = 0;
+    this.subida = 0;            // celular: cuánto subió la cámara por el personaje local (suave)
+    this.subidaObjetivo = 0;
   }
 
-  // anchoBase = ancho visible del mundo con zoom 1
-  objetivo(mundo, anchoBase) {
-    const altoBase = CONFIG.vista.alto;
+  // anchoBase / altoBase = mundo visible con zoom 1. celular = encuadre de celular
+  // (mismo ancho que una laptop 16:10; ver Render.encuadreCelular). En laptop no cambia nada.
+  objetivo(mundo, anchoBase, altoBase = CONFIG.vista.alto, celular = false) {
     let lista = mundo.jugadores.filter((j) => j.estado !== 'muerto');
     if (!lista.length) lista = mundo.jugadores;
     let minX = Infinity, maxX = -Infinity, sumY = 0;
@@ -28,21 +30,41 @@ class Camara {
     let cx = (minX + maxX) / 2;
     // El suelo queda cerca de la parte de abajo (85% de la pantalla)...
     let cy = mundo.sueloY - altoVis * 0.35;
-    // ...pero si alguien sube mucho, la cámara sube para no cortarle la cabeza
-    const yMasAlto = Math.min(...lista.map((j) => j.y)) - 190;
-    if (yMasAlto < cy - altoVis / 2) cy = yMasAlto + altoVis / 2;
+    if (celular) {
+      // Celular: altura fija; sube un poco (máximo ≈ un personaje) solo si el personaje
+      // LOCAL quedaría bajo el HUD o tocando el borde de arriba. Cada teléfono sigue al suyo.
+      const ce = CONFIG.interfaz.encuadreCelular;
+      cy = mundo.sueloY - altoVis * (ce.sueloEnPantalla - 0.5);
+      const loc = mundo.jugadores[mundo.indiceLocal || 0] || lista[0];
+      const lineaHud = cy - altoVis / 2 + altoVis * ce.franjaHud + ce.margenCabeza;
+      // Cabeza del DIBUJO (el sprite es más alto que la zona de golpe)
+      const cabeza = loc.y - Math.max(loc.alto || 0, CONFIG.jugador.altoSprite || 104);
+      const falta = U.clamp(lineaHud - cabeza, 0, ce.subidaMax);
+      // Zona muerta: cambios chicos no mueven la cámara (pero siempre vuelve del todo a 0)
+      if (falta === 0 || falta === ce.subidaMax || Math.abs(falta - this.subidaObjetivo) > ce.zonaMuerta) this.subidaObjetivo = falta;
+      cy -= this.subida;
+    } else {
+      // ...pero si alguien sube mucho, la cámara sube para no cortarle la cabeza
+      const yMasAlto = Math.min(...lista.map((j) => j.y)) - 190;
+      if (yMasAlto < cy - altoVis / 2) cy = yMasAlto + altoVis / 2;
+    }
     cx = U.clamp(cx, anchoVis / 2 - 40, mundo.ancho - anchoVis / 2 + 40);
     if (anchoVis > mundo.ancho) cx = mundo.ancho / 2;
     return { x: cx, y: cy, zoom };
   }
 
-  saltarA(mundo, anchoBase) {
-    const o = this.objetivo(mundo, anchoBase);
+  saltarA(mundo, anchoBase, altoBase, celular = false) {
+    this.subida = 0; this.subidaObjetivo = 0;
+    let o = this.objetivo(mundo, anchoBase, altoBase, celular);
+    if (celular && this.subidaObjetivo) { this.subida = this.subidaObjetivo; o = this.objetivo(mundo, anchoBase, altoBase, celular); }
     this.x = o.x; this.y = o.y; this.zoom = o.zoom;
   }
 
-  actualizar(dt, mundo, anchoBase) {
-    const o = this.objetivo(mundo, anchoBase);
+  actualizar(dt, mundo, anchoBase, altoBase, celular = false) {
+    // Subida vertical del celular: suave (lerp) hacia su objetivo
+    if (celular) this.subida += (this.subidaObjetivo - this.subida) * Math.min(1, dt * CONFIG.interfaz.encuadreCelular.suavizado);
+    else this.subida = 0;
+    const o = this.objetivo(mundo, anchoBase, altoBase, celular);
     const k = Math.min(1, dt * 5);
     this.x += (o.x - this.x) * k;
     this.y += (o.y - this.y) * k;

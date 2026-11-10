@@ -394,7 +394,7 @@ const EnLinea = {
     juego.mundo = m;
     juego.efectos.reiniciar();
     juego.hud.reiniciar();
-    juego.camara.saltarA(m, juego.render.anchoBase);
+    juego.camara.saltarA(m, juego.render.anchoBase, juego.render.altoVista, juego.render.encuadreCelular);
     juego.finMostrado = true; // el fin lo avisa el anfitrión
     this.menuAbierto = false;
     this.pausadoPorAnfitrion = false; // al (re)iniciar un nivel ya no hay pausa

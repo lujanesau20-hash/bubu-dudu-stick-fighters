@@ -45,6 +45,9 @@ class HUD {
     }
     // Texto "Nivel X · Tramo Y/Z": tamaño y lugar (más grande en celular, sin tocar barras ni Pausa)
     this.tramo = this.medidaTramo(ctx, m, W, s, esTactil, margen, anchoBarra, apartar, anchoPausa);
+    // Celular: habilidades y combos en una sola fila y HUD de como máximo 25% del alto
+    // (config/interfaz.js -> hudCelular). En laptop todo sigue igual.
+    this._unaFila = !!(esTactil && CONFIG.interfaz.hudCelular.unaFila);
     // Zonas que los cuadros de habilidades no deben tapar (joystick, botones, Pausa, monedas/nivel)
     this.obstaculos = this.medirObstaculos(ctx, m, W, H, s, esTactil, margen);
     if (this.rectsIconos) this.rectsIconos.length = 0; else this.rectsIconos = [];
@@ -221,7 +224,7 @@ class HUD {
       const etiqueta = tactilJ1 ? `H${a + 1}+H${b + 1}` : `${nombreTecla(a)}+${nombreTecla(b)}`;
       // El jugador 2 (a la derecha) ordena los combos de derecha a izquierda, como antes
       this.iconoHabilidad(ctx, posX2(derecha ? nCombos - 1 - k : k), fila2, tam, si, c.icono || '✦', c.energia, j.energia,
-        j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true);
+        j.enfriamientosCombo ? j.enfriamientosCombo[k] : 0, c.enfriamiento || 0, etiqueta, true, esTactil && CONFIG.interfaz.hudCelular.etiquetaComboAbajo);
     });
     ctx.restore();
     this.fondoIconos = Math.max(this.fondoIconos || 0, fila2 + tam + 12 * si);
@@ -251,7 +254,8 @@ class HUD {
       const k = Math.max(base / tam, (2 * mitadLibre) / ancho);
       tam *= k; ancho *= k;
     }
-    const arriba = margen + (m.modo === 'pareja' ? 64 : 36) * s; // borde de abajo de "Revivir" o de las monedas
+    let arriba = margen + (m.modo === 'pareja' ? 64 : 36) * s; // borde de abajo de "Revivir" o de las monedas
+    if (esTactil && m.modo === 'pareja') arriba += CONFIG.interfaz.hudCelular.separacionRevivirTramo * s; // celular: más aire
     const y = Math.max(margen + (m.modo === 'pareja' ? 80 : 58) * s, arriba + tam * 0.8);
     this._tramoClave = clave;
     this._tramoMedida = { texto, tam, y, mitad: ancho / 2 + tam * 0.2, abajo: y + tam * 0.3 };
@@ -321,7 +325,7 @@ class HUD {
       if (m.modo === 'pareja') { mitad = Math.max(mitad, medir('Revivir: ♥♥♥', 18 * s) / 2); abajo = margen + 64 * s; }
       if (this.tramo) { mitad = Math.max(mitad, this.tramo.mitad); abajo = Math.max(abajo, this.tramo.abajo); }
     }
-    this._limiteAlto = H * ch.altoMaximo;
+    this._limiteAlto = H * (esTactil ? CONFIG.interfaz.hudCelular.altoMaximo : ch.altoMaximo);
     this._centro = W / 2;
     this._pad = pad;
     // La lista solo se arma de nuevo si cambió algo (así no se crean objetos en cada cuadro)
@@ -342,7 +346,7 @@ class HUD {
     const ch = CONFIG.interfaz.habilidades;
     const deseada = s * (esTactil ? ch.escalaCelular : ch.escalaLaptop);
     const minima = deseada * ch.achicarHasta;
-    const clave = `${W}|${H}|${esTactil}|${m.jugadores.length}|${Math.round(apartar)}|${this._claveObst}|${deseada}`;
+    const clave = `${W}|${H}|${esTactil}|${this._unaFila}|${m.jugadores.length}|${Math.round(apartar)}|${this._claveObst}|${deseada}`;
     if (this._layClave === clave) return this._lay;
     const retrato = 58 * s;
     const geos = m.jugadores.map((j) => {
@@ -379,9 +383,19 @@ class HUD {
       const alto = tam + 15 * si; // cuadro + costo de maná debajo
       const ancho1 = nH * tam + (nH - 1) * sep, ancho2 = nC * tam + (nC - 1) * sep;
       const r1 = { x: derecha ? bx + bw - ancho1 : bx, y: fila1, w: ancho1, h: alto };
-      const fila2 = fila1 + tam + 16 * si;
+      let fila2 = fila1 + tam + 16 * si;
       // Lugar normal de la fila 2: medio cuadro hacia adentro
       let x2 = derecha ? bx + bw - tam / 2 - ancho2 : bx + tam / 2;
+      if (this._unaFila) {
+        // Celular: los combos van en la MISMA fila, al lado de las habilidades (hacia el centro)
+        const gap = CONFIG.interfaz.hudCelular.separacionGrupos * si;
+        fila2 = fila1;
+        x2 = derecha ? r1.x - gap - ancho2 : r1.x + ancho1 + gap;
+        const r2 = { x: x2, y: fila2, w: ancho2, h: alto };
+        ultimo = { si, fila2, x2, rects: [r1, r2] };
+        if (libre(r1) && libre(r2)) return ultimo;
+        continue;
+      }
       ultimo = { si, fila2, x2, rects: [r1, { x: x2, y: fila2, w: ancho2, h: alto }] };
       if (!libre(r1)) continue;
       // Si la fila 2 choca (por ejemplo con el joystick), se corre hacia el centro
@@ -397,7 +411,9 @@ class HUD {
   }
 
   // Un ícono de habilidad o combo
-  iconoHabilidad(ctx, x, y, tam, s, icono, costo, mana, cdRestante, cdTotal, etiqueta, esCombo = false) {
+  // etiquetaAbajo (combos en celular): "H1+H2" debajo del cuadro y el maná en la esquina,
+  // para que el nombre no tape el ícono. En laptop, como siempre.
+  iconoHabilidad(ctx, x, y, tam, s, icono, costo, mana, cdRestante, cdTotal, etiqueta, esCombo = false, etiquetaAbajo = false) {
     const sinMana = mana < costo;
     ctx.fillStyle = sinMana ? 'rgba(60,60,70,0.8)' : esCombo ? 'rgba(70,30,80,0.88)' : 'rgba(20,30,60,0.85)';
     U.rectRedondo(ctx, x, y, tam, tam, 6 * s); ctx.fill();
@@ -424,6 +440,11 @@ class HUD {
       this.texto(ctx, cdRestante >= 1 ? String(Math.ceil(cdRestante)) : cdRestante.toFixed(1), x + tam / 2, y + tam * 0.7, 16 * s, '#ffffff', 'center');
     }
     // Tecla (esquina) y costo de maná (debajo)
+    if (etiquetaAbajo) {
+      this.texto(ctx, String(costo), x + tam - 2, y + 9 * s, 10 * s, sinMana ? '#ff8f8f' : '#74c0fc', 'right', true);
+      this.texto(ctx, etiqueta, x + tam / 2, y + tam + 11 * s, 9 * s, '#ffe066', 'center', true);
+      return;
+    }
     this.texto(ctx, etiqueta, x + tam - 2, y + 9 * s, (esCombo ? 8 : 10) * s, '#ffe066', 'right', true);
     this.texto(ctx, String(costo), x + tam / 2, y + tam + 11 * s, 10 * s, sinMana ? '#ff8f8f' : '#74c0fc', 'center', true);
   }

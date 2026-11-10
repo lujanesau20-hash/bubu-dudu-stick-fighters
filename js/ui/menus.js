@@ -28,7 +28,7 @@ const Menus = {
         <h1 class="titulo"><span class="t-bubu">Bubu</span> <span class="t-y">&</span> <span class="t-dudu">Dudu</span></h1>
         <p class="subtitulo">Stick Fighters</p>
         <button class="btn grande" data-ir="solo">Niveles en solitario</button>
-        <button class="btn grande" data-ir="pareja">Niveles en pareja</button>
+        ${esDispositivoTactil() ? '' : '<button class="btn grande" data-ir="pareja">Niveles en pareja</button>'}
         <button class="btn grande" data-ir="versus">Versus</button>
         <button class="btn grande" data-ir="enlinea">🌐 Jugar en línea</button>
         <div class="fila-botones">

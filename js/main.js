@@ -55,7 +55,14 @@ const Juego = {
   ajustarTamano() {
     const cl = CONFIG.interfaz.lienzo;
     let dpr = Math.min(window.devicePixelRatio || 1, cl.dprMax);
-    const max = esDispositivoTactil() ? cl.anchoMaxCelular : cl.anchoMaxLaptop;
+    let max = esDispositivoTactil() ? cl.anchoMaxCelular : cl.anchoMaxLaptop;
+    if (esDispositivoTactil() && cl.pxPorUnidadCelular > 0) {
+      // Celular: no más píxeles que el mundo que se ve (encuadre de celular: 1152 de ancho)
+      const ce = CONFIG.interfaz.encuadreCelular, rel = window.innerWidth / Math.max(1, window.innerHeight);
+      const anchoMundo = ce.activo && rel > ce.relacionLaptop ? CONFIG.vista.alto * ce.relacionLaptop : CONFIG.vista.alto * rel;
+      const porMundo = Math.round(anchoMundo * cl.pxPorUnidadCelular);
+      max = max > 0 ? Math.min(max, porMundo) : porMundo;
+    }
     if (max > 0 && window.innerWidth * dpr > max) dpr = max / window.innerWidth;
     this.lienzo.width = Math.round(window.innerWidth * dpr);
     this.lienzo.height = Math.round(window.innerHeight * dpr);
@@ -87,7 +94,7 @@ const Juego = {
     this.mundo.radioMonedas = BALANCE.monedas.radioRecogida[this.esTactil || enLinea ? 'celular' : 'laptop'];
     this.efectos.reiniciar();
     this.hud.reiniciar();
-    this.camara.saltarA(this.mundo, this.render.anchoBase);
+    this.camara.saltarA(this.mundo, this.render.anchoBase, this.render.altoVista, this.render.encuadreCelular);
     if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.alIniciarPartida(this); // controles del invitado por la red
     this.acumulador = 0;
     this.finMostrado = false;
@@ -286,7 +293,7 @@ const Juego = {
     if (typeof EnLinea !== 'undefined' && EnLinea.esInvitado && Sincro.espejo === m) Sincro.prepararDibujo(performance.now(), this.efectos);
     if (this.estado !== 'pausa') {
       this.efectos.actualizar(dt);
-      this.camara.actualizar(dt, m, this.render.anchoBase);
+      this.camara.actualizar(dt, m, this.render.anchoBase, this.render.altoVista, this.render.encuadreCelular);
       this.hud.actualizar(dt, m);
     }
     // Ropa equipada: un solo objeto que se reutiliza (antes uno nuevo en cada cuadro)

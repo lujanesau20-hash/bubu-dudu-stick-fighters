@@ -63,7 +63,36 @@ CONFIG.interfaz = {
     dprMax: 2,                // nunca más de 2 píxeles reales por píxel de pantalla
     anchoMaxCelular: 1280,    // celular: ancho interno máximo (misma proporción). 0 = sin límite
     anchoMaxLaptop: 0,        // laptop / PC: sin límite (como antes)
+    // Celular: píxeles internos por unidad del mundo visible (1 = el lienzo mide lo mismo que
+    // el mundo que se ve, por ejemplo 1152 de ancho). Manda el menor entre esto y anchoMaxCelular.
+    pxPorUnidadCelular: 1,
   },
+
+  // Encuadre en celular: se ve el MISMO ancho de mundo que en una laptop 16:10 (solo celular)
+  encuadreCelular: {
+    activo: true,
+    relacionLaptop: 1.6,      // 16:10 -> ancho visible = 720 x 1.6 = 1152 unidades del mundo
+    sueloEnPantalla: 0.88,    // el suelo queda al 88% del alto (un poco más abajo que en laptop: más cielo arriba)
+    // Cámara vertical: sube solo si el personaje LOCAL quedaría bajo el HUD o tocando el borde
+    franjaHud: 0.25,          // parte de arriba reservada al HUD (no se tapa la cabeza)
+    margenCabeza: 12,         // unidades del mundo entre la cabeza y el HUD
+    subidaMax: 230,           // máximo que sube (≈ 2 personajes: así un doble salto alto nunca sale de la pantalla)
+    zonaMuerta: 14,           // cambios menores no mueven la cámara (no tiembla)
+    suavizado: 10,            // rapidez del movimiento vertical (lerp por segundo)
+    paralajeFondo: 0.25,      // cuánto acompaña el fondo cuando la cámara sube
+  },
+
+  // HUD en celular (solo celular; en laptop no cambia nada)
+  hudCelular: {
+    altoMaximo: 0.25,         // el HUD ocupa como máximo el 25% del alto de la pantalla
+    unaFila: true,            // habilidades y combos en una sola fila (los combos al lado)
+    separacionGrupos: 12,     // espacio entre las habilidades y los combos (en "si", como los cuadros)
+    etiquetaComboAbajo: true, // "H1+H2" debajo del cuadro (no encima del ícono); el maná va en la esquina
+    separacionRevivirTramo: 8,// espacio entre "Revivir ♥♥" y "Nivel · Tramo" (x escala del HUD)
+  },
+
+  // Monedas en el mundo: radio del dibujo (no cambia la zona para recogerlas)
+  monedas: { radioCelular: 13, radioLaptop: 8 },
 
   // Registro de atrasos (panel de depuración y "Copiar registro")
   rendimiento: {

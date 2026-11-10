@@ -10,11 +10,16 @@ const U = {
     const x1 = (0 - m.e) / a, x2 = (ctx.canvas.width - m.e) / a;
     // Se reutiliza un objeto por margen (se llama en cada cuadro)
     const cache = this._rangos || (this._rangos = {});
-    const r = cache[margen] || (cache[margen] = { izq: 0, der: 0 });
+    const r = cache[margen] || (cache[margen] = { izq: 0, der: 0, arriba: 0, abajo: 0 });
     r.izq = Math.min(x1, x2) - margen; r.der = Math.max(x1, x2) + margen;
+    // También en vertical (para no dibujar lo que queda arriba o abajo de la cámara)
+    const d = m.d || 1;
+    const y1 = (0 - m.f) / d, y2 = (ctx.canvas.height - m.f) / d;
+    r.arriba = Math.min(y1, y2) - margen; r.abajo = Math.max(y1, y2) + margen;
     return r;
   },
   visibleX(v, x, ancho = 0) { return x + ancho >= v.izq && x - ancho <= v.der; },
+  visibleY(v, y, alto = 0) { return y + alto >= v.arriba && y - alto <= v.abajo; },
 
   clamp: (v, a, b) => (v < a ? a : v > b ? b : v),
   lerp: (a, b, t) => a + (b - a) * t,

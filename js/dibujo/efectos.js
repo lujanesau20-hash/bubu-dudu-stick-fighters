@@ -365,7 +365,7 @@ class Efectos {
     }
     const v = U.rangoVisibleX(ctx, 40);
     for (const p of this.particulas) {
-      if (p.x < v.izq || p.x > v.der) continue; // fuera de pantalla
+      if (p.x < v.izq || p.x > v.der || p.y < v.arriba || p.y > v.abajo) continue; // fuera de pantalla
       const k = p.t / p.dur;
       ctx.globalAlpha = 1 - k;
       ctx.fillStyle = p.color;
@@ -379,7 +379,7 @@ class Efectos {
     }
     ctx.globalAlpha = 1;
     for (const t of this.textos) {
-      if (t.x < v.izq || t.x > v.der) continue;
+      if (t.x < v.izq || t.x > v.der || t.y < v.arriba - 40 || t.y > v.abajo + 40) continue;
       const k = t.t / t.dur;
       const esc = t.t < 0.1 ? 0.6 + t.t * 6 : 1;
       ctx.save();

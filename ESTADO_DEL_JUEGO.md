@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: cuadros iguales en los dos lados, pantalla completa, menos tirones en celular y plataformas en línea; ver la sección 15). **Versión actual: `2026.11.10-5`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: encuadre y HUD en celular; ver la sección 16). **Versión actual: `2026.11.10-8`** (en `index.html`).
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -19,6 +19,7 @@ Los protagonistas son **Bubu** (oso panda **blanco**, con moño negro) y **Dudu*
 | **Niveles en solitario** | Un jugador elige a Bubu o a Dudu y juega los niveles. |
 | **Niveles en pareja** | Dos jugadores en el mismo teclado/pantalla, una cámara que sigue a los dos. Se puede revivir al compañero. |
 | **Versus** | Bubu contra Dudu en una arena, al mejor de 3 rondas (solo local). |
+| *(celular)* | En celular no aparece "Niveles en pareja" (local); sí "Jugar en línea" (sección 16). |
 | **Jugar en línea** | Dos personas en dispositivos distintos juegan "Niveles en pareja" con un código de sala de 4 números. |
 | **Tienda** | Ropa para los personajes, comprada con monedas. |
 | **Cómo jugar** | Pantalla con pestañas: Controles, Habilidades, Combos, Consejos. |
@@ -659,7 +660,7 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-5`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-8`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
@@ -857,3 +858,36 @@ Versión `2026.11.10-5`. Respaldo: etiqueta de git `respaldo-antes-pantalla-comp
 - **Celular (horizontal, pestaña privada):** el panel (5 toques arriba a la izquierda) debe decir "versión 2026.11.10-5" y "Lienzo 1280×…". Los cuadros de Bubu y de Dudu deben medir lo mismo. Tocar el icono pequeño debajo de "Pausa": entra en pantalla completa y queda en horizontal; en el menú de pausa, "Salir de pantalla completa". En iPhone no aparecen el icono ni el botón.
 - **Laptop:** F entra y sale de pantalla completa (también después de salir con Esc). "Cómo jugar" muestra la tecla F. Lienzo igual que antes.
 - **En línea (invitado en celular):** subir con doble salto a una plataforma y quedarse quieto: no debe subir y caer. Tras jugar, "Copiar registro" incluye la lista de atrasos con su hora, memoria y "primera vez".
+
+## 16. Encuadre y HUD en celular (laptop sin cambios)
+
+Versión `2026.11.10-8`. Respaldo: etiqueta de git `respaldo-antes-encuadre-celular`. Solo dibujo e interfaz: la lógica del juego y la red no cambiaron. **En PC/laptop todo se ve igual** (comparado con capturas a 1280×800: mismo ancho de mundo, misma cámara y mismo HUD).
+
+### 1. Encuadre (solo celular) — `config/interfaz.js` → `encuadreCelular`
+- **Antes:** el ancho visible era (ancho/alto de la pantalla) × 720. Un celular 2000×900 veía **1600** unidades de mundo (y el fondo también se armaba con el alto, por eso cabían 5 islas en vez de 4). Una laptop 16:10 ve **1152**.
+- **Ahora:** en una pantalla más ancha que 16:10 (`relacionLaptop: 1.6`) se ve el **mismo ancho que en la laptop (1152)**; el alto visible queda en 518 unidades. El fondo usa la misma escala que en la laptop y se corre para que su suelo coincida con el de la pantalla.
+- **Cámara vertical (celular):** el suelo queda fijo al 88% del alto (`sueloEnPantalla`). Sube solo si la cabeza del personaje **local** quedaría bajo la franja del HUD (25%) o tocando el borde de arriba. Movimiento suave (`suavizado: 10`), zona muerta de 14 unidades (no tiembla) y baja otra vez al caer o aterrizar. El fondo acompaña un 25% de esa subida (parallax).
+  - Límite elegido: `subidaMax: 230` (≈ 2 personajes). Con 115 (≈ 1 personaje), un doble salto desde la plataforma más alta sacaba al personaje de la pantalla ~0,5 s; con 230 nunca sale (lo más alto queda al 4% del borde). En ese punto la cabeza pasa un momento por la zona del HUD.
+  - Saltar desde el suelo no mueve la cámara.
+- **Cada teléfono sigue a su propio personaje** para la altura (solitario, y en línea el líder sigue a Bubu y el invitado a Dudu). A lo ancho, la cámara sigue encuadrando a los dos como siempre, para no perder al compañero.
+- **No se dibuja lo que queda fuera de cámara:** enemigos (también los que vienen cayendo desde arriba), monedas, proyectiles, partículas y textos, ahora también arriba y abajo.
+- **Lienzo en celular** = mundo visible (`lienzo.pxPorUnidadCelular: 1`): 2000×900 → **1152×518** (antes 1280×576). Los textos y cuadros del HUD se ven del mismo tamaño (se calculan con el alto del lienzo).
+
+### 2. Modos
+- **"Niveles en pareja" (local) no aparece en el menú del celular** (solo se oculta; el código sigue). En PC/laptop sigue igual. Pareja en línea sigue en celular.
+- **Versus:** es **solo local** (dos jugadores en la misma pantalla y teclado; no hay versus en línea). La cámara ya muestra la arena completa con zoom fijo, sin seguir a nadie; no se cambió.
+
+### 3. HUD en celular — `config/interfaz.js` → `hudCelular`
+- Habilidades y combos en **una sola fila** (`unaFila`), con el HUD de como máximo **25% del alto** (`altoMaximo`). Medido a 2000×900: **43% → 23%** en pareja y 24% en solitario. Los dos lados miden igual (73 px en pareja, 78 px en solitario).
+- Los combos muestran **"H1+H2" debajo del cuadro** (no encima del ícono) y el costo de maná en la esquina.
+- "Revivir ♥♥" queda separado de "Nivel · Tramo" (`separacionRevivirTramo: 8`).
+- La Pausa, la pantalla completa y los botones táctiles no cambiaron.
+
+### 4. Brillos y monedas
+- El HUD y las monedas **no tienen brillo** (sin `shadowBlur`). Las barras usan degradados lineales pequeños (baratos).
+- La luz amarilla de arriba a la derecha es el **sol del fondo** (un degradado circular por cuadro, barato): se dejó.
+- **Monedas más grandes en celular:** `monedas: { radioCelular: 13, radioLaptop: 8 }` (solo el dibujo; la zona para recogerlas no cambió).
+
+### Cómo probar
+- **Celular (horizontal):** se ven 4 islas del fondo como en la laptop. El HUD ocupa la franja de arriba (una fila). En un doble salto desde una plataforma alta, la cámara sube un poco y vuelve a bajar al aterrizar. El menú principal no muestra "Niveles en pareja". Panel (5 toques): "Lienzo 1152×…".
+- **Laptop:** todo igual que antes.
