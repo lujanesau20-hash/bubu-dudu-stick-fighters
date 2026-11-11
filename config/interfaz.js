@@ -127,9 +127,9 @@ CONFIG.interfaz = {
   textosMenu: {
     solo: '(sin internet)',
     pareja: '(2 jugadores en este equipo · sin internet)',
-    versus: '(2 jugadores en este equipo · sin internet)',       // PC/laptop (el versus en línea aún no existe)
-    versusCelular: '(en línea · próximamente)',                  // celular: el versus local se oculta
-    enlinea: '(niveles en pareja · 2 dispositivos con internet)',
+    versus: '(en este equipo sin internet · o en línea)',        // PC/laptop: se elige local o en línea
+    versusCelular: '(en línea · 2 dispositivos)',                // celular: solo en línea (el local se oculta)
+    enlinea: '(pareja o versus · 2 dispositivos con internet)',
   },
 
   // Joystick FIJO en celular: la base siempre en el mismo lugar y la dirección se mide

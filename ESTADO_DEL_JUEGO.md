@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: expulsión del invitado, joystick fijo, textos del menú y número de versión — sección 18). **Versión actual: `v1.00`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.10-v1.00`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: versus en línea — sección 19; antes: expulsión del invitado, joystick fijo y número de versión — sección 18). **Versión actual: `v1.01`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.10-v1.01`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -18,9 +18,9 @@ Los protagonistas son **Bubu** (oso panda **blanco**, con moño negro) y **Dudu*
 |---|---|
 | **Niveles en solitario** | Un jugador elige a Bubu o a Dudu y juega los niveles. |
 | **Niveles en pareja** | Dos jugadores en el mismo teclado/pantalla, una cámara que sigue a los dos. Se puede revivir al compañero. |
-| **Versus** | Bubu contra Dudu en una arena, al mejor de 3 rondas (solo local). |
+| **Versus** | Bubu contra Dudu en una arena, al mejor de 3 rondas. En PC: local (mismo teclado) o en línea. En celular: solo en línea (sección 19). |
 | *(celular)* | En celular no aparece "Niveles en pareja" (local); sí "Jugar en línea" (sección 16). |
-| **Jugar en línea** | Dos personas en dispositivos distintos juegan "Niveles en pareja" con un código de sala de 4 números. |
+| **Jugar en línea** | Dos personas en dispositivos distintos juegan "Niveles en pareja" o "Versus" (lo elige el líder en la sala) con un código de sala de 4 números. |
 | **Tienda** | Ropa para los personajes, comprada con monedas. |
 | **Cómo jugar** | Pantalla con pestañas: Controles, Habilidades, Combos, Consejos. |
 
@@ -987,8 +987,8 @@ Cada salida muestra **el motivo en pantalla** y queda en "Copiar registro" ("—
 - En celular no cambió nada (escalaCelular 2.0 y 1.0). Los cuadros de habilidades siguen esquivando estos textos.
 
 ### 4. Versus
-- **El versus en línea no existe**: solo hay versus local, con teclado para los dos. "Jugar en línea" es **solo niveles en pareja**. No se construyó: falta la respuesta del usuario.
-- En celular, el versus local se oculta y el botón queda apagado con "(en línea · próximamente)". En PC/laptop, el versus local sigue como antes.
+- (En v1.00 el versus en línea todavía no existía. Desde v1.01 sí: ver sección 19).
+- En celular, el versus local se oculta.
 
 ### 5. Textos pequeños en el menú: `config/interfaz.js` → `textosMenu`
 | Botón | Texto |
@@ -1018,3 +1018,39 @@ En pantallas bajas (celular horizontal) el menú se compacta y todo cabe sin des
 - **Consola del invitado:** `EnLinea.simularCorte(13000)` muestra el aviso, reconecta solo y vuelve a la partida. Probado: volvió en ~14 s y Dudu siguió en el nivel.
 
 **No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles, el joystick con dedos de verdad en un celular real y el TURN.
+
+## 19. Versus en línea (v1.01)
+
+Versión **v1.01** (técnica `2026.11.10-v1.01`). Respaldo: etiqueta de git `respaldo-antes-versus-enlinea`. Misma arquitectura que la pareja en línea: **el líder (Bubu) calcula todo** y manda el estado; el invitado (Dudu) manda sus controles y dibuja. Las reglas del versus no cambiaron (al mejor de 3 rondas, mismo daño, misma arena).
+
+### Cómo se juega
+- **PC/laptop:** menú → **Versus** → "Local" (2 jugadores en este equipo, como antes) o "🌐 En línea".
+- **Celular:** menú → **Versus** → va directo a "Versus en línea" (el local está oculto).
+- También desde "Jugar en línea": en la sala, el líder elige **🤝 Niveles en pareja** o **⚔ Versus** (`RED_CONFIG.modos`). El invitado ve en su pantalla qué modo eligió el líder.
+- Al terminar: el líder ve "¡X GANA!", el marcador y los botones **Revancha** (otro versus para los dos) y **Volver a la sala**. El invitado ve lo mismo y espera la elección.
+
+### Qué se reutilizó y qué es nuevo
+- **Reutilizado:** sala, código, reconexión, snapshots (ya llevaban `ronda`, `rondas` y `ganador`), efectos (los carteles "RONDA 2" y "¡K.O.!" viajan como cualquier efecto), controles del invitado, pausa con checks.
+- **Nuevo:**
+  - selector de modo en la sala;
+  - el mensaje `modoSala` (el líder avisa el modo elegido);
+  - "fin" con el ganador y el marcador;
+  - pantalla de fin del invitado;
+  - pantalla "Local o En línea" en PC.
+- **Rival desconectado:** en versus, Dudu **no** queda "fuera" (eso le daría la ronda a Bubu).
+  - Si el líder no recibe nada del rival durante **4 s** (`conexion.versusPausaSinRivalSegundos`), el combate **se pausa**.
+  - El aviso de pausa se repite cada segundo, por si el primero se perdió en el corte.
+  - Cuando el rival vuelve, los dos pulsan "Reanudar".
+
+### Qué se probó (dos pestañas: líder en laptop 1280×800 e invitado en celular 800×360 táctil)
+- Desde "Versus → En línea" en PC y "Versus" en celular, la sala se crea en modo versus. El líder cambia a pareja y vuelve a versus, y el invitado lo ve.
+- El combate inicia en los dos dispositivos y el invitado camina con el joystick fijo.
+- K.O. → "RONDA 2" y el marcador (un punto azul) en el celular → segundo K.O. → "¡Bubu GANA! Rondas: Bubu 2 · Dudu 0" en los dos.
+- Revancha: ronda 1, marcador 0–0. "Volver a la sala": los dos vuelven a la sala.
+- Corte de 7 s del invitado: pausa a los ~4,7 s, nadie gana la ronda y se reanuda con los dos checks.
+- Corte de 16,5 s: pausa, reconexión automática (intento 1) y reanudación.
+- El versus local en PC sigue igual.
+
+**Nota:** en celular, el personaje que empieza a la derecha de la arena puede quedar detrás de los botones táctiles (son semitransparentes), igual que en pareja.
+
+**No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles y combates reales con dedos (los golpes del invitado se ven con el retraso del ping, igual que en pareja).

@@ -2,12 +2,14 @@
    PANTALLAS DEL JUEGO EN LÍNEA (botones grandes, aptos para celular)
    ===================================================================== */
 Object.assign(Menus, {
-  enLineaInicio(error = '') {
+  // modo: 'pareja' o 'versus' (con qué modo empieza la sala; el líder lo puede cambiar después)
+  enLineaInicio(error = '', modo) {
+    if (modo) this.modoRedInicial = modo;
     const ok = EnLinea.disponible();
     this.mostrarHTML(`
       <div class="panel panel-enlinea">
-        <h2>🌐 Jugar en línea</h2>
-        <p>Juega "Niveles en pareja" con otra persona, cada una en su dispositivo.<br>Quien crea la sala es <b>Bubu</b>; quien se une es <b>Dudu</b>.</p>
+        <h2>🌐 ${this.modoRedInicial === 'versus' ? 'Versus en línea' : 'Jugar en línea'}</h2>
+        <p>Juega "Niveles en pareja" o "Versus" con otra persona, cada una en su dispositivo.<br>Quien crea la sala es <b>Bubu</b>; quien se une es <b>Dudu</b>.</p>
         ${ok ? '' : '<p class="error-red">No se pudo cargar la conexión en línea. Revisa tu internet y recarga la página.</p>'}
         ${error ? `<p class="error-red">${error}</p>` : ''}
         <button class="btn grande" data-ir="crear" ${ok ? '' : 'disabled'}>➕ Crear sala</button>
@@ -16,9 +18,9 @@ Object.assign(Menus, {
         <button class="btn" data-ir="volver">Volver</button>
       </div>`);
     this.conectar({
-      crear: () => { this.pantallaCompletaCelular(); EnLinea.crearSala(); },
+      crear: () => { this.pantallaCompletaCelular(); EnLinea.modoSala = this.modoRedInicial || 'pareja'; EnLinea.crearSala(); },
       unirse: () => this.enLineaUnirse(),
-      volver: () => this.principal(),
+      volver: () => { this.modoRedInicial = null; this.principal(); },
     });
   },
 
@@ -112,19 +114,54 @@ Object.assign(Menus, {
     // El anfitrión elige con la misma lista de mundos y niveles (según SU avance)
     if (!this.selRed) this.selRed = this.nuevaSeleccionNivel();
     const sel = this.selRed;
+    const versus = EnLinea.modoSala === 'versus';
     this.mostrarHTML(`
       <div class="panel panel-enlinea">
         <h2 class="verde-txt">✔ Conectado</h2>
         <p>Sala ${EnLinea.codigo}</p>
         <div class="tarjetas">${tarjeta('bubu', anfitrion ? 'Tú' : 'Anfitrión')}${tarjeta('dudu', anfitrion ? 'Invitado' : 'Tú')}</div>
-        ${anfitrion ? `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}
-            <button class="btn grande verde" data-ir="iniciar">▶ Iniciar: ${ESCENARIOS[sel.nivel].nombre}</button>`
-          : '<p class="esperando">⏳ Esperando a que el anfitrión elija el nivel…</p>'}
+        ${anfitrion ? `<div class="fila-botones modos-sala">
+              <button class="btn ${versus ? '' : 'verde'}" data-ir="modoPareja">🤝 Niveles en pareja</button>
+              <button class="btn ${versus ? 'verde' : ''}" data-ir="modoVersus">⚔ Versus</button>
+            </div>
+            ${versus ? '<p>Bubu contra Dudu, al mejor de 3 rondas.</p>'
+              : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
+            <button class="btn grande verde" data-ir="iniciar">▶ ${versus ? 'Iniciar versus' : 'Iniciar: ' + ESCENARIOS[sel.nivel].nombre}</button>`
+          : `<p class="esperando" id="modo-sala-invitado">${this.textoModoSalaInvitado()}</p>`}
         <p class="nota-red" id="versiones-sala">${this.textoVersionesSala()}</p>
         <button class="btn" data-ir="salir">${anfitrion ? 'Cerrar sala' : 'Salir de la sala'}</button>
       </div>`);
-    if (anfitrion) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
-    this.conectar({ salir: () => EnLinea.cerrar(), iniciar: () => EnLinea.iniciar(sel.nivel) });
+    if (anfitrion && !versus) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
+    this.conectar({
+      salir: () => EnLinea.cerrar(),
+      iniciar: () => (versus ? EnLinea.iniciar('isla', 'versus') : EnLinea.iniciar(sel.nivel, 'pareja')),
+      modoPareja: () => { EnLinea.avisarModoSala('pareja'); this.enLineaConectado(); },
+      modoVersus: () => { EnLinea.avisarModoSala('versus'); this.enLineaConectado(); },
+    });
+  },
+
+  // Invitado: qué modo eligió el líder en la sala
+  textoModoSalaInvitado() {
+    return EnLinea.modoSala === 'versus' ? '⚔ Modo: <b>Versus</b> (Bubu contra Dudu). ⏳ Esperando a que el anfitrión inicie…'
+      : '🤝 Modo: <b>Niveles en pareja</b>. ⏳ Esperando a que el anfitrión elija el nivel…';
+  },
+  actualizarModoSala() {
+    const el = document.getElementById('modo-sala-invitado');
+    if (el) el.innerHTML = this.textoModoSalaInvitado();
+  },
+
+  // Fin del versus en el invitado (el líder elige revancha o volver a la sala)
+  enLineaFinVersusInvitado(d) {
+    const gane = d.ganador === 1;
+    const marcador = d.rondas ? `<p>Rondas: Bubu ${d.rondas[0]} · Dudu ${d.rondas[1]}</p>` : '';
+    this.mostrarHTML(`
+      <div class="panel panel-enlinea">
+        <h2 class="${gane ? 'dorado' : 'rojo'}">¡${d.nombreGanador || '?'} GANA!</h2>
+        ${marcador}
+        <p class="esperando">⏳ Esperando a que el anfitrión elija: revancha o volver a la sala…</p>
+        <button class="btn" data-ir="salir">Salir de la sala</button>
+      </div>`);
+    this.conectar({ salir: () => EnLinea.cerrar() });
   },
 
   // Versión de cada jugador en la sala (y aviso si no coinciden)

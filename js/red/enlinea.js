@@ -165,7 +165,7 @@ const EnLinea = {
       this.abrirCanalRapido(conn);
       Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
-      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO, vv: VERSION_VISIBLE });
+      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO, vv: VERSION_VISIBLE, modo: this.modoSala || 'pareja' });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
       else { Menus.enLineaConectado(); this.enviar({ t: 'lobby' }); } // si volvía de una partida que ya terminó, va a la sala
     });
@@ -174,11 +174,19 @@ const EnLinea = {
     conn.on('error', (e) => { if (this.conn === conn) this.invitadoSeFue('error en la conexión del invitado ' + (e && e.type ? e.type : '')); });
   },
 
-  // El anfitrión inicia la partida con el nivel elegido
-  iniciar(escenario = 'isla') {
+  // El anfitrión inicia la partida: niveles en pareja (con el nivel elegido) o versus
+  // (siempre en la arena de la isla). Bubu = líder, Dudu = invitado, en los dos modos.
+  iniciar(escenario = 'isla', modo = 'pareja') {
+    if (!RED_CONFIG.modos.includes(modo)) modo = 'pareja';
     this.escenario = escenario;
+    this.modoSala = modo;
     this.enPartida = true;
-    Juego.iniciarPartida('pareja', ['bubu', 'dudu'], escenario);
+    Juego.iniciarPartida(modo, ['bubu', 'dudu'], escenario);
+  },
+  // El líder cambió el modo en la sala: el invitado lo ve en su pantalla
+  avisarModoSala(modo) {
+    this.modoSala = modo;
+    if (this.esAnfitrion) this.enviar({ t: 'modoSala', modo });
   },
 
   // Llamado desde Juego.iniciarPartida (anfitrión)
@@ -385,6 +393,12 @@ const EnLinea = {
     this.conn = null;
     if (this.controlRemoto) this.controlRemoto.soltarTodo();
     if (cambio) { if (Juego.mundo && this.enPartida) this.marcarAusente(); return; }
+    // Versus: si el rival se va, el combate se PAUSA (no se le da la ronda a nadie) hasta que vuelva
+    if (Juego.mundo && this.enPartida && Juego.mundo.modo === 'versus' && (Juego.estado === 'jugando' || Juego.estado === 'pausa' || Juego.estado === 'carga')) {
+      if (Juego.estado === 'jugando') Juego.pausar(); else if (Juego.estado === 'pausa') Pausa.menuLider();
+      Menus.enLineaToast(`${getNombreJugador(Juego.mundo.jugadores[1])} salió (${motivo}). El combate queda en pausa; puede volver con el código ${this.codigo}`, 6000);
+      return;
+    }
     if (Juego.mundo && this.enPartida && (Juego.estado === 'jugando' || Juego.estado === 'pausa' || Juego.estado === 'carga')) {
       // El líder sigue jugando sin parar; Dudu queda fuera hasta que vuelva con el código
       this.marcarAusente();
@@ -397,6 +411,7 @@ const EnLinea = {
 
   // Dudu queda fuera del juego (guardando su vida) hasta que vuelva
   marcarAusente() {
+    if (Juego.mundo && Juego.mundo.modo === 'versus') return; // en versus no se "muere": el combate se pausa
     const d = Juego.mundo && Juego.mundo.jugadores[1];
     if (d && !d.ausente && d.estado !== 'muerto') {
       d.vidaGuardada = d.vida; d.estadoGuardado = d.estado;
@@ -611,7 +626,9 @@ const EnLinea = {
     this.tEnvio = 0;
     this.mantenerPantalla();
     juego.estado = 'carga';
-    Menus.carga(d.reingreso ? 'Volviendo a la partida…' : `Nivel ${d.nivel} · ${(ESCENARIOS[d.escenario] || ESCENARIOS.isla).nombre}`);
+    Menus.carga(d.reingreso ? 'Volviendo a la partida…'
+      : d.modo === 'versus' ? `Versus · ${(ARENAS_VERSUS[d.escenario] || ARENAS_VERSUS.isla).nombre}`
+      : `Nivel ${d.nivel} · ${(ESCENARIOS[d.escenario] || ESCENARIOS.isla).nombre}`);
     clearTimeout(this.tCarga);
     // El juego aparece solo cuando ya llegó el primer estado del líder (nunca un mundo vacío)
     const empezar = () => {
@@ -730,7 +747,8 @@ const EnLinea = {
         break;
       case 'version': this.compararVersion(d.version, d.vv); break;
       // --- al invitado ---
-      case 'hola': if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
+      case 'modoSala': this.modoSala = d.modo; if (!this.enPartida && Menus.actualizarModoSala) Menus.actualizarModoSala(); break;
+      case 'hola': if (d.modo) this.modoSala = d.modo; if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
       case 'llena':
         this.registrarRed('Invitado: el líder rechazó la entrada — motivo: sala llena (ya hay 2 personas)');
         this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
@@ -756,12 +774,16 @@ const EnLinea = {
       case 'fin': this.finInvitado(d); break;
       case 'cerrar': this.salaCerrada('El anfitrión cerró la sala' + (d.motivo ? ` (${d.motivo}).` : '.')); break;
       // --- al anfitrión ---
-      case 'pausaEstado': // (al invitado) el juego se pausó o se reanudó
+      case 'pausaEstado': { // (al invitado) el juego se pausó o se reanudó
+        // Aviso repetido igual al que ya se ve: no se redibuja el menú (no molesta al tocar)
+        const igual = d.on && this.pausadoPorAnfitrion && JSON.stringify(d.listos) === JSON.stringify(this.listosInvitado) && document.querySelector('.panel-pausa');
+        if (igual) break;
         this.pausadoPorAnfitrion = d.on;
         this.listosInvitado = d.listos || [false, false];
         if (d.on) { Juego.tactil.mostrar(false); Pausa.menuInvitado(this.listosInvitado); }
         else if (Juego.estado === 'jugando') { Menus.ocultar(); Juego.tactil.mostrar(Juego.esTactil); }
         break;
+      }
       case 'finalizar': // (al invitado) el líder terminó la partida
         this.registrarRed('Invitado: fuera de la sala — motivo: el líder finalizó el juego');
         this.cerrar(true);
@@ -780,6 +802,7 @@ const EnLinea = {
   finInvitado(d) {
     Juego.estado = 'fin';
     Juego.tactil.mostrar(false);
+    if (d.tipo === 'versus') { Menus.enLineaFinVersusInvitado(d); return; }
     if (d.monedas && d.tipo !== 'versus') Guardado.sumarMonedas(d.monedas);
     // El invitado también guarda el nivel superado
     if (d.tipo === 'victoria' && d.escenario && !Guardado.datos.nivelesSuperados.includes(d.escenario)) {
@@ -797,6 +820,17 @@ const EnLinea = {
     else this.enviar({ t: 'ping', ts: performance.now() });
     // Tolerante: un corte corto solo muestra "Reconectando…" (ver config/red.js -> conexion)
     const cc = RED_CONFIG.conexion;
+    const silencio = performance.now() - this.ultimoMensaje;
+    if (this.esAnfitrion && Juego.mundo && Juego.mundo.modo === 'versus') {
+      // Versus: rival sin responder -> combate en pausa (nadie pelea contra un rival congelado)
+      if (Juego.estado === 'jugando' && silencio > cc.versusPausaSinRivalSegundos * 1000) {
+        this.registrarRed(`Líder: versus en pausa — el rival no responde hace ${cc.versusPausaSinRivalSegundos} s`);
+        Juego.pausar();
+        Menus.enLineaToast(`${getNombreJugador(Juego.mundo.jugadores[1])} no responde: combate en pausa hasta que vuelva`, 5000);
+      }
+      // Mientras está en pausa se repite el aviso de pausa (por si el primero se perdió en el corte)
+      if (Juego.estado === 'pausa' && this.listos) this.avisarPausa(true);
+    }
     const limite = (this.esAnfitrion ? cc.silencioLiderSegundos : cc.silencioInvitadoSegundos);
     if (performance.now() - this.ultimoMensaje > limite * 1000) {
       if (this.esAnfitrion) { const c = this.conn; this.invitadoSeFue(`${limite} s sin mensajes del invitado`); if (c) c.close(); }
@@ -828,7 +862,14 @@ const EnLinea = {
     this.enviar({ t: 'finalizar' });
     setTimeout(() => { this.cerrar(true); Juego.irAlMenu(); }, 200);
   },
-  avisarFin(tipo, monedas) { if (this.esAnfitrion) { this.enPartida = false; this.enviar({ t: 'fin', tipo, monedas, escenario: Juego.mundo && Juego.mundo.escenarioId }); } },
+  avisarFin(tipo, monedas) {
+    if (!this.esAnfitrion) return;
+    this.enPartida = false;
+    const m = Juego.mundo;
+    // Versus: también el ganador y el marcador final (el invitado lo muestra en su pantalla)
+    const versus = tipo === 'versus' && m ? { ganador: m.ganador, nombreGanador: CONFIG.personajes[m.jugadores[m.ganador].personaje].nombre, rondas: m.rondas } : {};
+    this.enviar(Object.assign({ t: 'fin', tipo, monedas, escenario: m && m.escenarioId }, versus));
+  },
   volverAlLobby() { this.enPartida = false; this.enviar({ t: 'lobby' }); Menus.enLineaConectado(); },
 
   errorRed(err) {

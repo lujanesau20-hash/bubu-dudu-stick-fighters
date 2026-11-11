@@ -101,6 +101,8 @@ const RED_CONFIG = {
     // Tolerancia ante cortes (antes 6 s para los dos). Un corte corto solo muestra "Reconectando…".
     silencioInvitadoSegundos: 12, // invitado: sin NINGÚN mensaje del líder este tiempo -> reconecta solo
     silencioLiderSegundos: 15,    // líder: sin mensajes del invitado este tiempo -> Dudu queda fuera (puede volver)
+    versusPausaSinRivalSegundos: 4, // versus: si el líder no recibe nada del rival en 4 s, el combate se pausa
+                                    // (así nadie gana una ronda contra un rival congelado)
     esperaServidorSegundos: 3,    // si se pierde el servidor de emparejamiento, reintentarlo cada 3 s
                                   // (la partida NO se corta: va directa entre los dos dispositivos)
   },
@@ -109,8 +111,9 @@ const RED_CONFIG = {
   // Ej.: { ms: 75, variacion: 25 } en los dos dispositivos ≈ 150 ms de ping. Dejar en 0.
   latenciaPrueba: { ms: 0, variacion: 0 },
 
-  // Modos que se pueden jugar en línea (la arquitectura sirve también para versus)
-  modos: ['pareja'],
+  // Modos que se pueden jugar en línea (el líder elige en la sala). Versus: al mejor de 3 rondas,
+  // Bubu (líder) contra Dudu (invitado); el líder calcula todo, igual que en pareja.
+  modos: ['pareja', 'versus'],
 };
 
 // Servidores TURN recibidos del Worker (se llenan solos al crear o unirse a una sala)

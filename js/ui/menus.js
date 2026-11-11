@@ -33,8 +33,7 @@ const Menus = {
         <p class="subtitulo">Stick Fighters</p>
         <button class="btn grande" data-ir="solo">Niveles en solitario${sub('solo')}</button>
         ${tactil ? '' : `<button class="btn grande" data-ir="pareja">Niveles en pareja${sub('pareja')}</button>`}
-        ${tactil ? `<button class="btn grande" data-ir="versus" disabled>Versus${sub('versusCelular')}</button>`
-          : `<button class="btn grande" data-ir="versus">Versus${sub('versus')}</button>`}
+        <button class="btn grande" data-ir="versus">Versus${sub(tactil ? 'versusCelular' : 'versus')}</button>
         <button class="btn grande" data-ir="enlinea">🌐 Jugar en línea${sub('enlinea')}</button>
         <div class="fila-botones">
           <button class="btn" data-ir="tienda">🛍 Tienda</button>
@@ -47,11 +46,30 @@ const Menus = {
     this.conectar({
       solo: () => this.seleccion('solo'),
       pareja: () => this.seleccion('pareja'),
-      versus: () => this.seleccion('versus'),
-      enlinea: () => this.enLineaInicio(),
+      // Versus: en celular solo en línea; en PC/laptop se elige local o en línea
+      versus: () => (tactil ? this.enLineaInicio('', 'versus') : this.elegirVersus()),
+      enlinea: () => this.enLineaInicio('', 'pareja'),
       tienda: () => this.tienda.abrir(() => this.principal()),
       como: () => this.comoJugar(() => this.principal()),
       pantalla: () => pantallaCompleta(),
+    });
+  },
+
+  // PC/laptop: versus local (dos personas en este equipo) o en línea (dos dispositivos)
+  elegirVersus() {
+    this.mostrarHTML(`
+      <div class="panel">
+        <h2>⚔ Versus</h2>
+        <p>Bubu contra Dudu, al mejor de 3 rondas.</p>
+        <button class="btn grande" data-ir="local">Local<small class="sub-modo">(2 jugadores en este equipo · sin internet)</small></button>
+        <button class="btn grande" data-ir="enlinea">🌐 En línea<small class="sub-modo">(2 dispositivos con internet)</small></button>
+        <button class="btn" data-ir="volver">Volver</button>
+      </div>
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>`);
+    this.conectar({
+      local: () => this.seleccion('versus'),
+      enlinea: () => this.enLineaInicio('', 'versus'),
+      volver: () => this.principal(),
     });
   },
 
@@ -162,11 +180,15 @@ const Menus = {
   },
 
   finVersus(nombre) {
+    // En línea (líder): "Revancha" empieza otro versus para los dos; el otro botón vuelve a la sala
+    const enLinea = typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion;
+    const m = this.juego.mundo;
     this.mostrarHTML(`
       <div class="panel">
         <h2 class="dorado">¡${nombre} GANA!</h2>
+        ${enLinea && m ? `<p>Rondas: Bubu ${m.rondas[0]} · Dudu ${m.rondas[1]}</p>` : ''}
         <button class="btn grande" data-ir="revancha">Revancha</button>
-        <button class="btn" data-ir="menu">Menú principal</button>
+        <button class="btn" data-ir="menu">${enLinea ? 'Volver a la sala' : 'Menú principal'}</button>
       </div>`);
     this.conectar({ revancha: () => this.juego.reiniciar(), menu: () => this.juego.irAlMenu() });
   },
