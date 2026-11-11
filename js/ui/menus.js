@@ -23,21 +23,27 @@ const Menus = {
   },
 
   principal() {
+    // Celular: la pareja local y el versus local se ocultan (necesitan teclado para el jugador 2).
+    // Textos pequeños de cada modo: config/interfaz.js -> textosMenu
+    const tactil = esDispositivoTactil();
+    const sub = (k) => `<small class="sub-modo">${CONFIG.interfaz.textosMenu[k]}</small>`;
     this.mostrarHTML(`
       <div class="panel panel-principal">
         <h1 class="titulo"><span class="t-bubu">Bubu</span> <span class="t-y">&</span> <span class="t-dudu">Dudu</span></h1>
         <p class="subtitulo">Stick Fighters</p>
-        <button class="btn grande" data-ir="solo">Niveles en solitario</button>
-        ${esDispositivoTactil() ? '' : '<button class="btn grande" data-ir="pareja">Niveles en pareja</button>'}
-        <button class="btn grande" data-ir="versus">Versus</button>
-        <button class="btn grande" data-ir="enlinea">🌐 Jugar en línea</button>
+        <button class="btn grande" data-ir="solo">Niveles en solitario${sub('solo')}</button>
+        ${tactil ? '' : `<button class="btn grande" data-ir="pareja">Niveles en pareja${sub('pareja')}</button>`}
+        ${tactil ? `<button class="btn grande" data-ir="versus" disabled>Versus${sub('versusCelular')}</button>`
+          : `<button class="btn grande" data-ir="versus">Versus${sub('versus')}</button>`}
+        <button class="btn grande" data-ir="enlinea">🌐 Jugar en línea${sub('enlinea')}</button>
         <div class="fila-botones">
           <button class="btn" data-ir="tienda">🛍 Tienda</button>
           <button class="btn" data-ir="como">❓ Cómo jugar</button>
           <button class="btn" data-ir="pantalla">⛶</button>
         </div>
         <div class="monedas-menu">🪙 ${Guardado.datos.monedas}</div>
-      </div>`);
+      </div>
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>`);
     this.conectar({
       solo: () => this.seleccion('solo'),
       pareja: () => this.seleccion('pareja'),

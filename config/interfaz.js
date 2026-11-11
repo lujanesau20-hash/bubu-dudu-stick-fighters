@@ -118,7 +118,35 @@ CONFIG.interfaz = {
   },
 
   // Texto "Nivel X · Tramo Y/Z" arriba al centro
-  textoTramo: { escalaCelular: 2.0, escalaLaptop: 1.0 },
+  // (laptop: antes 1.0; ahora más grande para leerlo cómodo. Celular sin cambios)
+  textoTramo: { escalaCelular: 2.0, escalaLaptop: 1.4 },
+  // Texto "Revivir ♥♥" (pareja, debajo de las monedas). Laptop más grande; celular sin cambios.
+  textoRevivir: { escalaCelular: 1.0, escalaLaptop: 1.4 },
+
+  // Textos pequeños debajo de cada modo en el menú de inicio (cambian según el dispositivo)
+  textosMenu: {
+    solo: '(sin internet)',
+    pareja: '(2 jugadores en este equipo · sin internet)',
+    versus: '(2 jugadores en este equipo · sin internet)',       // PC/laptop (el versus en línea aún no existe)
+    versusCelular: '(en línea · próximamente)',                  // celular: el versus local se oculta
+    enlinea: '(niveles en pareja · 2 dispositivos con internet)',
+  },
+
+  // Joystick FIJO en celular: la base siempre en el mismo lugar y la dirección se mide
+  // desde su centro (antes aparecía donde se tocaba). Posiciones en fracción de la pantalla.
+  joystickFijo: {
+    activo: true,
+    x: 0.16,              // centro: 16% desde el borde izquierdo
+    y: 0.72,              // centro: 72% de la altura
+    diametro: 0.30,       // tamaño de la base: 30% del alto de la pantalla…
+    diametroMin: 110,     // …pero entre 110 y 170 px (cómodo para el pulgar)
+    diametroMax: 170,
+    zonaToque: 1.7,       // la zona que se puede tocar es 1.7 veces la base (algo más grande que el dibujo)
+    recorrido: 0.42,      // cuánto se mueve la palanca (fracción del diámetro) = joystick al máximo
+    zonaMuerta: 0.12,     // movimientos menores al 12% no mueven al personaje
+    umbralAgachar: 0.6,   // bajar más del 60% = agacharse…
+    agacharSoloAbajo: true, // …solo si el dedo va más hacia abajo que hacia el lado (en diagonal se camina)
+  },
 
   // Medición de la conexión en línea (solo se muestra; no cambia el envío)
   medicion: {

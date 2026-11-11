@@ -76,7 +76,7 @@ const RED_CONFIG = {
 
   // Tiempos
   avisoTurnSegundos: 15,        // si conectar tarda más, sugerir TURN
-  silencioDesconexion: 6,       // s sin mensajes = desconectado
+  silencioDesconexion: 6,       // (ya no se usa: antes 6 s sin mensajes = desconectado; ver conexion.silencio...)
   pingCadaSegundos: 1,
 
   // Interpolación adaptativa del invitado: el "colchón" con que dibuja a los demás sube
@@ -98,6 +98,11 @@ const RED_CONFIG = {
     tiempoIntentoSegundos: 8,   // cuánto se espera cada intento
     esperaEntreIntentosSegundos: 2,
     liderAceptaTrasMs: 1500,    // el líder acepta una conexión nueva si la vieja lleva este tiempo callada
+    // Tolerancia ante cortes (antes 6 s para los dos). Un corte corto solo muestra "Reconectando…".
+    silencioInvitadoSegundos: 12, // invitado: sin NINGÚN mensaje del líder este tiempo -> reconecta solo
+    silencioLiderSegundos: 15,    // líder: sin mensajes del invitado este tiempo -> Dudu queda fuera (puede volver)
+    esperaServidorSegundos: 3,    // si se pierde el servidor de emparejamiento, reintentarlo cada 3 s
+                                  // (la partida NO se corta: va directa entre los dos dispositivos)
   },
 
   // SOLO PARA PRUEBAS: simula retraso de red al recibir mensajes (ms de ida y variación).

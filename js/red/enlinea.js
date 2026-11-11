@@ -40,7 +40,21 @@ const EnLinea = {
     if (pc && !pc._vigilada) {
       pc._vigilada = true;
       this.registrarRed(`ICE: ${pc.iceConnectionState} · WebRTC: ${pc.connectionState || '?'}`);
-      pc.addEventListener('iceconnectionstatechange', () => this.registrarRed('ICE: ' + pc.iceConnectionState));
+      pc.addEventListener('iceconnectionstatechange', () => {
+        const st = pc.iceConnectionState;
+        this.registrarRed('ICE: ' + st);
+        // "disconnected" suele ser un corte de segundos: NO se expulsa a nadie.
+        // El invitado ve "Reconectando…"; si en silencioInvitadoSegundos no vuelve, reconecta solo.
+        if (this.conn !== conn || !this.esInvitado) return;
+        if (st === 'disconnected') {
+          this.iceCaida = true;
+          if (!this.reconectando) Menus.avisoRed('Reconectando…', `La conexión con el líder se cortó un momento. Esperando que vuelva (hasta ${RED_CONFIG.conexion.silencioInvitadoSegundos} s)…`, { salir: true });
+        } else if ((st === 'connected' || st === 'completed') && this.iceCaida) {
+          this.iceCaida = false;
+          this.registrarRed('Invitado: la conexión volvió sola');
+          if (!this.reconectando && !this.avisoSinDatos) Menus.ocultarAvisoRed();
+        }
+      });
       pc.addEventListener('connectionstatechange', () => this.registrarRed('Conexión WebRTC: ' + pc.connectionState));
     }
     const dc = conn && conn.dataChannel;
@@ -54,6 +68,24 @@ const EnLinea = {
     peer.on('open', () => this.registrarRed(`${quien}: conectado al servidor de emparejamiento`));
     peer.on('disconnected', () => this.registrarRed(`${quien}: se perdió el servidor de emparejamiento`));
     peer.on('error', (err) => this.registrarRed(`${quien}: error ${err.type || ''} ${err.message || ''}`.trim()));
+  },
+
+  // Errores del SERVIDOR DE EMPAREJAMIENTO (0.peerjs.com). Ese servidor solo sirve para
+  // encontrarse; una vez conectados, la partida va directa entre los dos dispositivos.
+  // Antes estos errores (p. ej. "network: Lost connection to server" cuando el internet
+  // parpadea) cerraban la conexión del invitado: esa era la causa de las expulsiones.
+  esErrorServidor(err) {
+    return ['network', 'socket-error', 'socket-closed', 'server-error', 'disconnected'].includes(err && err.type);
+  },
+  // Volver a conectarse al servidor de emparejamiento cada pocos segundos (sin tocar la partida)
+  reconectarServidor(peer, quien) {
+    if (!peer || peer.destroyed) return;
+    clearTimeout(this.tServidor);
+    this.tServidor = setTimeout(() => {
+      if (this.peer !== peer || peer.destroyed || !peer.disconnected) return;
+      this.registrarRed(`${quien}: reintentando el servidor de emparejamiento`);
+      try { peer.reconnect(); } catch (e) { this.reconectarServidor(peer, quien); }
+    }, RED_CONFIG.conexion.esperaServidorSegundos * 1000);
   },
 
   opcionesPeer() {
@@ -82,14 +114,24 @@ const EnLinea = {
     this.registrarRed(`Líder: creando sala ${this.codigo}`);
     this.vigilarPeer(peer, 'Líder');
 
-    peer.on('open', () => Menus.enLineaEsperando(this.codigo));
+    peer.on('open', () => {
+      if (peer._abrio) return; // al volver al servidor no se redibuja la sala
+      peer._abrio = true;
+      Menus.enLineaEsperando(this.codigo);
+    });
     peer.on('error', (err) => {
       if (this.peer !== peer) return;
       if (err.type === 'unavailable-id' && intento < 6) { peer.destroy(); this.crearSala(intento + 1); return; } // código en uso: otro
       if (err.type === 'peer-unavailable') return;
+      // Sala ya abierta: un corte del servidor de emparejamiento NO cierra la sala ni expulsa al invitado
+      if (peer._abrio && this.esErrorServidor(err)) {
+        this.registrarRed('Líder: sin servidor de emparejamiento (' + err.type + '); la sala y la partida siguen');
+        this.reconectarServidor(peer, 'Líder');
+        return;
+      }
       this.errorRed(err);
     });
-    peer.on('disconnected', () => { if (this.peer === peer && !peer.destroyed) peer.reconnect(); }); // seguir aceptando reconexiones
+    peer.on('disconnected', () => { if (this.peer === peer) this.reconectarServidor(peer, 'Líder'); }); // seguir aceptando reconexiones
     peer.on('connection', (conn) => this.alConectarInvitado(conn));
   },
 
@@ -107,7 +149,7 @@ const EnLinea = {
       }
       this.registrarRed(`Líder: el invitado volvió con una conexión nueva (${mismo ? 'misma sesión' : 'la vieja estaba callada'})`);
       const vieja = this.conn;
-      this.invitadoSeFue();
+      this.invitadoSeFue('cambio por la conexión nueva del invitado', true);
       try { vieja.close(); } catch (e) {}
     }
     this.tokenInvitado = conn.metadata && conn.metadata.token;
@@ -123,13 +165,13 @@ const EnLinea = {
       this.abrirCanalRapido(conn);
       Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
-      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO });
+      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO, vv: VERSION_VISIBLE });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
       else { Menus.enLineaConectado(); this.enviar({ t: 'lobby' }); } // si volvía de una partida que ya terminó, va a la sala
     });
     conn.on('data', (d) => this.recibir(d));
-    conn.on('close', () => { if (this.conn === conn) { this.registrarRed('Líder: la conexión del invitado se cerró'); this.invitadoSeFue(); } });
-    conn.on('error', (e) => { if (this.conn === conn) { this.registrarRed('Líder: error en la conexión del invitado ' + (e && e.type ? e.type : '')); this.invitadoSeFue(); } });
+    conn.on('close', () => { if (this.conn === conn) this.invitadoSeFue('se cerró la conexión con el invitado'); });
+    conn.on('error', (e) => { if (this.conn === conn) this.invitadoSeFue('error en la conexión del invitado ' + (e && e.type ? e.type : '')); });
   },
 
   // El anfitrión inicia la partida con el nivel elegido
@@ -335,18 +377,21 @@ const EnLinea = {
     } finally { clearTimeout(espera); }
   },
 
-  invitadoSeFue() {
+  // motivo: se muestra en pantalla y queda en "Copiar registro". cambio: el mismo invitado vuelve enseguida (sin aviso)
+  invitadoSeFue(motivo = 'el invitado salió', cambio = false) {
     if (!this.conectado) return;
+    this.registrarRed('Líder: el invitado quedó fuera — motivo: ' + motivo);
     this.conectado = false;
     this.conn = null;
     if (this.controlRemoto) this.controlRemoto.soltarTodo();
+    if (cambio) { if (Juego.mundo && this.enPartida) this.marcarAusente(); return; }
     if (Juego.mundo && this.enPartida && (Juego.estado === 'jugando' || Juego.estado === 'pausa' || Juego.estado === 'carga')) {
       // El líder sigue jugando sin parar; Dudu queda fuera hasta que vuelva con el código
       this.marcarAusente();
-      Menus.enLineaToast(`${getNombreJugador(Juego.mundo.jugadores[1])} salió. Puede volver con el código ${this.codigo}`, 4500);
+      Menus.enLineaToast(`${getNombreJugador(Juego.mundo.jugadores[1])} salió (${motivo}). Puede volver con el código ${this.codigo}`, 5000);
       if (Juego.estado === 'pausa') Pausa.menuLider(); // ahora el líder puede reanudar solo
     } else if (this.esAnfitrion) {
-      Menus.enLineaEsperando(this.codigo, 'Dudu salió de la sala. Esperando a que vuelva a entrar…');
+      Menus.enLineaEsperando(this.codigo, `Dudu salió de la sala (${motivo}). Esperando a que vuelva a entrar…`);
     }
   },
 
@@ -432,7 +477,7 @@ const EnLinea = {
         }
         this.abrirCanalRapido(conn);
         this.acumulador = new AcumuladorControl();
-        this.enviar({ t: 'version', version: VERSION_JUEGO }); // el líder compara su versión con la nuestra
+        this.enviar({ t: 'version', version: VERSION_JUEGO, vv: VERSION_VISIBLE }); // el líder compara su versión con la nuestra
       });
       conn.on('data', (d) => this.recibir(d));
       // Una caída que no pidió nadie: intentar volver a la sala (no ir al menú)
@@ -447,6 +492,12 @@ const EnLinea = {
         this.cerrar(true); Menus.enLineaUnirse(codigo, `La sala ${codigo} no existe. Revisa el código.`); return;
       }
       if (this.reconectando) return; // el próximo intento lo vuelve a probar
+      // Ya conectado con el líder: perder el servidor de emparejamiento NO corta la partida
+      // (antes esto cerraba la conexión directa y el invitado quedaba expulsado)
+      if (this.esErrorServidor(err) && (this.conectado || this.enPartida)) {
+        this.registrarRed('Invitado: sin servidor de emparejamiento (' + err.type + '); la partida sigue por la conexión directa');
+        return;
+      }
       this.errorRed(err);
     });
   },
@@ -497,6 +548,7 @@ const EnLinea = {
   },
   // Al unirse (antes de entrar a una partida) no se pudo conectar
   fallaUnirse(codigo, texto) {
+    this.registrarRed('Invitado: no se pudo conectar — motivo: ' + texto);
     this.cerrarConexionInvitado();
     Menus.avisoRed('No se pudo conectar', texto, {
       reintentar: () => { Menus.ocultarAvisoRed(); this.unirse(codigo); },
@@ -529,6 +581,7 @@ const EnLinea = {
 
   salaCerrada(texto = 'La sala se cerró.') {
     if (!this.esInvitado) return;
+    this.registrarRed('Invitado: fuera de la sala — motivo: ' + texto);
     this.cerrar(true);
     Juego.mundo = null;
     Juego.estado = 'menu';
@@ -627,12 +680,19 @@ const EnLinea = {
     this.perdidaPorcentaje = Math.round(perdida);
     return (this.pingPromedio || 0) > c.pingMs || (this.jitter || 0) > c.jitterMs || perdida > c.perdidaPorcentaje;
   },
-  compararVersion(v) {
+  // Versión de la otra persona. Distinta = NO se expulsa: aviso claro con botón para recargar sin caché.
+  // v: versión técnica (VERSION_JUEGO) · vv: número visible (v1.00). Versiones viejas no mandan vv.
+  compararVersion(v, vv) {
     this.versionOtro = v || '(desconocida)';
+    this.versionOtroVisible = vv ? 'v' + vv : this.versionOtro;
     this.versionDistinta = this.versionOtro !== VERSION_JUEGO;
+    this.registrarRed(`Versiones: mía v${VERSION_VISIBLE} · ${this.esInvitado ? 'sala' : 'invitado'} ${this.versionOtroVisible}` + (this.versionDistinta ? ' (DISTINTAS)' : ''));
+    if (typeof Menus !== 'undefined' && Menus.actualizarVersionesSala) Menus.actualizarVersionesSala();
     if (!this.versionDistinta) return;
-    Menus.enLineaToast(this.esInvitado ? 'Tu versión es distinta a la del líder, recarga la página'
-      : 'El invitado tiene otra versión del juego: que recargue la página', 8000);
+    const texto = this.esInvitado
+      ? `Versión distinta (tuya v${VERSION_VISIBLE}, sala ${this.versionOtroVisible}). Recarga la página.`
+      : `Versión distinta (tuya v${VERSION_VISIBLE}, invitado ${this.versionOtroVisible}). Que recargue la página quien tenga la versión vieja.`;
+    Menus.avisoRed('Versión distinta', texto, { recargar: true, seguir: true });
   },
 
   // ======================= COMÚN =======================
@@ -668,10 +728,12 @@ const EnLinea = {
         this.snapsOtro = d.s; // líder: recibidos/s del invitado · invitado: enviados/s del líder
         this.registrarPing(this.ping);
         break;
-      case 'version': this.compararVersion(d.version); break;
+      case 'version': this.compararVersion(d.version, d.vv); break;
       // --- al invitado ---
-      case 'hola': this.compararVersion(d.version); if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } break;
-      case 'llena': this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
+      case 'hola': if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
+      case 'llena':
+        this.registrarRed('Invitado: el líder rechazó la entrada — motivo: sala llena (ya hay 2 personas)');
+        this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;
       case 'lobby': Juego.mundo = null; Juego.estado = 'menu'; Juego.tactil.mostrar(false); this.enPartida = false; Menus.ocultarAvisoRed(); Menus.enLineaConectado(); break;
       case 'inicio': this.alInicio(d); break;
       case 'e':
@@ -692,7 +754,7 @@ const EnLinea = {
         if (d.on) Menus.enLineaPausaAnfitrion(); else if (!this.menuAbierto && Juego.estado === 'jugando') Menus.ocultar();
         break;
       case 'fin': this.finInvitado(d); break;
-      case 'cerrar': this.salaCerrada('El anfitrión cerró la sala.'); break;
+      case 'cerrar': this.salaCerrada('El anfitrión cerró la sala' + (d.motivo ? ` (${d.motivo}).` : '.')); break;
       // --- al anfitrión ---
       case 'pausaEstado': // (al invitado) el juego se pausó o se reanudó
         this.pausadoPorAnfitrion = d.on;
@@ -701,6 +763,7 @@ const EnLinea = {
         else if (Juego.estado === 'jugando') { Menus.ocultar(); Juego.tactil.mostrar(Juego.esTactil); }
         break;
       case 'finalizar': // (al invitado) el líder terminó la partida
+        this.registrarRed('Invitado: fuera de la sala — motivo: el líder finalizó el juego');
         this.cerrar(true);
         Juego.irAlMenu();
         Menus.enLineaToast('El líder finalizó el juego');
@@ -710,7 +773,7 @@ const EnLinea = {
         break;
       case 'listo': this.marcarListo(1); break;
       case 'c': if (this.controlRemoto) this.controlRemoto.recibir(d); break;
-      case 'adios': this.invitadoSeFue(); break;
+      case 'adios': this.invitadoSeFue('el invitado salió de la sala'); break;
     }
   },
 
@@ -732,9 +795,12 @@ const EnLinea = {
     if (this.cortado) { /* prueba de corte de red: no sale el ping */ }
     else if (dp && dp.readyState === 'open') { try { dp.send(JSON.stringify({ t: 'ping', ts: performance.now() })); } catch (e) {} }
     else this.enviar({ t: 'ping', ts: performance.now() });
-    if (performance.now() - this.ultimoMensaje > RED_CONFIG.silencioDesconexion * 1000) {
-      if (this.esAnfitrion) { this.registrarRed(`Líder: ${RED_CONFIG.silencioDesconexion} s sin mensajes del invitado`); if (this.conn) this.conn.close(); this.invitadoSeFue(); }
-      else this.reconectar(`${RED_CONFIG.silencioDesconexion} s sin mensajes`);
+    // Tolerante: un corte corto solo muestra "Reconectando…" (ver config/red.js -> conexion)
+    const cc = RED_CONFIG.conexion;
+    const limite = (this.esAnfitrion ? cc.silencioLiderSegundos : cc.silencioInvitadoSegundos);
+    if (performance.now() - this.ultimoMensaje > limite * 1000) {
+      if (this.esAnfitrion) { const c = this.conn; this.invitadoSeFue(`${limite} s sin mensajes del invitado`); if (c) c.close(); }
+      else this.reconectar(`${limite} s sin mensajes del líder`);
     }
   },
 
@@ -771,13 +837,14 @@ const EnLinea = {
     const msg = err.type === 'browser-incompatible' ? 'Este navegador no permite jugar en línea.'
       : 'No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.';
     if (this.esInvitado && this.codigo && err.type !== 'browser-incompatible') { this.fallaUnirse(this.codigo, msg + ` (motivo: ${err.type || 'desconocido'})`); return; }
-    this.cerrar(true);
+    this.cerrar(true, 'error de red del líder: ' + (err.type || 'desconocido'));
     Menus.enLineaMensaje(msg, () => Menus.enLineaInicio());
   },
 
   // Salir de la sala (silencio = sin avisar a la interfaz)
-  cerrar(silencio = false) {
-    if (this.esAnfitrion) this.enviar({ t: 'cerrar' });
+  cerrar(silencio = false, motivo = '') {
+    if (this.esAnfitrion) this.enviar({ t: 'cerrar', motivo });
+    if (this.rol) this.registrarRed(`${this.esAnfitrion ? 'Líder' : 'Invitado'}: sale de la sala` + (motivo ? ' — motivo: ' + motivo : ''));
     if (this.esInvitado) this.enviar({ t: 'adios' });
     const peer = this.peer;
     this.peer = null;
@@ -790,8 +857,8 @@ const EnLinea = {
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pingPromedio = null; this.jitter = 0; this.muestrasPing = []; this.snapsOtro = null; this.versionOtro = null; this.versionDistinta = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
-    this.reconectando = null; this.avisoSinDatos = false;
-    clearTimeout(this.tReintento); clearTimeout(this.tConectar);
+    this.reconectando = null; this.avisoSinDatos = false; this.iceCaida = false; this.versionOtroVisible = null;
+    clearTimeout(this.tReintento); clearTimeout(this.tConectar); clearTimeout(this.tServidor);
     if (typeof Menus !== 'undefined' && Menus.ocultarAvisoRed) Menus.ocultarAvisoRed();
     Sincro.espejo = null;
     if (Juego.entrada) delete Juego.entrada.fuentesRemotas[1];

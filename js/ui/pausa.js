@@ -64,6 +64,7 @@ const Pausa = {
   // ---------- Solitario y pareja local ----------
   menuLocal() {
     Menus.mostrarHTML(`
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>
       <div class="panel panel-pausa">
         <h2>Pausa</h2>
         <button class="btn grande verde" data-ir="seguir">Continuar</button>
@@ -96,6 +97,7 @@ const Pausa = {
   menuLider() {
     const listos = EnLinea.listos || [false, false];
     Menus.mostrarHTML(`
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>
       <div class="panel panel-pausa">
         <h2>Pausa</h2>
         ${this.htmlChecks(listos, EnLinea.conectado)}
@@ -117,6 +119,7 @@ const Pausa = {
   // ---------- En línea: INVITADO ----------
   menuInvitado(listos) {
     Menus.mostrarHTML(`
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>
       <div class="panel panel-pausa">
         <h2>Pausa</h2>
         ${this.htmlChecks(listos, true)}

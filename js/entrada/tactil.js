@@ -1,6 +1,6 @@
 /* =====================================================================
    CONTROLES TÁCTILES (celular)
-   - Joystick virtual a la izquierda (moverse y agacharse).
+   - Joystick virtual a la izquierda (moverse y agacharse). En celular, FIJO (config/interfaz.js -> joystickFijo).
    - Botón de salto a la derecha (doble toque = doble salto).
    - 4 botones de habilidad en arco o fila.
    - Combinaciones: deslizar el dedo de un botón al botón vecino sin soltar.
@@ -43,29 +43,48 @@ class ControlesTactiles {
     const btnPausa = this.cont.querySelector('.btn-pausa-tactil');
 
     // --- Joystick ---
+    // Fijo (config/interfaz.js -> joystickFijo): la base está siempre en el mismo lugar y la
+    // dirección se mide desde SU centro, no desde donde empezó el toque. Así, aunque la pantalla
+    // no registre el primer toque, jalar a un lado siempre camina.
+    // Cada dedo se sigue por su identificador (pointerId): joystick y botones funcionan a la vez.
+    this.jf = CONFIG.interfaz && CONFIG.interfaz.joystickFijo;
+    this.fijo = !!(this.jf && this.jf.activo);
+    if (this.fijo) {
+      this.zonaJoy.classList.add('fija');
+      this.colocarJoystick();
+      window.addEventListener('resize', () => this.colocarJoystick());
+      window.addEventListener('orientationchange', () => setTimeout(() => this.colocarJoystick(), 300));
+    }
     this.zonaJoy.addEventListener('pointerdown', (e) => {
-      if (this.dedoJoystick !== null) return;
+      e.preventDefault();
+      // Fijo: un toque nuevo siempre toma el joystick (si el sistema perdió el dedo anterior, no queda bloqueado)
+      if (this.dedoJoystick !== null && !this.fijo) return;
       this.dedoJoystick = e.pointerId;
-      this.zonaJoy.setPointerCapture(e.pointerId);
-      const r = this.zonaJoy.getBoundingClientRect();
-      this.centro = { x: e.clientX, y: e.clientY };
-      this.base.style.left = (e.clientX - r.left) + 'px';
-      this.base.style.top = (e.clientY - r.top) + 'px';
+      try { this.zonaJoy.setPointerCapture(e.pointerId); } catch (err) { /* sin captura */ }
+      if (this.fijo) {
+        const rb = this.base.getBoundingClientRect();
+        this.centro = { x: rb.left + rb.width / 2, y: rb.top + rb.height / 2 };
+      } else {
+        const r = this.zonaJoy.getBoundingClientRect();
+        this.centro = { x: e.clientX, y: e.clientY };
+        this.base.style.left = (e.clientX - r.left) + 'px';
+        this.base.style.top = (e.clientY - r.top) + 'px';
+      }
       this.base.classList.add('activa');
       this.moverJoystick(e);
     });
     this.zonaJoy.addEventListener('pointermove', (e) => {
       if (e.pointerId === this.dedoJoystick) this.moverJoystick(e);
     });
-    const soltarJoy = (e) => {
-      if (e.pointerId !== this.dedoJoystick) return;
-      this.dedoJoystick = null;
-      this.estado.x = 0; this.estado.abajo = false;
-      this.palanca.style.transform = 'translate(-50%,-50%)';
-      this.base.classList.remove('activa');
-    };
+    const soltarJoy = (e) => { if (e.pointerId === this.dedoJoystick) this.soltarJoystick(); };
     this.zonaJoy.addEventListener('pointerup', soltarJoy);
     this.zonaJoy.addEventListener('pointercancel', soltarJoy);
+    this.zonaJoy.addEventListener('lostpointercapture', soltarJoy);
+    window.addEventListener('pointerup', soltarJoy);
+    window.addEventListener('pointercancel', soltarJoy);
+    // Si el sistema cancela los toques (llamada, notificación, cambiar de app): nada queda "pegado"
+    window.addEventListener('blur', () => this.soltarTodo());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.soltarTodo(); });
 
     // --- Salto ---
     this.btnSalto.addEventListener('pointerdown', (e) => {
@@ -113,15 +132,54 @@ class ControlesTactiles {
   }
 
   moverJoystick(e) {
-    const R = CONFIG.tactil.radioJoystick;
+    const jf = this.jf;
+    const R = this.fijo ? this.recorrido : CONFIG.tactil.radioJoystick;
     let dx = e.clientX - this.centro.x;
     let dy = e.clientY - this.centro.y;
     const d = Math.hypot(dx, dy);
     if (d > R) { dx = (dx / d) * R; dy = (dy / d) * R; }
     this.palanca.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     const nx = dx / R, ny = dy / R;
-    this.estado.x = Math.abs(nx) < CONFIG.tactil.zonaMuerta ? 0 : U.clamp(nx * 1.25, -1, 1);
-    this.estado.abajo = ny > CONFIG.tactil.umbralAgachar;
+    const muerta = this.fijo ? jf.zonaMuerta : CONFIG.tactil.zonaMuerta;
+    this.estado.x = Math.abs(nx) < muerta ? 0 : U.clamp(nx * 1.25, -1, 1);
+    const umbral = this.fijo ? jf.umbralAgachar : CONFIG.tactil.umbralAgachar;
+    this.estado.abajo = ny > umbral && (!this.fijo || !jf.agacharSoloAbajo || ny > Math.abs(nx));
+  }
+
+  // Joystick fijo: coloca la base y la zona de toque según el tamaño de la pantalla
+  colocarJoystick() {
+    if (!this.fijo) return;
+    const jf = this.jf, W = window.innerWidth, H = window.innerHeight;
+    const d = U.clamp(H * jf.diametro, jf.diametroMin, jf.diametroMax);
+    const zona = d * jf.zonaToque;
+    const cx = U.clamp(W * jf.x, d / 2 + 4, W - d / 2 - 4);
+    const cy = U.clamp(H * jf.y, d / 2 + 4, H - d / 2 - 4);
+    const izq = Math.max(0, cx - zona / 2), arr = Math.max(0, cy - zona / 2);
+    const z = this.zonaJoy.style;
+    z.left = izq + 'px'; z.top = arr + 'px'; z.bottom = 'auto';
+    z.width = Math.min(zona, W - izq) + 'px'; z.height = Math.min(zona, H - arr) + 'px';
+    const b = this.base.style;
+    b.width = b.height = d + 'px'; b.margin = `${-d / 2}px 0 0 ${-d / 2}px`;
+    b.left = (cx - izq) + 'px'; b.top = (cy - arr) + 'px';
+    const p = Math.round(d * 0.46);
+    this.palanca.style.width = this.palanca.style.height = p + 'px';
+    this.recorrido = d * jf.recorrido;
+  }
+
+  soltarJoystick() {
+    this.dedoJoystick = null;
+    this.estado.x = 0; this.estado.abajo = false;
+    this.palanca.style.transform = 'translate(-50%,-50%)';
+    this.base.classList.remove('activa');
+  }
+
+  // Suelta todo lo que esté apretado (el sistema canceló los toques o se ocultaron los controles)
+  soltarTodo() {
+    this.soltarJoystick();
+    this.estado.saltoMantenido = false; this.estado.revivir = false;
+    this.dedosHabilidad = {};
+    if (this.btnSalto) this.btnSalto.classList.remove('pulsado');
+    if (this.botonesHab) this.botonesHab.forEach((b) => b.classList.remove('pulsado', 'combo'));
   }
 
   // Si el dedo pasa de un botón al vecino (sin soltar) => combinación
@@ -156,6 +214,7 @@ class ControlesTactiles {
   }
 
   mostrar(si) {
+    if (!si && this.activo) this.soltarTodo();
     this.activo = si;
     this.cont.classList.toggle('oculto', !si);
   }

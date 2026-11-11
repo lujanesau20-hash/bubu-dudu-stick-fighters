@@ -72,7 +72,8 @@ class HUD {
         const quedan = CONFIG.revivir.maxPorNivel - m.revivesUsados;
         let txt = 'Revivir: ';
         for (let i = 0; i < CONFIG.revivir.maxPorNivel; i++) txt += i < quedan ? '♥' : '♡';
-        this.texto(ctx, txt, W / 2, margen + 58 * s, 18 * s, quedan ? '#ff8fab' : '#999', 'center');
+        const rv = this.medidaRevivir(s, esTactil);
+        this.texto(ctx, txt, W / 2, margen + rv.y * s, rv.tam * s, quedan ? '#ff8fab' : '#999', 'center');
       }
     } else {
       // Marcador de rondas
@@ -254,12 +255,21 @@ class HUD {
       const k = Math.max(base / tam, (2 * mitadLibre) / ancho);
       tam *= k; ancho *= k;
     }
-    let arriba = margen + (m.modo === 'pareja' ? 64 : 36) * s; // borde de abajo de "Revivir" o de las monedas
+    const rvAbajo = this.medidaRevivir(s, esTactil).abajo;
+    let arriba = margen + (m.modo === 'pareja' ? rvAbajo : 36) * s; // borde de abajo de "Revivir" o de las monedas
     if (esTactil && m.modo === 'pareja') arriba += CONFIG.interfaz.hudCelular.separacionRevivirTramo * s; // celular: más aire
-    const y = Math.max(margen + (m.modo === 'pareja' ? 80 : 58) * s, arriba + tam * 0.8);
+    const y = Math.max(margen + (m.modo === 'pareja' ? 80 + (rvAbajo - 64) : 58) * s, arriba + tam * 0.8);
     this._tramoClave = clave;
     this._tramoMedida = { texto, tam, y, mitad: ancho / 2 + tam * 0.2, abajo: y + tam * 0.3 };
     return this._tramoMedida;
+  }
+
+  // Texto "Revivir ♥♥": tamaño y línea base (en unidades de "s"). Escala de config/interfaz.js -> textoRevivir.
+  // Con escala 1 queda igual que antes (18 de alto, línea en 58, borde de abajo en 64).
+  medidaRevivir(s, esTactil) {
+    const cr = CONFIG.interfaz.textoRevivir;
+    const tam = 18 * (cr ? (esTactil ? cr.escalaCelular : cr.escalaLaptop) : 1);
+    return { tam, y: 40 + tam, abajo: 46 + tam };
   }
 
   // ¿Se tocan dos rectángulos {x, y, w, h}?
@@ -292,7 +302,8 @@ class HUD {
         tactil.querySelectorAll('.btn-hab, .btn-salto, .btn-revivir').forEach(agregar);
         // Joystick: se mide en su lugar de reposo (al tocar se mueve a donde está el dedo)
         const base = tactil.querySelector('.joy-base');
-        if (base) {
+        if (base && base.closest('.joy-zona.fija')) agregar(base); // joystick fijo: siempre en su lugar
+        else if (base) {
           const L = base.style.left, T = base.style.top;
           base.style.left = ''; base.style.top = '';
           agregar(base);
@@ -322,7 +333,7 @@ class HUD {
       const monedas = String(Guardado.datos.monedas + (m.monedasGuardadas ? 0 : m.monedasGanadas));
       mitad = Math.max(47 * s, -14 * s + medir(monedas, 26 * s)) * 1.25; // 1.25: las monedas laten al ganar
       abajo = margen + 34 * s;
-      if (m.modo === 'pareja') { mitad = Math.max(mitad, medir('Revivir: ♥♥♥', 18 * s) / 2); abajo = margen + 64 * s; }
+      if (m.modo === 'pareja') { const rv = this.medidaRevivir(s, esTactil); mitad = Math.max(mitad, medir('Revivir: ♥♥♥', rv.tam * s) / 2); abajo = margen + rv.abajo * s; }
       if (this.tramo) { mitad = Math.max(mitad, this.tramo.mitad); abajo = Math.max(abajo, this.tramo.abajo); }
     }
     this._limiteAlto = H * (esTactil ? CONFIG.interfaz.hudCelular.altoMaximo : ch.altoMaximo);

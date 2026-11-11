@@ -141,7 +141,7 @@ const Depuracion = {
     const cab = ['hora', 'rol', 'ping_ms', 'jitter_ms', 'ida_vuelta_red_ms', 'snaps_enviados_s', 'snaps_recibidos_s',
       'bytes_por_snapshot', 'fps', 'cola_bytes', 'conexion', 'bloqueo_hilo_ms', 'interpolacion_ms'];
     const lineas = [
-      `Bubu & Dudu - registro de conexion - version ${VERSION_JUEGO}` + (EL && EL.versionOtro ? ` (la otra persona: ${EL.versionOtro})` : ''),
+      `Bubu & Dudu - registro de conexion - v${VERSION_VISIBLE} (${VERSION_JUEGO})` + (EL && EL.versionOtro ? ` (la otra persona: ${EL.versionOtroVisible || EL.versionOtro})` : ''),
       `Equipo: ${PERSONAJES.esCelular() ? 'celular' : 'laptop/PC'} · ${navigator.userAgent}`,
       this.textoLienzo() + (typeof Calidad !== 'undefined' ? ` · calidad ${Calidad.nombre()}` : ''),
       cab.join('\t'),
@@ -309,10 +309,10 @@ const Depuracion = {
     const er = en ? EL.snapsEnviadosRecibidos() : { env: null, rec: null };
     const inestable = en && EL.conexionInestable();
     const red = [
-      [`— RED — versión ${VERSION_JUEGO}`],
+      [`— RED — versión v${VERSION_VISIBLE} (${VERSION_JUEGO})`],
       [`Rol: ${rol}`],
     ];
-    if (en && EL.versionOtro) red.push([`Versión de la otra persona: ${EL.versionOtro}`, EL.versionDistinta]);
+    if (en && EL.versionOtro) red.push([`Versión de la otra persona: ${EL.versionOtroVisible || EL.versionOtro}`, EL.versionDistinta]);
     if (en && EL.versionDistinta) red.push([EL.esInvitado ? 'Tu versión es distinta a la del líder, recarga la página' : 'El invitado tiene otra versión: que recargue', true]);
     if (inestable) red.push(['¡Conexión inestable!', true]);
     red.push(

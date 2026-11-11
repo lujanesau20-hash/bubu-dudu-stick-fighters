@@ -120,10 +120,24 @@ Object.assign(Menus, {
         ${anfitrion ? `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}
             <button class="btn grande verde" data-ir="iniciar">▶ Iniciar: ${ESCENARIOS[sel.nivel].nombre}</button>`
           : '<p class="esperando">⏳ Esperando a que el anfitrión elija el nivel…</p>'}
+        <p class="nota-red" id="versiones-sala">${this.textoVersionesSala()}</p>
         <button class="btn" data-ir="salir">${anfitrion ? 'Cerrar sala' : 'Salir de la sala'}</button>
       </div>`);
     if (anfitrion) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
     this.conectar({ salir: () => EnLinea.cerrar(), iniciar: () => EnLinea.iniciar(sel.nivel) });
+  },
+
+  // Versión de cada jugador en la sala (y aviso si no coinciden)
+  textoVersionesSala() {
+    const yo = 'v' + VERSION_VISIBLE;
+    const otro = EnLinea.versionOtroVisible || '…';
+    const lider = EnLinea.esAnfitrion ? yo : otro, invitado = EnLinea.esAnfitrion ? otro : yo;
+    const base = `Versión: Bubu (líder) ${lider} · Dudu (invitado) ${invitado}`;
+    return EnLinea.versionDistinta ? `<span class="error-red">⚠ ${base} — no coinciden: recarguen la página</span>` : base;
+  },
+  actualizarVersionesSala() {
+    const el = document.getElementById('versiones-sala');
+    if (el) el.innerHTML = this.textoVersionesSala();
   },
 
   enLineaInvitadoDesconectado(codigo) {
@@ -198,6 +212,8 @@ Object.assign(Menus, {
     if (a.dataset.clave === clave && !a.classList.contains('oculto')) return; // ya está así (no redibujar)
     a.dataset.clave = clave;
     a.innerHTML = `<div class="caja-aviso-red"><b>${titulo}</b><p>${texto}</p><div class="fila-botones">
+      ${botones.recargar ? '<button class="btn" data-a="recargar">🔄 Recargar</button>' : ''}
+      ${botones.seguir ? '<button class="btn" data-a="seguir">Seguir igual</button>' : ''}
       ${botones.reintentar ? '<button class="btn" data-a="reintentar">Reintentar</button>' : ''}
       ${botones.salir ? '<button class="btn" data-a="salir">Salir</button>' : ''}</div></div>`;
     a.classList.remove('oculto');
@@ -206,6 +222,10 @@ Object.assign(Menus, {
       if (typeof botones.reintentar === 'function') botones.reintentar();
       else { EnLinea.reconectando = null; EnLinea.reconectar('botón Reintentar'); }
     };
+    const recargar = a.querySelector('[data-a="recargar"]');
+    if (recargar) recargar.onclick = () => recargarSinCache();
+    const seguir = a.querySelector('[data-a="seguir"]');
+    if (seguir) seguir.onclick = () => this.ocultarAvisoRed();
     const salir = a.querySelector('[data-a="salir"]');
     if (salir) salir.onclick = () => { this.ocultarAvisoRed(); EnLinea.cerrar(); };
   },
@@ -227,6 +247,15 @@ Object.assign(Menus, {
     if (esDispositivoTactil() && !document.fullscreenElement) pantallaCompleta();
   },
 });
+
+// Recargar la página SIN usar la copia guardada (caché): se agrega ?nc=hora a la dirección,
+// así el navegador baja index.html de nuevo y con él la versión nueva de todos los archivos.
+function recargarSinCache() {
+  try { if (window.caches && caches.keys) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {}); } catch (e) {}
+  const u = new URL(location.href);
+  u.searchParams.set('nc', Date.now());
+  location.replace(u.toString());
+}
 
 // Copiar al portapapeles (con alternativa para navegadores sin permiso)
 function copiarTexto(texto) {

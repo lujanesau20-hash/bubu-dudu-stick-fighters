@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: encuadre y HUD en celular (sección 16) e internet inestable: interpolación adaptativa, avisos y reconexión (sección 17)). **Versión actual: `2026.11.10-10`** (en `index.html`).
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: expulsión del invitado, joystick fijo, textos del menú y número de versión — sección 18). **Versión actual: `v1.00`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.10-v1.00`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -150,7 +150,7 @@ herramientas/               Simulaciones para la consola del navegador (no forma
 | Revivir (mantener) | — | E | Shift der. / Enter / Num 0 |
 | Pausa | Esc, P o botón "Pausa" | igual | igual |
 
-**Celular:** joystick a la izquierda (abajo = agacharse), botón ▲ de salto a la derecha, H1–H4 en arco alrededor del salto, botón ♥ para revivir que aparece junto al compañero caído, botón "Pausa" arriba a la derecha. Pide pantalla horizontal. Las teclas se cambian en `js/config.js → controles`.
+**Celular:** joystick **fijo** abajo a la izquierda (abajo = agacharse; ver sección 18), botón ▲ de salto a la derecha, H1–H4 en arco alrededor del salto, botón ♥ para revivir que aparece junto al compañero caído, botón "Pausa" arriba a la derecha. Pide pantalla horizontal. Las teclas se cambian en `js/config.js → controles`.
 
 ### Habilidades y maná
 - Cada jugador tiene **100 de vida** y **100 de maná** (barra azul). El maná sube solo y con cada golpe acertado.
@@ -661,7 +661,7 @@ npx wrangler deploy
 - **`config/personajes.js`** (nuevo): la única entrada del juego a las hojas de Bubu y Dudu. Las hojas, cuadros y escalas siguen definidos en `js/prueba/animaciones.js`, que también usa la página de prueba (no se tocó).
 - **Hojas para celular:** `assets/personajes/movil/` tiene las 21 hojas a mitad de tamaño. En celular se usan esas: **la memoria baja de 131 MB a 33 MB**. Las originales no cambian y se siguen usando en laptop.
 - **Precarga y verificación:** todas las hojas se cargan antes de empezar. Si alguna no carga, no se puede decodificar o no tiene cuadros, el panel de depuración lo muestra en rojo ("Hojas de sprites: N con error" y cuáles). Nunca se usa una imagen vieja.
-- **Versión del juego:** `VERSION_JUEGO` en `index.html` (hoy `2026.11.10-10`). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
+- **Versión del juego:** `VERSION_VISIBLE` (hoy `1.00`, se ve como "v1.00") y `VERSION_JUEGO` (técnica, `2026.11.10-v1.00`) en `index.html` (ver sección 18). Se agrega como `?v=` a todos los JS, al CSS y a las hojas de sprites. **Hay que cambiarla en cada actualización.** No hay service worker ni manifest.
 - **Versiones en línea:** al conectarse, el líder y el invitado intercambian versiones. Si son distintas:
   - el invitado ve: "Tu versión es distinta a la del líder, recarga la página";
   - el líder ve que el invitado tiene otra versión;
@@ -936,3 +936,85 @@ Con su hora: cambios de estado ICE y de la conexión WebRTC, apertura y cierre d
 - Red inestable (30–150 ms): interpolación 100 → 200 → 100 ms, sin errores.
 
 **No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles, cambio real de WiFi a datos y el TURN (el Worker solo acepta la web publicada, no `localhost`).
+
+## 18. Expulsión del invitado, joystick fijo, textos del menú y versión v1.00
+
+Versión **v1.00** (técnica `2026.11.10-v1.00`). Respaldo: etiqueta de git `respaldo-antes-expulsion-joystick-version`. La arquitectura en línea no cambió (el líder decide todo).
+
+### 1. El invitado era expulsado: causa y arreglo
+**Causa real (reproducida con dos pestañas):** PeerJS usa un **servidor de emparejamiento** (0.peerjs.com) solo para que los dos dispositivos se encuentren; después la partida va **directa** entre ellos. Cuando el internet parpadea, la conexión con ese servidor se cae y PeerJS avisa un error `network` ("Lost connection to server"). El código trataba ese aviso como un error grave:
+- en el **invitado**, cerraba la conexión directa con el líder (que seguía funcionando), y el invitado quedaba fuera con "No se pudo conectar (motivo: network)";
+- en el **líder**, cerraba la sala y le mandaba "cerrar" al invitado, que también quedaba fuera.
+
+Por eso siempre salía el invitado, sin importar qué dispositivo creara la sala. La versión distinta **no** expulsaba (solo mostraba un aviso corto).
+
+**Arreglo:** perder el servidor de emparejamiento ya **no toca la partida**. Se anota en el registro y el líder vuelve a conectarse a ese servidor cada 3 s, para que el invitado pueda volver si lo necesita. Probado: se cortó ese servidor en el invitado y luego en el líder, en plena partida, y la partida siguió sin cortes.
+
+**Todos los lugares donde el invitado puede salir o desconectarse** (`js/red/enlinea.js`):
+
+| Lugar | Umbral | Qué pasa ahora |
+|---|---|---|
+| Error del servidor de emparejamiento (`network`, `socket-error`, `socket-closed`, `server-error`, `disconnected`) | inmediato | **Ya no expulsa** (antes sí: era la causa). |
+| ICE "disconnected" (corte momentáneo) | — | No expulsa: aviso "Reconectando…" que se quita si la conexión vuelve. |
+| Silencio total del líder (lo detecta el invitado) | antes 6 s, ahora **12 s** (`conexion.silencioInvitadoSegundos`) | Reconecta solo: 4 intentos de 8 s con el mismo código. |
+| Silencio total del invitado (lo detecta el líder) | antes 6 s, ahora **15 s** (`conexion.silencioLiderSegundos`) | Dudu queda fuera y puede volver con el código. |
+| Sin snapshots en partida | 2 s | Solo aviso "Esperando datos…" o "Reconectando…". |
+| ICE "failed" o canal cerrado | lo decide PeerJS | Reconexión automática (4 intentos). |
+| No conecta al unirse | 20 s | "No se pudo conectar", con Reintentar y Salir. |
+| La sala no existe | — | "La sala ya no existe", con Reintentar y Salir. |
+| Sala llena (otra persona ya adentro) | si la conexión vieja lleva menos de 1,5 s callada | "Esa sala ya está llena". El mismo invitado (misma sesión) siempre entra. |
+| El líder cierra la sala o pulsa "Finalizar juego" | — | Mensaje con el motivo. |
+| Error grave del líder (navegador sin WebRTC, etc.) | — | Sale con el motivo. |
+| Versión distinta | — | **No expulsa**: aviso "Versión distinta (tuya X, sala Y). Recarga la página" con los botones **🔄 Recargar** (recarga sin caché) y "Seguir igual". |
+
+Cada salida muestra **el motivo en pantalla** y queda en "Copiar registro" ("— motivo: …").
+
+### 2. Joystick fijo (solo celular): `config/interfaz.js` → `joystickFijo`
+- La base está siempre visible en el mismo lugar: su centro queda al **16%** desde la izquierda y al **72%** de la altura. Mide el 30% del alto, entre 110 y 170 px.
+- La dirección se mide **desde el centro de la base**, no desde donde empezó el toque. La zona de toque es 1,7 veces la base.
+- La zona muerta es del 12%. Abajo = agacharse: hay que bajar más del 60% y más hacia abajo que hacia el lado. En diagonal se camina.
+- Cada dedo se sigue por su identificador, así que joystick y botones funcionan a la vez. Un toque nuevo siempre toma el joystick.
+- Si el sistema cancela el toque (llamada, notificación, cambiar de app), todo se suelta y nada queda pegado.
+- Probado:
+  - tocar a la derecha del centro: camina a la derecha;
+  - jalar en diagonal abajo-derecha: camina, no se agacha;
+  - jalar recto hacia abajo: se agacha;
+  - cancelar el toque: se suelta.
+
+### 3. Laptop/PC: textos del HUD más grandes (`config/interfaz.js`)
+- `textoTramo.escalaLaptop`: de 1.0 a **1.4**.
+- `textoRevivir.escalaLaptop`: **1.4** (nuevo).
+- En celular no cambió nada (escalaCelular 2.0 y 1.0). Los cuadros de habilidades siguen esquivando estos textos.
+
+### 4. Versus
+- **El versus en línea no existe**: solo hay versus local, con teclado para los dos. "Jugar en línea" es **solo niveles en pareja**. No se construyó: falta la respuesta del usuario.
+- En celular, el versus local se oculta y el botón queda apagado con "(en línea · próximamente)". En PC/laptop, el versus local sigue como antes.
+
+### 5. Textos pequeños en el menú: `config/interfaz.js` → `textosMenu`
+| Botón | Texto |
+|---|---|
+| Niveles en solitario | "(sin internet)" |
+| Niveles en pareja (solo PC) | "(2 jugadores en este equipo · sin internet)" |
+| Versus en PC | "(2 jugadores en este equipo · sin internet)" |
+| Versus en celular | "(en línea · próximamente)" |
+| Jugar en línea | "(niveles en pareja · 2 dispositivos con internet)" |
+
+En pantallas bajas (celular horizontal) el menú se compacta y todo cabe sin desplazar. Probado a 800×360 y 740×320.
+
+### 6. Número de versión
+- En `index.html`:
+  - `VERSION_VISIBLE = '1.00'`
+  - `VERSION_JUEGO = '2026.11.10-v' + VERSION_VISIBLE` (sirve para la caché).
+- Regla: cada actualización sube 0.01 (1.01, 1.02…); un cambio grande sube a 1.10, 2.00, etc. Cada versión se anota en `CAMBIOS.md`.
+- Dónde se ve:
+  - esquina del menú de inicio;
+  - pantalla de pausa;
+  - panel de depuración y "Copiar registro";
+  - sala en línea: "Versión: Bubu (líder) v1.00 · Dudu (invitado) v1.00", en rojo si no coinciden.
+
+### Cómo probar
+- **Dos dispositivos:** crear la sala en uno, entrar con el otro y jugar con internet inestable. Si algo corta, el aviso dice el motivo y "Copiar registro" lo guarda.
+- **Celular:** el joystick está fijo abajo a la izquierda. Jalar a un lado camina aunque el dedo empiece fuera del centro.
+- **Consola del invitado:** `EnLinea.simularCorte(13000)` muestra el aviso, reconecta solo y vuelve a la partida. Probado: volvió en ~14 s y Dudu siguió en el nivel.
+
+**No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles, el joystick con dedos de verdad en un celular real y el TURN.
