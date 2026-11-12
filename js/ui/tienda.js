@@ -11,6 +11,7 @@ const Guardado = {
       compradas: [],
       equipo: { bubu: { cabeza: null, ropa: null }, dudu: { cabeza: null, ropa: null } },
       nivelesSuperados: [],
+      mejoras: { bubu: MEJORAS.vacias(), dudu: MEJORAS.vacias() }, // niveles de daño comprados (v1.02)
     };
   },
 
@@ -24,6 +25,9 @@ const Guardado = {
     for (const id of Object.keys(CONFIG.personajes)) {
       if (!this.datos.equipo[id]) this.datos.equipo[id] = { cabeza: null, ropa: null };
     }
+    // Partidas guardadas antes de v1.02 no tienen mejoras: se agregan en 0 (no se borra nada)
+    if (!this.datos.mejoras || typeof this.datos.mejoras !== 'object') this.datos.mejoras = {};
+    for (const id of Object.keys(CONFIG.personajes)) this.datos.mejoras[id] = MEJORAS.normalizar(this.datos.mejoras[id]);
   },
 
   guardar() {
@@ -42,6 +46,17 @@ const Guardado = {
     return true;
   },
 
+  // Sube un nivel la mejora i del personaje (si alcanzan las monedas)
+  comprarMejora(personaje, i) {
+    const niveles = this.datos.mejoras[personaje];
+    const precio = MEJORAS.precio(i, niveles[i]);
+    if (precio == null || this.datos.monedas < precio || !MEJORAS.desbloqueada()) return false;
+    this.datos.monedas -= precio;
+    niveles[i]++;
+    this.guardar();
+    return true;
+  },
+
   // ranura: 'cabeza' | 'ropa'. id null = quitar
   equipar(personaje, ranura, id) {
     this.datos.equipo[personaje][ranura] = id;
@@ -53,6 +68,7 @@ class TiendaUI {
   constructor(contenedor) {
     this.cont = contenedor;
     this.personaje = 'bubu';
+    this.seccion = 'ropa';           // 'ropa' | 'mejoras'
     this.alCerrar = () => {};
   }
 
@@ -75,24 +91,38 @@ class TiendaUI {
       else boton = `<button class="btn-chico comprar" ${alcanza ? '' : 'disabled'} data-accion="comprar" data-id="${item.id}" data-precio="${item.precio}">🪙 ${item.precio}</button>`;
       return `<div class="item-tienda ${puesto ? 'puesto' : ''}"><span>${item.nombre}</span>${boton}</div>`;
     };
-    this.cont.innerHTML = `
-      <div class="panel panel-tienda">
-        <h2>Tienda de ropa</h2>
-        <div class="monedas-tienda">🪙 ${d.monedas}</div>
-        <div class="pestanas">
-          ${Object.keys(CONFIG.personajes).map((p) => `<button class="pestana ${p === this.personaje ? 'activa' : ''}" data-personaje="${p}">${CONFIG.personajes[p].nombre}</button>`).join('')}
-        </div>
+    const abierta = MEJORAS.desbloqueada();
+    const enMejoras = this.seccion === 'mejoras';
+    // Cuerpo de la pestaña "Ropa" (igual que antes) o "Mejoras"
+    const cuerpoRopa = `
         <div class="tienda-cuerpo">
           <canvas class="vista-previa" width="220" height="240"></canvas>
           <div class="listas">
             <h3>Cabeza</h3>${CONFIG.tienda.cabeza.map((i) => fila('cabeza', i)).join('')}
             <h3>Conjuntos de ropa</h3>${CONFIG.tienda.ropa.map((i) => fila('ropa', i)).join('')}
           </div>
+        </div>`;
+    const cuerpoMejoras = abierta ? this.htmlMejoras() : `
+        <div class="mejoras-bloqueadas">🔒 Se desbloquea al completar el nivel 5</div>`;
+    this.cont.innerHTML = `
+      <div class="panel panel-tienda">
+        <h2>${enMejoras ? 'Mejoras de daño' : 'Tienda de ropa'}</h2>
+        <div class="monedas-tienda">🪙 ${d.monedas}</div>
+        <div class="tienda-arriba">
+        <div class="pestanas pestanas-seccion">
+          <button class="pestana ${!enMejoras ? 'activa' : ''}" data-seccion="ropa">👕 Ropa</button>
+          <button class="pestana ${enMejoras ? 'activa' : ''} ${abierta ? '' : 'bloqueada'}" data-seccion="mejoras">${abierta ? '⚔' : '🔒'} Mejoras</button>
         </div>
+        <div class="pestanas">
+          ${Object.keys(CONFIG.personajes).map((p) => `<button class="pestana ${p === this.personaje ? 'activa' : ''}" data-personaje="${p}">${CONFIG.personajes[p].nombre}</button>`).join('')}
+        </div>
+        </div>
+        ${enMejoras ? cuerpoMejoras : cuerpoRopa}
         <button class="btn" data-accion="cerrar">${this.textoBoton}</button>
       </div>`;
 
     this.cont.querySelectorAll('[data-personaje]').forEach((b) => b.onclick = () => { this.personaje = b.dataset.personaje; this.dibujar(); });
+    this.cont.querySelectorAll('[data-seccion]').forEach((b) => b.onclick = () => { this.seccion = b.dataset.seccion; this.dibujar(); });
     this.cont.querySelectorAll('[data-accion]').forEach((b) => b.onclick = () => {
       const acc = b.dataset.accion;
       if (acc === 'cerrar') { cancelAnimationFrame(this.animacion); this.alCerrar(); return; }
@@ -103,15 +133,17 @@ class TiendaUI {
           Guardado.equipar(this.personaje, ranura, id);
         }
       }
+      if (acc === 'mejorar') Guardado.comprarMejora(this.personaje, +b.dataset.mejora);
       if (acc === 'poner') Guardado.equipar(this.personaje, b.dataset.ranura, b.dataset.id);
       if (acc === 'quitar') Guardado.equipar(this.personaje, b.dataset.ranura, null);
       this.dibujar();
     });
 
-    // Vista previa animada
+    // Vista previa animada (solo en la pestaña de ropa)
     const lienzo = this.cont.querySelector('.vista-previa');
-    const ctx = lienzo.getContext('2d');
     cancelAnimationFrame(this.animacion);
+    if (!lienzo) return;
+    const ctx = lienzo.getContext('2d');
     const animar = (t) => {
       ctx.clearRect(0, 0, lienzo.width, lienzo.height);
       ctx.fillStyle = 'rgba(0,0,0,0.2)';
@@ -124,5 +156,36 @@ class TiendaUI {
       this.animacion = requestAnimationFrame(animar);
     };
     this.animacion = requestAnimationFrame(animar);
+  }
+
+  // Filas de la pestaña "Mejoras" para el personaje elegido
+  htmlMejoras() {
+    const d = Guardado.datos;
+    const niveles = d.mejoras[this.personaje];
+    const max = BALANCE.mejoras.niveles;
+    const filas = BALANCE.mejoras.lista.map((def, i) => {
+      const n = niveles[i];
+      const puntos = '●'.repeat(n) + '○'.repeat(max - n);
+      const ahora = MEJORAS.danioConNivel(i, n);
+      const precio = MEJORAS.precio(i, n);
+      let danio, boton;
+      if (precio == null) {
+        danio = `<b>${ahora}</b> <small>máx.</small>`;
+        boton = `<button class="btn-chico activo" disabled>Máximo ✓</button>`;
+      } else {
+        danio = `${ahora} → <b>${MEJORAS.danioConNivel(i, n + 1)}</b>`;
+        boton = `<button class="btn-chico comprar" ${d.monedas >= precio ? '' : 'disabled'} data-accion="mejorar" data-mejora="${i}">Comprar 🪙 ${precio}</button>`;
+      }
+      return `<div class="item-tienda item-mejora">
+          <span class="mej-ico">${def.icono}</span><span class="mej-nombre">${def.nombre}</span>
+          <span class="mej-puntos" title="Nivel ${n} de ${max}">${puntos}</span>
+          <span class="mej-danio">${danio}</span>${boton}
+        </div>`;
+    }).join('');
+    return `
+        <div class="lista-mejoras">
+          <p class="ayuda mej-ayuda">Daño de ${CONFIG.personajes[this.personaje].nombre}: cada nivel suma +20% del daño base. Solo lo usa ${CONFIG.personajes[this.personaje].nombre}. En versus no cuenta.</p>
+          ${filas}
+        </div>`;
   }
 }

@@ -15,21 +15,23 @@ const BALANCE = {
   },
 
   // ---------- 1-3. Habilidades (H1..H4) ----------
-  // mana: costo · enfriamiento: segundos · danio: daño base
+  // mana: costo · enfriamiento: segundos · danio: daño base (sin mejoras de la tienda)
   // bloqueo: segundos en que no se puede lanzar OTRO ataque (un ataque no interrumpe a otro)
+  // Daños de v1.02 (antes: 4, 10, 30, 80). La espada de cerca (H2) mata a un enemigo del nivel 1 (70) en 4 golpes.
   habilidades: [
-    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 4,  bloqueo: 0.30 },
-    { tecla: 'H2', nombre: 'Espada (tajo)',       mana: 4,  enfriamiento: 0, danio: 10, bloqueo: 0.35 },
-    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 30, bloqueo: 0 },               // antes 2 s
-    { tecla: 'H4', nombre: 'Onda de choque',      mana: 20, enfriamiento: 7, danio: 80, bloqueo: 0.35, area: true, radio: 250 }, // antes 5 s
+    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 16, bloqueo: 0.30 },
+    { tecla: 'H2', nombre: 'Espada (tajo)',       mana: 4,  enfriamiento: 0, danio: 22, bloqueo: 0.35 },
+    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 35, bloqueo: 0 },               // antes 2 s
+    { tecla: 'H4', nombre: 'Onda de choque',      mana: 20, enfriamiento: 7, danio: 70, bloqueo: 0.35, area: true, radio: 250 }, // antes 5 s; en el borde 40% = 28
   ],
 
   // ---------- 1-3. Combinaciones ----------
   // danio del Torbellino = daño TOTAL repartido entre sus golpes
+  // Daños de v1.02 (antes: 28, 70, 160). Con mejoras al máximo, el Cataclismo llega a 200.
   combos: [
-    { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 28 },
-    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 70, golpes: 6, area: true, radio: 135 }, // antes 6 s
-    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 160, area: true, radio: 260 }, // antes 10 s; radio antes 520
+    { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 40 },
+    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 84, golpes: 6, area: true, radio: 135 }, // antes 6 s; 14 por golpe
+    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 260 }, // antes 10 s; radio antes 520
   ],
 
   // ---------- Empujón al golpear enemigos ----------
@@ -140,6 +142,39 @@ const BALANCE = {
     porNivel: [1, 1, 1, 2, 2, 3, 3, 4, 4, 5],
     alturaVuelo: 180,         // px sobre el suelo
     velocidadBola: 420,       // la bola de fuego va recta hacia donde estaba el jugador
+  },
+
+  // ---------- Tienda / mejoras de daño (pestaña "Mejoras") ----------
+  // Una mejora por habilidad y POR PERSONAJE (lo de Bubu solo lo usa Bubu; lo de Dudu, solo Dudu).
+  // Cada nivel sube el daño "subidaPorNivel" del daño BASE (lineal): nivel 5 = base x 2.0.
+  // El área, la caída por distancia, el maná y los enfriamientos no cambian.
+  // Precio del nivel n (1..5) = precioBase x crecimientoPrecio^(n-1), redondeado a "redondeoPrecio".
+  // Precios calculados con herramientas/simular_mejoras.js (todas las monedas del Mundo 1 en un
+  // personaje): ~7 mejoras al desbloquear (fin del nivel 5) y ~14 de 35 al terminar el nivel 10.
+  mejoras: {
+    desbloqueaAlSuperar: 'isla-5', // la pestaña se abre al completar el nivel 5
+    niveles: 5,
+    subidaPorNivel: 0.20,
+    crecimientoPrecio: 1.5,
+    redondeoPrecio: 5,
+    // tipo 'habilidad' -> BALANCE.habilidades[indice]; tipo 'combo' -> BALANCE.combos[indice]
+    lista: [
+      { id: 'h1',          tipo: 'habilidad', indice: 0, icono: '🗡', nombre: 'Cuchilla (H1)',  precioBase: 115 },
+      { id: 'h2',          tipo: 'habilidad', indice: 1, icono: '⚔', nombre: 'Espada (H2)',    precioBase: 115 },
+      { id: 'h3',          tipo: 'habilidad', indice: 2, icono: '⚡', nombre: 'Flash (H3)',     precioBase: 175 },
+      { id: 'h4',          tipo: 'habilidad', indice: 3, icono: '💥', nombre: 'Onda (H4)',      precioBase: 175 },
+      { id: 'corte',       tipo: 'combo',     indice: 0, icono: '🌙', nombre: 'Corte volador',  precioBase: 230 },
+      { id: 'torbellino',  tipo: 'combo',     indice: 1, icono: '🌀', nombre: 'Torbellino',     precioBase: 230 },
+      { id: 'cataclismo',  tipo: 'combo',     indice: 2, icono: '☄️', nombre: 'Cataclismo',     precioBase: 345 },
+    ],
+  },
+
+  // ---------- Versus ----------
+  versus: {
+    vida: 500,                // vida de Bubu y Dudu al empezar cada ronda (antes 100)
+    usarMejoras: false,       // false: el versus usa SIEMPRE el daño base (justo para los dos)
+    // Sin regeneración: no caen corazones (corazones.enVersus) y no hay curación por tramo ni por golpe.
+    // El versus además multiplica todo el daño por CONFIG.versus.multiplicadorDanio (0.8, en js/config.js).
   },
 
   // ---------- Reentrada del invitado en línea ----------

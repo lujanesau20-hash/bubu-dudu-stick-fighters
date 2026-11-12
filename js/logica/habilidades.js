@@ -13,7 +13,8 @@ const HABILIDADES = {
     j.enfriamientos[i] = h.enfriamiento;
     j.bloqueoAtaque = h.bloqueo || 0;
     j.ultimaHabilidad = { indice: i, tiempo: m.tiempo, energia: h.energia };
-    this[h.id](j, h, m);
+    // Daño con las mejoras de la tienda de ESTE personaje (en versus, siempre el base)
+    this[h.id](j, MEJORAS.conDanio(h, MEJORAS.factor(j, i)), m);
     return true;
   },
 

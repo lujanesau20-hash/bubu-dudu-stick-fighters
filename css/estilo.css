@@ -240,3 +240,30 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
   .panel-principal .fila-botones .btn { padding: 6px 14px; font-size: 15px; }
   .panel-principal .monedas-menu { font-size: 16px; }
 }
+
+/* ---------- Tienda: pestaña "Mejoras" (v1.02) ---------- */
+.pestanas-seccion .pestana.bloqueada { border-style: dashed; opacity: 0.7; }
+.mejoras-bloqueadas { padding: 26px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); font-weight: bold; font-size: 18px; color: #ffd84d; width: min(520px, 100%); }
+.lista-mejoras { width: min(640px, 100%); text-align: left; }
+.mej-ayuda { margin: 0 0 6px; max-width: none; }
+.item-mejora { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 92px auto; gap: 8px; }
+.item-mejora .mej-ico { font-size: 20px; text-align: center; }
+.item-mejora .mej-nombre { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-mejora .mej-puntos { color: #ffd84d; letter-spacing: 1px; white-space: nowrap; }
+.item-mejora .mej-danio { white-space: nowrap; text-align: right; }
+.item-mejora .mej-danio small { opacity: 0.7; }
+.item-mejora .btn-chico { min-width: 128px; }
+@media (max-height: 450px) {
+  .panel-tienda h2 { font-size: 20px; }
+  .item-mejora { padding: 2px 8px; margin-bottom: 3px; font-size: 14px; }
+  .item-mejora .mej-ico { font-size: 17px; }
+  .item-mejora .btn-chico { padding: 3px 10px; font-size: 13px; }
+  .mej-ayuda { font-size: 11px; }
+}
+/* Pestañas Ropa/Mejoras y Bubu/Dudu en una sola fila (se separan si no caben) */
+.tienda-arriba { display: flex; gap: 8px 22px; flex-wrap: wrap; justify-content: center; align-items: center; }
+@media (max-height: 450px) {
+  .panel-tienda { gap: 5px; }
+  .panel-tienda .monedas-tienda { font-size: 17px; }
+  .panel-tienda .pestana { padding: 4px 14px; }
+}

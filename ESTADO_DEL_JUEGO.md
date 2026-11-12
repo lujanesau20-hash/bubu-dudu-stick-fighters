@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: versus en línea — sección 19; antes: expulsión del invitado, joystick fijo y número de versión — sección 18). **Versión actual: `v1.01`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.10-v1.01`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: daños nuevos, mejoras de daño en la tienda y versus con 500 de vida — sección 20; antes: versus en línea — sección 19). **Versión actual: `v1.02`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.02`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`
 
 ---
 
@@ -215,6 +215,7 @@ Si un jugador cae, queda en el suelo 15 s con una cuenta regresiva. El compañer
 ### Tienda y monedas
 - Cada enemigo suelta **1 moneda** que cae al suelo o a la plataforma y se queda quieta: hay que ir a tocarla. Desaparece a los 10 s. El jefe suelta sus monedas con imán, como antes. Cada nivel da además un bono (ver sección 14).
 - Tienda: 7 conjuntos de ropa (calle → oro) y 4 piezas de cabeza (gorra, casco, sombrero, corona), combinables. Se ven en la vista previa de la tienda y en los retratos (ver límites).
+- Tienda, pestaña **Mejoras** (desde v1.02): mejoras de daño por personaje; se abre al completar el nivel 5 (sección 20).
 
 ### Guardado
 Todo se guarda en el navegador (`localStorage`, clave `bubududu_guardado_v1`): monedas, ropa comprada y equipada, niveles superados (avance de mundos) y si ya se vio "Cómo jugar". No se sincroniza entre dispositivos.
@@ -263,17 +264,17 @@ Todo lo de esta sección está en **`config/balance.js`** salvo que se indique o
 ### Habilidades — `BALANCE.habilidades`
 | | Maná | Enfriamiento | Daño | Otros |
 |---|---|---|---|---|
-| H1 Daga | 2 | 0 s | 4 | bloqueo 0.30 s |
-| H2 Espada | 4 | 0 s | 10 | bloqueo 0.35 s |
-| H3 Flash | 10 | **3 s** | 30 | — |
-| H4 Onda de choque | 20 | **7 s** | 80 (área) | radio 250 px, bloqueo 0.35 s |
+| H1 Daga (cuchilla lanzada) | 2 | 0 s | **16** (antes 4) | bloqueo 0.30 s |
+| H2 Espada (de cerca) | 4 | 0 s | **22** (antes 10) | bloqueo 0.35 s |
+| H3 Flash | 10 | **3 s** | **35** (antes 30) | — |
+| H4 Onda de choque | 20 | **7 s** | **70** (área; antes 80) | radio 250 px, bloqueo 0.35 s |
 
 ### Combos — `BALANCE.combos`
 | | Maná | Enfriamiento | Daño | Radio |
 |---|---|---|---|---|
-| Corte volador | 12 | 3 s | 28 | — |
-| Torbellino relámpago | 25 | **10 s** | 70 total en 6 golpes (área) | 135 px |
-| Cataclismo | 45 | **20 s** | 160 (área) | **260 px** (antes 520) |
+| Corte volador | 12 | 3 s | **40** (antes 28) | — |
+| Torbellino relámpago | 25 | **10 s** | **84** total en 6 golpes (área; antes 70) | 135 px |
+| Cataclismo | 45 | **20 s** | **100** (área; antes 160) | **260 px** (antes 520) |
 
 Otros de combos en `js/config.js → combos`: ventana PC 250 ms, ventana táctil 900 ms, enfriamiento común entre combos 1 s.
 
@@ -1054,3 +1055,118 @@ Versión **v1.01** (técnica `2026.11.10-v1.01`). Respaldo: etiqueta de git `res
 **Nota:** en celular, el personaje que empieza a la derecha de la arena puede quedar detrás de los botones táctiles (son semitransparentes), igual que en pareja.
 
 **No se pudo probar:** dos dispositivos reales en redes distintas, datos móviles y combates reales con dedos (los golpes del invitado se ven con el retraso del ping, igual que en pareja).
+
+## 20. Daños nuevos, mejoras de daño en la tienda y versus con 500 de vida (v1.02)
+
+Versión **v1.02** (técnica `2026.11.12-v1.02`). Respaldo: etiqueta `respaldo-antes-mejoras-tienda`. Todos los números están en `config/balance.js` (`habilidades`, `combos`, `mejoras` y `versus`).
+
+### 1. Daños base (`BALANCE.habilidades` y `BALANCE.combos`)
+| Habilidad | Antes | Ahora |
+|---|---|---|
+| H1 Cuchilla (lanzada, tecla 1) | 4 | **16** |
+| H2 Espada (de cerca, tecla 2) | 10 | **22** (enemigo del nivel 1 en 4 golpes) |
+| H3 Flash | 30 | **35** |
+| H4 Onda de choque (área) | 80 | **70** (en el borde 40% = 28) |
+| Corte volador (H1+H2) | 28 | **40** |
+| Torbellino (H2+H3, área, 6 golpes) | 70 | **84** (14 por golpe) |
+| Cataclismo (H3+H4, área) | 160 | **100** (con mejoras hasta 200) |
+
+El usuario eligió: la espada de cerca (tecla 2) hace 22 y la cuchilla lanzada (tecla 1) hace 16. Las teclas no cambiaron. No cambiaron el maná, los enfriamientos, las áreas, la vida de los enemigos, los jefes ni las oleadas.
+
+Golpes de espada para un enemigo normal (vida 70 × 1.15^(nivel−1)):
+| Nivel | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Vida | 70 | 81 | 93 | 106 | 122 | 141 | 162 | 186 | 214 | 246 |
+| Base (22) | 4 | 4 | 5 | 5 | 6 | 7 | 8 | 9 | 10 | 12 |
+| Mitad de mejoras (33) | 3 | 3 | 3 | 4 | 4 | 5 | 5 | 6 | 7 | 8 |
+| Todas (44) | 2 | 2 | 3 | 3 | 3 | 4 | 4 | 5 | 5 | 6 |
+
+### 2. Tienda → pestaña "Mejoras" (`js/logica/mejoras.js`, `js/ui/tienda.js`, `BALANCE.mejoras`)
+- Arriba de la tienda: pestañas **👕 Ropa** / **⚔ Mejoras** y el selector **Bubu / Dudu**.
+- 7 mejoras (H1, H2, H3, H4, Corte volador, Torbellino, Cataclismo), **por personaje**, 5 niveles cada una. Cada nivel suma +20% del daño base: nivel 5 = base × 2. El área, la caída por distancia, el maná y los enfriamientos no cambian.
+- Cada fila muestra el ícono, el nombre, el nivel (●●○○○), el daño actual → el siguiente, y "Comprar 🪙 precio". El botón se ve apagado si faltan monedas; al máximo dice "Máximo ✓".
+- **Bloqueada** hasta completar el nivel 5 (`desbloqueaAlSuperar: 'isla-5'`): muestra "🔒 Se desbloquea al completar el nivel 5". La ropa funciona igual.
+- **Guardado:** `Guardado.datos.mejoras = { bubu: [7 niveles], dudu: [...] }`, en la misma clave de siempre. Las partidas viejas se completan con ceros al cargar; no se borra nada.
+- **Daño en juego:** `HABILIDADES.usar` y `COMBOS.intentar` multiplican el daño por las mejoras del jugador (`jugador.mejoras`). Los números flotantes muestran el daño real.
+- **Pareja local:** Bubu usa las mejoras de Bubu y Dudu las de Dudu.
+- **En línea:** al conectarse, el invitado manda las mejoras de su Dudu en el mensaje `version` (también al reconectarse). El líder las guarda en `EnLinea.mejorasInvitado`, las aplica al jugador 2 y calcula el daño con ellas. El líder nunca usa sus propias mejoras de Dudu para el invitado.
+
+**Precios** (`precioBase × 1.5^(nivel−1)`, redondeado a 5):
+| Mejora | N1 | N2 | N3 | N4 | N5 | Total |
+|---|---|---|---|---|---|---|
+| Cuchilla, Espada | 115 | 175 | 260 | 390 | 580 | 1520 c/u |
+| Flash, Onda | 175 | 265 | 395 | 590 | 885 | 2310 c/u |
+| Corte volador, Torbellino | 230 | 345 | 520 | 775 | 1165 | 3035 c/u |
+| Cataclismo | 345 | 520 | 775 | 1165 | 1745 | 4550 |
+
+Las 35 mejoras de un personaje cuestan 18 280 monedas.
+
+### 3. Economía (calculada con `herramientas/simular_mejoras.js`)
+Monedas por nivel del Mundo 1 (solitario, recogiendo todas): 1 por enemigo y por ave, más 60 de bono. En el nivel 10 se suman el Gigante (80) y unos 5 refuerzos.
+| Nivel | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Total |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Monedas | 193 | 227 | 262 | 303 | 342 | 352 | 358 | 402 | 408 | 434 | **3281** |
+
+- **Rejugar un nivel da monedas otra vez** (enemigos y bono de 60). La derrota también guarda lo recogido.
+- **Simulación** (todas las monedas solo en mejoras de un personaje, comprando la más barata posible): el nivel 5 da 7 mejoras al abrir la pestaña, y después 9, 10, 11, 13 y **14 de 35 al terminar el nivel 10**. Recogiendo el 85% de las monedas: 6 al abrir y 13 al final.
+- El usuario eligió esta opción "intermedia". Las metas "4–6 al desbloquear" y "la mitad al nivel 10" no se pueden cumplir a la vez: los niveles 6–10 dan solo 1,5 veces lo de los niveles 1–5.
+- **Ropa (sin cambios):** toda la ropa cuesta 3200 (2450 en conjuntos y 750 en cabeza), casi lo mismo que todo el Mundo 1. Se compra una vez para los dos personajes. Comprar ropa retrasa las mejoras; no rompe la economía.
+
+### 4. Versus (`BALANCE.versus`)
+- **500 de vida** por ronda (`versus.vida`; antes 100). El HUD muestra "500/500" y cabe en celular y en laptop.
+- **Siempre daño base** (`versus.usarMejoras: false`).
+- **Sin regeneración:** no caen corazones, no hay curación por tramo y no hay robo de vida.
+- El versus multiplica todo el daño por **0.8** (`CONFIG.versus.multiplicadorDanio`, en `js/config.js`).
+
+Golpes para ganar con 500 de vida:
+| Habilidad | Daño real | Golpes |
+|---|---|---|
+| Cuchilla | 13 | 39 |
+| Espada | 18 | 28 |
+| Flash | 28 | 18 |
+| Onda | 56 | 9 |
+| Corte volador | 32 | 16 |
+| Cataclismo | 80 | 7 |
+
+Funciona igual en local y en línea, porque el líder crea los jugadores con 500 y lo manda en los snapshots.
+
+### 5. Análisis: Cataclismo en el Espacio (sin cambios aplicados)
+- El Espacio es un solo nivel con la vida del "nivel 12": enemigos de **326** y jefe de **3260** (5216 en pareja).
+- Usan la misma fórmula: Cielo nivel 11 (283 / 2830) y Ciudad nivel 13 (375 / 3750).
+
+Cataclismos para matar a un enemigo normal:
+| | Vida | Base 100: centro / borde | Mejoras al máximo (200): centro / borde | Antes (160): centro / borde |
+|---|---|---|---|---|
+| Isla 1 | 70 | 1 / 2 | 1 / 1 | 1 / 2 |
+| Isla 10 | 246 | 3 / 7 | 2 / 4 | 2 / 4 |
+| Cielo | 283 | 3 / 8 | 2 / 4 | 2 / 5 |
+| **Espacio** | **326** | **4 / 9** | **2 / 5** | **3 / 6** |
+| Ciudad | 375 | 4 / 10 | 2 / 5 | 3 / 6 |
+
+Causas:
+- **La vida crece y el daño no:** en el Espacio, la vida es 4,65 veces la del nivel 1.
+- **Solo el enemigo más cercano recibe el 100%.** Los demás reciben menos, hasta 40% en el borde.
+- **Los magos (el enemigo principal del Espacio) se quedan a 220–380 px** y se teletransportan a 320–430 px si te acercas. El radio del Cataclismo es 260 px, así que casi siempre quedan en el borde o fuera.
+- Con 20 s de enfriamiento, matar a uno puede llevar más de un minuto de Cataclismos.
+
+Las propuestas están en el resumen de la tarea. No se aplicaron.
+
+### 6. Monedas
+Verificado: las monedas del suelo y del HUD **no tienen brillo** (sin `shadowBlur`, solo relleno y borde). Ya eran más grandes en celular (`CONFIG.interfaz.monedas.radioCelular: 13`, laptop 8). No se cambió.
+
+### Cómo probar
+- **Tienda bloqueada:** con una partida que no completó el nivel 5, "Tienda → 🔒 Mejoras" muestra el aviso, y la ropa funciona.
+- **Tienda desbloqueada:** al completar el nivel 5 aparecen las 7 filas. Comprar la Espada de Bubu: ●○○○○, 26 → 31, y las monedas bajan 115.
+- **Combate:** con esa mejora, la espada de Bubu marca "26" sobre el enemigo y la cuchilla "16".
+- **Versus:** los dos tienen 500/500 y la espada marca 18, aunque haya mejoras compradas.
+- **En línea:** el invitado con la Espada de Dudu al máximo pega 44. En el panel (F3) → "Copiar registro" aparece "Mejoras del invitado: …".
+
+### Qué se probó
+- Celular 800×360 y laptop 1280×800: tienda bloqueada y desbloqueada, compra, botón apagado sin monedas y "Máximo".
+- Una partida guardada vieja, sin mejoras, se migra a ceros y conserva monedas y ropa.
+- Daño en combate: 26 con la mejora y 16 de la cuchilla base.
+- Pareja local: cada uno usa sus mejoras.
+- Versus local y en línea: 500/500 en el líder y en el invitado, daño base y 500 en la ronda 2.
+- Pareja en línea con dos pestañas reales (PeerJS): el líder recibió `0,5,0,0,0,0,0` y la espada de Dudu pegó 44, mientras la de Bubu (nivel 2) pegó 31.
+
+**No se pudo probar:** dos dispositivos reales, ni partidas largas completas para ver cuántas monedas recoge de verdad una persona (la tabla supone que se recogen todas).

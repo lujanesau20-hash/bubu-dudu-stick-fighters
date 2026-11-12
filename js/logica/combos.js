@@ -60,7 +60,8 @@ const COMBOS = {
     j.enfriamientoCombo = CONFIG.combos.enfriamiento;
     j.enfriamientosCombo[k] = def.enfriamiento || 0;
     m.emitir('combo', { nombre: def.nombre, color: def.color, jugador: j.indice, x: j.x, y: j.y - j.alto / 2 });
-    this[def.id](j, def, m);
+    // Daño con las mejoras de la tienda (combos: mejoras 4, 5 y 6)
+    this[def.id](j, MEJORAS.conDanio(def, MEJORAS.factor(j, 4 + k)), m);
     return true;
   },
 

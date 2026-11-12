@@ -15,7 +15,8 @@ class Jugador {
     this.ancho = cj.ancho; this.alto = cj.alto;
     this.dir = indice === 1 ? -1 : 1;
     this.enSuelo = false;
-    this.vidaMax = cj.vidaMax;
+    // Versus: vida propia (config/balance.js -> versus.vida, 500)
+    this.vidaMax = mundo.modo === 'versus' && BALANCE.versus ? BALANCE.versus.vida : cj.vidaMax;
     this.vida = this.vidaMax;
     this.energia = CONFIG.energia.inicial ?? CONFIG.energia.max * 0.5;
     this.enfriamientos = [0, 0, 0, 0];
@@ -28,6 +29,8 @@ class Jugador {
     this.invulnerable = 0;
     this.aturdido = 0;
     this.agachado = false;
+    // Niveles de las mejoras de daño de la tienda (js/logica/mejoras.js)
+    this.mejoras = MEJORAS.paraJugador(mundo, personaje, indice);
     this.saltosAire = 1;
     this.coyote = 0;
     this.bufferSalto = 0;

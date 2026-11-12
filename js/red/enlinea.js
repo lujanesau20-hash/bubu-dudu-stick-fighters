@@ -12,6 +12,7 @@
    ===================================================================== */
 const EnLinea = {
   rol: null,            // 'anfitrion' | 'invitado' | null
+  mejorasInvitado: null, // (líder) mejoras de daño que mandó el invitado para su personaje
   peer: null,
   conn: null,           // conexión con la otra persona
   codigo: null,
@@ -492,7 +493,9 @@ const EnLinea = {
         }
         this.abrirCanalRapido(conn);
         this.acumulador = new AcumuladorControl();
-        this.enviar({ t: 'version', version: VERSION_JUEGO, vv: VERSION_VISIBLE }); // el líder compara su versión con la nuestra
+        // El líder compara su versión con la nuestra. También le mandamos las mejoras de daño
+        // de NUESTRO personaje (Dudu): el líder calcula el daño y las usa para nosotros.
+        this.enviar({ t: 'version', version: VERSION_JUEGO, vv: VERSION_VISIBLE, mejoras: MEJORAS.guardadas('dudu') });
       });
       conn.on('data', (d) => this.recibir(d));
       // Una caída que no pidió nadie: intentar volver a la sala (no ir al menú)
@@ -699,6 +702,16 @@ const EnLinea = {
   },
   // Versión de la otra persona. Distinta = NO se expulsa: aviso claro con botón para recargar sin caché.
   // v: versión técnica (VERSION_JUEGO) · vv: número visible (v1.00). Versiones viejas no mandan vv.
+  // (líder) Mejoras de daño del personaje del invitado. Se guardan para las próximas partidas
+  // y, si ya hay una partida, se aplican enseguida a su jugador (el 2).
+  recibirMejorasInvitado(lista) {
+    if (!this.esAnfitrion) return;
+    this.mejorasInvitado = MEJORAS.normalizar(lista);
+    const j = Juego.mundo && Juego.mundo.jugadores && Juego.mundo.jugadores[1];
+    if (j) j.mejoras = MEJORAS.paraJugador(Juego.mundo, j.personaje, 1);
+    this.registrarRed('Mejoras del invitado: ' + this.mejorasInvitado.join(','));
+  },
+
   compararVersion(v, vv) {
     this.versionOtro = v || '(desconocida)';
     this.versionOtroVisible = vv ? 'v' + vv : this.versionOtro;
@@ -745,7 +758,7 @@ const EnLinea = {
         this.snapsOtro = d.s; // líder: recibidos/s del invitado · invitado: enviados/s del líder
         this.registrarPing(this.ping);
         break;
-      case 'version': this.compararVersion(d.version, d.vv); break;
+      case 'version': this.compararVersion(d.version, d.vv); this.recibirMejorasInvitado(d.mejoras); break;
       // --- al invitado ---
       case 'modoSala': this.modoSala = d.modo; if (!this.enPartida && Menus.actualizarModoSala) Menus.actualizarModoSala(); break;
       case 'hola': if (d.modo) this.modoSala = d.modo; if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
@@ -895,6 +908,7 @@ const EnLinea = {
     this.cerrarCanalRapido();
     clearTimeout(this.tReloj);
     this.turnoSala = (this.turnoSala || 0) + 1; // anula una sala que aún esperaba credenciales TURN
+    this.mejorasInvitado = null;
     this.rol = null; this.conectado = false; this.ping = null; this.enPartida = false;
     this.pingPromedio = null; this.jitter = 0; this.muestrasPing = []; this.snapsOtro = null; this.versionOtro = null; this.versionDistinta = false;
     this.pausadoPorAnfitrion = false; this.menuAbierto = false;
