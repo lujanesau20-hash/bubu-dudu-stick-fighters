@@ -31,7 +31,9 @@ const BALANCE = {
   combos: [
     { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 40 },
     { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 84, golpes: 6, area: true, radio: 135 }, // antes 6 s; 14 por golpe
-    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 260 }, // antes 10 s; radio antes 520
+    // Cataclismo (v1.03): radio 380 (antes 260; al principio 520) para alcanzar a los magos que se quedan lejos,
+    // y en el borde hace 60% (minimoArea; las demás áreas siguen con areaDanio.minimo = 40%)
+    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 380, minimoArea: 0.6 }, // antes 10 s
   ],
 
   // ---------- Empujón al golpear enemigos ----------
@@ -202,10 +204,11 @@ BALANCE.tablaVidas = Array.from({ length: 13 }, (_, i) => ({ nivel: i + 1, enemi
 // nivel 1: 70 · 2: 81 · 3: 93 · 4: 106 · 5: 122 · 6: 141 · 7: 162 · 8: 186 · 9: 214 · 10: 246 (jefe 2460)
 
 // Factor de daño de área según la distancia (0 = centro, 1 = borde del área)
-BALANCE.factorArea = (fraccion) => {
+// minimo: opcional, para un área con su propio mínimo (Cataclismo); si no, areaDanio.minimo
+BALANCE.factorArea = (fraccion, minimo) => {
   const a = BALANCE.areaDanio;
   const f = Math.pow(U.clamp(fraccion, 0, 1), a.curva);
-  return 1 - (1 - a.minimo) * f;
+  return 1 - (1 - (minimo ?? a.minimo)) * f;
 };
 
 // ---------- Aplicar sobre CONFIG ----------
@@ -227,6 +230,7 @@ BALANCE.factorArea = (fraccion) => {
     d.danio = c.golpes ? c.danio / c.golpes : c.danio; // por golpe
     if (c.golpes) d.golpes = c.golpes;
     if (c.radio) d.radio = c.radio;
+    if (c.minimoArea != null) d.minimoArea = c.minimoArea;
   });
   if (b.habilidades[3].radio) CONFIG.habilidades[3].radio = b.habilidades[3].radio;
 

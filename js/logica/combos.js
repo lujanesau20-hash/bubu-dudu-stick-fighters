@@ -116,7 +116,7 @@ const COMBOS = {
           jj.vy = 2400;
           if (jj.enSuelo) {
             m.agregarGolpe(new Golpe({
-              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true, area: true, empujon: true,
+              duenio: jj, forma: 'circulo', x: jj.x, y: jj.y - 40, r: d.radio, radial: true, area: true, empujon: true, minimoArea: d.minimoArea,
               danio: d.danio, empujeX: d.empuje, empujeY: 700, duracion: 0.12, color: d.color,
             }));
             jj.anim.sy = 0.5; jj.anim.sx = 1.5;

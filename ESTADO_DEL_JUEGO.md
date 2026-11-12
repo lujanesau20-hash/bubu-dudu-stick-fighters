@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: daños nuevos, mejoras de daño en la tienda y versus con 500 de vida — sección 20; antes: versus en línea — sección 19). **Versión actual: `v1.02`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.02`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: Cataclismo más ancho — sección 21; antes: daños nuevos, mejoras de daño y versus con 500 de vida — sección 20). **Versión actual: `v1.03`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.03`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`
 
 ---
 
@@ -274,13 +274,13 @@ Todo lo de esta sección está en **`config/balance.js`** salvo que se indique o
 |---|---|---|---|---|
 | Corte volador | 12 | 3 s | **40** (antes 28) | — |
 | Torbellino relámpago | 25 | **10 s** | **84** total en 6 golpes (área; antes 70) | 135 px |
-| Cataclismo | 45 | **20 s** | **100** (área; antes 160) | **260 px** (antes 520) |
+| Cataclismo | 45 | **20 s** | **100** (área; antes 160) | **380 px** (v1.03; antes 260, al principio 520), 60% en el borde |
 
 Otros de combos en `js/config.js → combos`: ventana PC 250 ms, ventana táctil 900 ms, enfriamiento común entre combos 1 s.
 
 ### Empujón y área
 - `BALANCE.empujon`: 1.5 pasos × 40 px = **60 px**, a 700 px/s.
-- `BALANCE.areaDanio`: mínimo **40%** en el borde, curva 1 (lineal), 100% al más cercano.
+- `BALANCE.areaDanio`: mínimo **40%** en el borde, curva 1 (lineal), 100% al más cercano. El Cataclismo tiene su propio mínimo: **60%** (`minimoArea` en `BALANCE.combos`).
 
 ### Vida de enemigos y jefes — `BALANCE.enemigos`
 - Fórmula: **vida = 70 × 1.15^(nivel − 1)** (compuesta).
@@ -1149,7 +1149,7 @@ Causas:
 - **Los magos (el enemigo principal del Espacio) se quedan a 220–380 px** y se teletransportan a 320–430 px si te acercas. El radio del Cataclismo es 260 px, así que casi siempre quedan en el borde o fuera.
 - Con 20 s de enfriamiento, matar a uno puede llevar más de un minuto de Cataclismos.
 
-Las propuestas están en el resumen de la tarea. No se aplicaron.
+En v1.02 no se cambió nada. El usuario eligió la propuesta A, que se aplicó en v1.03 (sección 21).
 
 ### 6. Monedas
 Verificado: las monedas del suelo y del HUD **no tienen brillo** (sin `shadowBlur`, solo relleno y borde). Ya eran más grandes en celular (`CONFIG.interfaz.monedas.radioCelular: 13`, laptop 8). No se cambió.
@@ -1170,3 +1170,28 @@ Verificado: las monedas del suelo y del HUD **no tienen brillo** (sin `shadowBlu
 - Pareja en línea con dos pestañas reales (PeerJS): el líder recibió `0,5,0,0,0,0,0` y la espada de Dudu pegó 44, mientras la de Bubu (nivel 2) pegó 31.
 
 **No se pudo probar:** dos dispositivos reales, ni partidas largas completas para ver cuántas monedas recoge de verdad una persona (la tabla supone que se recogen todas).
+
+## 21. Cataclismo más ancho (v1.03)
+
+Versión **v1.03** (técnica `2026.11.12-v1.03`). Respaldo: etiqueta `respaldo-antes-cataclismo-radio`. Es la propuesta A del análisis de la sección 20.5, elegida por el usuario.
+
+### Qué cambió (`config/balance.js` → `combos`)
+- **Radio del Cataclismo:** de 260 a **380 px**. Alcanza a los magos, que se quedan a 220–380 px.
+- **Mínimo en el borde:** de 40% a **60%**, solo para el Cataclismo (`minimoArea: 0.6`). La Onda (H4) y el Torbellino siguen con el 40% general (`areaDanio.minimo`).
+- El código pasa el mínimo propio al golpe de área: `BALANCE.factorArea(fraccion, minimo)` y `Golpe.minimoArea`.
+- No cambiaron el daño (100, o 200 con mejoras), el maná, el enfriamiento ni la vida de los enemigos.
+
+### Resultado (probado en el Espacio, enemigos de 326 de vida, en suelo plano)
+| Distancia del enemigo | Daño base | Cataclismos | Con mejoras al máximo | Cataclismos |
+|---|---|---|---|---|
+| 40 px (el más cercano) | 100 | 4 | 200 | 2 |
+| 250 px | 75 | 5 | 151 | 3 |
+| 370 px (mago lejos) | 63 | 6 | 126 | 3 |
+| 430 px | fuera | — | fuera | — |
+
+Antes, el mago a 370 px no recibía daño (estaba fuera de los 260 px).
+
+### Cómo probar
+En el Espacio, lanzar el Cataclismo (H3+H4) con magos alrededor. Los que están a unos 4 cuerpos de distancia también reciben daño, con números de 60 o más.
+
+**No se pudo probar:** una partida completa del Espacio jugada a mano.

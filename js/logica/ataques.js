@@ -19,6 +19,7 @@ class Golpe {
     this.empujeY = o.empujeY ?? 150;
     this.radial = !!o.radial;                 // empuja alejando desde el centro
     this.area = !!o.area;                     // daño de área: baja con la distancia (config/balance.js -> areaDanio)
+    this.minimoArea = o.minimoArea;           // mínimo propio en el borde (Cataclismo); si no, el general
     this.empujon = !!o.empujon;               // empuja un poco al enemigo (H3, H4 y combos)
     this.intervalo = o.intervalo || 0;        // >0: puede volver a golpear al mismo objetivo
     this.tInterv = 0;
@@ -71,7 +72,7 @@ class Golpe {
         let danio = this.danio;
         if (distancias.has(obj)) {
           const completo = BALANCE.areaDanio.completoAlMasCercano && obj === masCercano;
-          danio = this.danio * (completo ? 1 : BALANCE.factorArea(distancias.get(obj) / this.r));
+          danio = this.danio * (completo ? 1 : BALANCE.factorArea(distancias.get(obj) / this.r, this.minimoArea));
         }
         mundo.aplicarDanio(obj, danio, {
           atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
