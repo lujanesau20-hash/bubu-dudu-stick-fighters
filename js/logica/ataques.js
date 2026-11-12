@@ -20,6 +20,8 @@ class Golpe {
     this.radial = !!o.radial;                 // empuja alejando desde el centro
     this.area = !!o.area;                     // daño de área: baja con la distancia (config/balance.js -> areaDanio)
     this.minimoArea = o.minimoArea;           // mínimo propio en el borde (Cataclismo); si no, el general
+    this.retroceso = o.retroceso ?? 1;        // contra enemigos: 0 = sin empujón (config/balance.js -> combos)
+    this.aturdimiento = o.aturdimiento ?? 1;  // contra enemigos: 0 = sin pausa de impacto
     this.empujon = !!o.empujon;               // empuja un poco al enemigo (H3, H4 y combos)
     this.intervalo = o.intervalo || 0;        // >0: puede volver a golpear al mismo objetivo
     this.tInterv = 0;
@@ -76,6 +78,7 @@ class Golpe {
         }
         mundo.aplicarDanio(obj, danio, {
           atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
+          retroceso: this.retroceso, aturdimiento: this.aturdimiento,
           x: obj.x, y: obj.y - obj.alto * 0.6, color: this.color,
         });
       }
@@ -104,6 +107,8 @@ class Proyectil {
     this.escala = o.escala || 1;
     this.chocaSuelo = o.chocaSuelo ?? true;
     this.empujon = !!o.empujon;               // empuja un poco al enemigo (combos)
+    this.retroceso = o.retroceso ?? 1;        // contra enemigos: 0 = sin empujón
+    this.aturdimiento = o.aturdimiento ?? 1;  // contra enemigos: 0 = sin pausa de impacto
     this.teledirigido = o.teledirigido || 0;   // >0: gira hacia el jugador más cercano (rad/s)
     this.alChocarSuelo = o.alChocarSuelo || null; // función (mundo, proyectil) al tocar el suelo
     this.golpeados = new Set();
@@ -144,6 +149,7 @@ class Proyectil {
         this.golpeados.add(obj);
         mundo.aplicarDanio(obj, this.danio, {
           atacante: this.duenio, dirX: U.signo(this.vx || 1), empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
+          retroceso: this.retroceso, aturdimiento: this.aturdimiento,
           x: this.x, y: this.y, color: this.color,
         });
         if (!this.perfora) { this.vivo = false; return; }

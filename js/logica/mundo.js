@@ -111,7 +111,10 @@ class Mundo {
     if (!obj.recibirDanio(danio, info)) return;
     const a = info.atacante;
     if (a && a.esJugador) a.energia = Math.min(CONFIG.energia.max, a.energia + CONFIG.energia.porGolpe);
-    this.congelar = Math.max(this.congelar, Math.min(0.09, 0.025 + danio * 0.0012));
+    // Pausa de impacto. Contra enemigos, Corte volador y Torbellino no la usan (aturdimiento 0):
+    // así el enemigo no se frena a cada golpe. A los jugadores (versus) siempre igual que antes.
+    const fa = obj.esJugador ? 1 : (info.aturdimiento ?? 1);
+    if (fa > 0) this.congelar = Math.max(this.congelar, Math.min(0.09, (0.025 + danio * 0.0012) * fa));
     // "quien": número del que recibe el golpe, para juntar sus números de daño en uno
     if (obj._idDanio == null) obj._idDanio = (this._siguienteIdDanio = (this._siguienteIdDanio || 0) + 1);
     this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador, quien: obj._idDanio });

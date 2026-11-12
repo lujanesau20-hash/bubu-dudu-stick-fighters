@@ -60,7 +60,8 @@ class Jefe extends Enemigo {
     this.vida -= cantidad;
     this.anim.flash = 1;
     // Mismo empujón corto que los demás enemigos (solo H3, H4 y combos); nunca queda "tieso"
-    if (info.empujon && this.estado !== 'embestida' && this.estado !== 'corte') this.empujar(info.dirX || 1);
+    const re = info.retroceso ?? 1; // Corte volador y Torbellino: 0 = sin empujón
+    if (info.empujon && re > 0 && this.estado !== 'embestida' && this.estado !== 'corte') this.empujar(info.dirX || 1, re);
     if (this.vida <= 0) {
       this.estado = 'muerto';
       this.vida = 0;

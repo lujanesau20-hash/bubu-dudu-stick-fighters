@@ -92,7 +92,8 @@ CONFIG.interfaz = {
   },
 
   // Monedas en el mundo: radio del dibujo (no cambia la zona para recogerlas)
-  monedas: { radioCelular: 13, radioLaptop: 8 },
+  // v1.04: el doble que antes (13 y 8). hud: radio de la moneda del contador de arriba (x escala del HUD)
+  monedas: { radioCelular: 26, radioLaptop: 16, hud: 13 },
 
   // Registro de atrasos (panel de depuración y "Copiar registro")
   rendimiento: {

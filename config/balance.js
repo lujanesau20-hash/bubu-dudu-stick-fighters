@@ -28,9 +28,13 @@ const BALANCE = {
   // ---------- 1-3. Combinaciones ----------
   // danio del Torbellino = daño TOTAL repartido entre sus golpes
   // Daños de v1.02 (antes: 28, 70, 160). Con mejoras al máximo, el Cataclismo llega a 200.
+  // retroceso y aturdimiento (v1.04), solo contra enemigos y jefes (en versus no se usan):
+  //   retroceso: 1 = empujón normal (BALANCE.empujon), 0 = sin empujón.
+  //   aturdimiento: 1 = pausa de impacto normal (el mundo se frena un instante), 0 = sin pausa.
+  //   Corte volador y Torbellino van en 0: el enemigo sigue caminando o atacando mientras recibe daño.
   combos: [
-    { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 40 },
-    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 84, golpes: 6, area: true, radio: 135 }, // antes 6 s; 14 por golpe
+    { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 40, retroceso: 0, aturdimiento: 0 },
+    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 84, golpes: 6, area: true, radio: 135, retroceso: 0, aturdimiento: 0 }, // antes 6 s; 14 por golpe
     // Cataclismo (v1.03): radio 380 (antes 260; al principio 520) para alcanzar a los magos que se quedan lejos,
     // y en el borde hace 60% (minimoArea; las demás áreas siguen con areaDanio.minimo = 40%)
     { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 380, minimoArea: 0.6 }, // antes 10 s
@@ -231,6 +235,8 @@ BALANCE.factorArea = (fraccion, minimo) => {
     if (c.golpes) d.golpes = c.golpes;
     if (c.radio) d.radio = c.radio;
     if (c.minimoArea != null) d.minimoArea = c.minimoArea;
+    d.retroceso = c.retroceso ?? 1;
+    d.aturdimiento = c.aturdimiento ?? 1;
   });
   if (b.habilidades[3].radio) CONFIG.habilidades[3].radio = b.habilidades[3].radio;
 

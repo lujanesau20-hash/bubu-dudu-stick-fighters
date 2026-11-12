@@ -76,6 +76,7 @@ const COMBOS = {
     m.agregarProyectil(new Proyectil({
       duenio: j, tipo: 'corteVolador', x: j.x + j.dir * 50, y: j.y - j.alto * 0.5,
       vx: j.dir * d.velocidad, radio: 62, danio: d.danio, vida: 1.4, perfora: true, empujon: true,
+      retroceso: d.retroceso, aturdimiento: d.aturdimiento, // config/balance.js -> combos (0 = sin empujón ni pausa)
       empujeX: 520, empujeY: 320, color: d.color, chocaSuelo: false,
     }));
     m.emitir('sacudir', { fuerza: 9 });
@@ -97,6 +98,7 @@ const COMBOS = {
     m.agregarGolpe(new Golpe({
       duenio: j, seguir: j, forma: 'circulo', offX: 0, offY: -j.alto / 2, r: d.radio, radial: true, area: true, empujon: true,
       intervalo: d.duracion / d.golpes, danio: d.danio, empujeX: 260, empujeY: 200,
+      retroceso: d.retroceso, aturdimiento: d.aturdimiento, // config/balance.js -> combos (0 = sin empujón ni pausa)
       duracion: d.duracion, color: d.color,
     }));
     m.emitir('torbellino', { jugador: j.indice, duracion: d.duracion, radio: d.radio, color: d.color });

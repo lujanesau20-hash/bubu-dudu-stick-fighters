@@ -90,9 +90,10 @@ class Render {
         if (bm.duracionMonedaSuelo - edad < bm.parpadeoMoneda && Math.floor(t * 8) % 2 === 0) continue;
       }
       const giro = Math.abs(Math.cos(t * 8 + c.x));
-      const y = enSuelo ? c.y - rm : c.y;
+      // Del suelo: apoyada en el suelo. Del jefe (imán): nunca por debajo del suelo aunque sea grande
+      const y = enSuelo ? c.y - rm : Math.min(c.y, m.sueloY - rm);
       ctx.fillStyle = '#ffcf33';
-      ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#b8860b'; ctx.lineWidth = Math.max(2, rm / 8); // sin brillo: solo relleno y borde
       ctx.beginPath(); ctx.ellipse(c.x, y, rm * giro + 1, rm, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 

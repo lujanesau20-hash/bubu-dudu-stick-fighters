@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: Cataclismo más ancho — sección 21; antes: daños nuevos, mejoras de daño y versus con 500 de vida — sección 20). **Versión actual: `v1.03`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.03`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: Corte volador y Torbellino sin retroceso, monedas al doble — sección 22; antes: Cataclismo más ancho — sección 21). **Versión actual: `v1.04`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.04`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`
 
 ---
 
@@ -158,7 +158,7 @@ herramientas/               Simulaciones para la consola del navegador (no forma
 - **Un ataque no interrumpe a otro:** tras H1/H2/H4 hay un pequeño "bloqueo" en que no sale otro ataque (los combos sí pueden salir).
 - **H1 Daga:** saltito + cuchilla lanzada. **H2 Espada:** tajo en arco al frente. **H3 Flash:** dash que atraviesa enemigos (invulnerable). **H4 Onda de choque:** golpe al suelo de área (si estás en el aire, primero caes en picada).
 - **Daño de área (H4, Torbellino, Cataclismo):** 100% al enemigo más cercano al centro; los demás reciben menos según la distancia (medida al borde del enemigo), hasta un mínimo de 40% en el borde.
-- **Golpes y enemigos:** ningún golpe deja al enemigo "tieso". H1 y H2 no lo empujan. H3, H4 y los combos le dan un **empujón corto** (≈1.5 pasos) y el enemigo sigue atacando enseguida. Igual para jefes, aves y refuerzos. El retroceso que **recibe el jugador** no cambió.
+- **Golpes y enemigos:** ningún golpe deja al enemigo "tieso". H1 y H2 no lo empujan. H3, H4 y el Cataclismo le dan un **empujón corto** (≈1.5 pasos) y el enemigo sigue atacando enseguida. **Corte volador y Torbellino no lo empujan ni frenan** (desde v1.04, sección 22). Igual para jefes, aves y refuerzos. El retroceso que **recibe el jugador** no cambió.
 
 ### Combinaciones (solo 3, entre habilidades vecinas)
 | Combo | Teclas | Qué hace |
@@ -1195,3 +1195,59 @@ Antes, el mago a 370 px no recibía daño (estaba fuera de los 260 px).
 En el Espacio, lanzar el Cataclismo (H3+H4) con magos alrededor. Los que están a unos 4 cuerpos de distancia también reciben daño, con números de 60 o más.
 
 **No se pudo probar:** una partida completa del Espacio jugada a mano.
+
+## 22. Corte volador y Torbellino sin retroceso, monedas al doble (v1.04)
+
+Versión **v1.04** (técnica `2026.11.12-v1.04`). Respaldo: etiqueta `respaldo-antes-sin-retroceso-combos`.
+
+### 1. Corte volador y Torbellino: sin retroceso ni pausa (`config/balance.js` → `combos`)
+**Por qué temblaban:** había dos causas, y cada golpe repetía las dos.
+- **El empujón:** cada golpe reiniciaba un empujón de unos 60 px. El Torbellino golpea cada 0,125 s, así que el enemigo daba pasos atrás seguidos.
+- **La pausa de impacto:** cada golpe congelaba todo el mundo entre 0,03 y 0,09 s. Con muchos golpes seguidos, el enemigo avanzaba a tirones.
+
+**Arreglo:**
+- Corte volador y Torbellino tienen ahora `retroceso: 0` y `aturdimiento: 0`:
+  - `retroceso`: 1 = empujón normal, 0 = sin empujón.
+  - `aturdimiento`: 1 = pausa de impacto normal, 0 = sin pausa.
+- El enemigo (o el jefe) sigue caminando o atacando mientras recibe el daño, y su estado no se reinicia. Solo queda el destello rápido al recibir daño.
+- Daño, área, maná, enfriamientos y efectos visuales iguales.
+- El resto de habilidades no cambió: H1/H2 sin empujón como antes; H3, H4 y Cataclismo con empujón y pausa.
+- Código: `Golpe`/`Proyectil` (`retroceso`, `aturdimiento`) → `info` → `Enemigo.recibirDanio` y `Jefe.recibirDanio` (sin empujón si es 0) y `Mundo.aplicarDanio` (sin pausa de impacto si es 0, solo contra enemigos).
+- **Versus no cambió:** contra un jugador se usa el empuje de siempre (`empujeX/empujeY`) y la pausa de impacto normal. Probado: el Torbellino sigue empujando al rival (234 px/s) y pausando 3 cuadros.
+
+**Medido** (5 enemigos en fila; 75 cuadros):
+| Habilidad | Cuadros con pausa | Cuadros con empujón | Retroceso máximo por cuadro |
+|---|---|---|---|
+| Torbellino | 0 | 0 | 2,7 px (lo que caminan) |
+| Corte volador | 0 | 0 | 1,2 px |
+| Onda H4 (sin cambios) | 6 | 60 | 10,5 px |
+| Flash H3 (sin cambios) | 15 | 90 | 10,6 px |
+
+El jefe (Gigante) con Torbellino no tuvo ni empujón ni pausa.
+
+**En línea** (dos pestañas reales; velocidad máxima de los enemigos que ve el invitado):
+| Situación | Velocidad máxima |
+|---|---|
+| Solo caminando | 153 px/s |
+| Torbellino | 126–235 px/s |
+| Corte volador | 186 px/s |
+| Onda (empuja, sin cambios) | 764 px/s |
+
+Sin saltos con las dos habilidades.
+
+### 2. Monedas al doble (`config/interfaz.js` → `monedas`)
+- **Tamaño del dibujo:** `radioCelular: 26` (antes 13) y `radioLaptop: 16` (antes 8). El borde engrosa un poco con el tamaño.
+- **Sin brillo**, sin sombras: solo relleno y borde.
+- **Monedas del jefe (imán):** con el tamaño nuevo se dibujan siempre apoyadas sobre el suelo, sin hundirse. El imán funciona igual.
+- **Área para recogerlas:** no depende del dibujo (`BALANCE.monedas.radioRecogida`: 45 en celular y 20 en laptop). No se cambió.
+- **Contador del HUD:** la moneda de arriba no se agrandó (`monedas.hud: 13`, ahora en config). Va pareja con el número y, si se agranda, choca con los textos de al lado.
+- Probado en celular 800×360 y laptop 1280×800:
+  - monedas sueltas, 6 juntas y sobre una plataforma;
+  - el parpadeo y que desaparecen a los 10 s;
+  - 25 monedas de jefe con imán: se recogieron las 25.
+
+### Cómo probar
+- Usar Torbellino (H2+H3) o Corte volador (H1+H2) contra un grupo: los enemigos siguen caminando hacia ti mientras pierden vida, sin saltar hacia atrás.
+- Las monedas caídas se ven el doble de grandes.
+
+**No se pudo probar:** con dedos en un celular real ni en dos dispositivos reales.

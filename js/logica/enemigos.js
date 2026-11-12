@@ -65,9 +65,10 @@ class Enemigo {
   }
 
   // Empujón corto hacia atrás (config/balance.js -> empujon). No deja al enemigo "tieso".
-  empujar(dir) {
+  // factor: 1 = empujón completo (retroceso de la habilidad)
+  empujar(dir, factor = 1) {
     const b = typeof BALANCE !== 'undefined' ? BALANCE.empujon : { pasos: 1.5, pasoPx: 40 };
-    this.empuje = { dir: dir >= 0 ? 1 : -1, restante: b.pasos * b.pasoPx };
+    this.empuje = { dir: dir >= 0 ? 1 : -1, restante: b.pasos * b.pasoPx * factor };
   }
 
   aplicarEmpuje(dt) {
@@ -86,7 +87,9 @@ class Enemigo {
     this.anim.flash = 1;
     // Los golpes ya no dejan al enemigo "tieso": sigue atacando enseguida.
     // H3, H4 y los combos (info.empujon) le dan un empujón corto; H1 y H2 no lo empujan.
-    if (info.empujon) this.empujar(info.dirX || 1);
+    // Corte volador y Torbellino: retroceso 0 -> sin empujón (no se reinicia nada en cada golpe; solo el destello)
+    const re = info.retroceso ?? 1;
+    if (info.empujon && re > 0) this.empujar(info.dirX || 1, re);
     if (this.vida <= 0) this.morir(info);
     return true;
   }

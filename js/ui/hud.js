@@ -65,7 +65,7 @@ class HUD {
       ctx.translate(W / 2, margen + 18 * s);
       ctx.scale(pulso, pulso);
       ctx.fillStyle = '#ffcf33'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(-34 * s, 0, 13 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-34 * s, 0, (CONFIG.interfaz.monedas.hud || 13) * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       this.texto(ctx, String(Guardado.datos.monedas + (m.monedasGuardadas ? 0 : m.monedasGanadas)), -14 * s, 9 * s, 26 * s, '#ffffff', 'left');
       ctx.restore();
       if (m.modo === 'pareja') {
