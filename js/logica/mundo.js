@@ -108,17 +108,41 @@ class Mundo {
   aplicarDanio(obj, danio, info) {
     if (this.modo === 'versus') danio *= CONFIG.versus.multiplicadorDanio;
     danio = Math.round(danio);
+    const flashAntes = obj.anim ? obj.anim.flash : 0;
     if (!obj.recibirDanio(danio, info)) return;
     const a = info.atacante;
     if (a && a.esJugador) a.energia = Math.min(CONFIG.energia.max, a.energia + CONFIG.energia.porGolpe);
     // Pausa de impacto. Contra enemigos, Corte volador y Torbellino no la usan (aturdimiento 0):
     // así el enemigo no se frena a cada golpe. A los jugadores (versus) siempre igual que antes.
     const fa = obj.esJugador ? 1 : (info.aturdimiento ?? 1);
-    if (fa > 0) this.congelar = Math.max(this.congelar, Math.min(0.09, (0.025 + danio * 0.0012) * fa));
+    const pausa = Math.min(0.09, 0.025 + danio * 0.0012);
+    if (fa > 0) this.congelar = Math.max(this.congelar, pausa * fa);
+    else this.animarGolpeSinPausa(obj, info, pausa, flashAntes);
     // "quien": número del que recibe el golpe, para juntar sus números de daño en uno
     if (obj._idDanio == null) obj._idDanio = (this._siguienteIdDanio = (this._siguienteIdDanio || 0) + 1);
     this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador, quien: obj._idDanio });
     if (danio >= 30) this.emitir('sacudir', { fuerza: Math.min(14, danio / 4) });
+  }
+
+  // Golpe sin pausa de impacto (H3, Corte volador, Torbellino): la animación se ve igual que antes,
+  // pero el enemigo no se frena. Números en config/balance.js -> animacionGolpe.
+  animarGolpeSinPausa(obj, info, pausa, flashAntes) {
+    const c = BALANCE.animacionGolpe;
+    // 1) La pausa la hace solo el ataque: el corte, o el personaje con su golpe mientras hace la habilidad
+    const o = info.origen, a = info.atacante, p = pausa * c.pausaAtacante;
+    if (o && p > 0) {
+      // Los enemigos que este ataque ya golpeó siguen blancos mientras dura la pausa (como antes)
+      const extra = (p - Math.max(0, o.pausaGolpe || 0)) * 6 * c.destelloLargo;
+      if (extra > 0 && o.golpeados) for (const g of o.golpeados) if (g !== obj && g.anim && g.anim.flash > 0) g.anim.flash += extra;
+      o.pausaGolpe = Math.max(o.pausaGolpe || 0, p);
+      // El personaje también espera, pero solo mientras hace la habilidad (ahí no le pueden pegar)
+      if (a && a.esJugador && a.accion && a.accion.invulnerable) a.pausaGolpe = Math.max(a.pausaGolpe || 0, p);
+    }
+    // 2) Destello blanco del enemigo: dura lo mismo que antes y un golpe repetido no lo reinicia
+    if (!obj.anim) return;
+    if (obj._tDestello != null && this.tiempo - obj._tDestello < c.repetirDestello) { obj.anim.flash = flashAntes; return; }
+    obj._tDestello = this.tiempo;
+    obj.anim.flash = 1 + pausa * 6 * c.destelloLargo; // el destello baja 6 por segundo
   }
 
   jugadorMasCercano(x, y) {
@@ -151,7 +175,12 @@ class Mundo {
     this.tiempo += dt;
 
     if (this.modo === 'pareja') this.actualizarRevivir(dt, controles);
-    this.jugadores.forEach((j, i) => j.actualizar(dt, controles[i] || new EstadoControl()));
+    // Pausa del que ataca (animacionGolpe): ese jugador y sus ataques esperan; los enemigos siguen
+    const enPausa = (x) => { if (!(x.pausaGolpe > 0)) return false; x.pausaGolpe -= dt; return true; };
+    this.jugadores.forEach((j, i) => {
+      if (!enPausa(j)) j.actualizar(dt, controles[i] || new EstadoControl());
+      else if (j.animDisparo) j.animDisparo.t += dt; // su animación de ataque también espera
+    });
     if (this.modo === 'pareja') this.limitarSeparacion();
 
     for (const e of this.enemigos) e.actualizar(dt);
@@ -161,11 +190,11 @@ class Mundo {
     this.enemigos.length = k;
     if (this.jefe) this.jefe.actualizar(dt);
 
-    for (const p of this.proyectiles) p.actualizar(dt, this);
+    for (const p of this.proyectiles) if (!enPausa(p)) p.actualizar(dt, this);
     k = 0;
     for (const p of this.proyectiles) if (p.vivo) this.proyectiles[k++] = p;
     this.proyectiles.length = k;
-    for (const g of this.golpes) g.actualizar(dt, this);
+    for (const g of this.golpes) if (!enPausa(g)) g.actualizar(dt, this);
     k = 0;
     for (const g of this.golpes) if (g.vivo) this.golpes[k++] = g;
     this.golpes.length = k;

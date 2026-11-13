@@ -8,3 +8,4 @@ Una línea por versión, en español simple. Cada actualización sube 0.01 (1.01
 - **v1.03** (2026-11-12): Cataclismo con radio 380 px (antes 260) y 60% de daño en el borde (antes 40%), para que alcance a los magos del Espacio que se quedan lejos.
 - **v1.04** (2026-11-12): Corte volador y Torbellino ya no empujan ni frenan a los enemigos (dejan de temblar); en versus siguen igual. Monedas del suelo y del jefe al doble de tamaño.
 - **v1.05** (2026-11-12): H3 (Flash, el rayo) ya no empuja ni frena a los enemigos (igual que Corte volador y Torbellino); en versus sigue igual.
+- **v1.06** (2026-11-12): vuelve la animación de H3, Corte volador y Torbellino (se veía muy rápida desde que se quitó la pausa de impacto). Los enemigos siguen sin retroceder ni frenarse.

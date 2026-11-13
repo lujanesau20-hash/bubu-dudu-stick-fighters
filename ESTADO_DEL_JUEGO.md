@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: H3 sin retroceso — sección 23; antes: Corte volador y Torbellino sin retroceso, monedas al doble — sección 22). **Versión actual: `v1.05`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.05`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: animación recuperada de H3, Corte volador y Torbellino — sección 24; antes: H3 sin retroceso — sección 23). **Versión actual: `v1.06`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.06`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`
 
 ---
 
@@ -1289,5 +1289,44 @@ Sin saltos.
 
 ### Cómo probar
 Usar H3 contra un grupo grande: los enemigos siguen avanzando mientras el rayo los atraviesa, sin saltar hacia atrás ni congelarse.
+
+**No se pudo probar:** en un celular real con dedos ni en dos dispositivos reales.
+
+## 24. Animación recuperada de H3, Corte volador y Torbellino (v1.06)
+
+Versión **v1.06** (técnica `2026.11.12-v1.06`). Respaldo: etiqueta `respaldo-antes-recuperar-animacion`.
+
+### Qué se había perdido
+Comparado con git (`git diff 67abd90 c4a3b83`): en v1.04 y v1.05 **no se borró ningún dibujo**. Lo que se perdió fue un efecto indirecto de quitar la pausa de impacto:
+- Esa pausa congelaba todo el mundo un instante en cada golpe, y durante ese instante se seguían viendo la pose del personaje, el rayo o el corte, y el enemigo en blanco.
+- Sin la pausa, todo eso pasaba muy rápido. Con 5 enemigos en fila:
+  - **H3:** el rayo se veía unos 30 cuadros (0,5 s) y pasó a unos 10 (0,17 s).
+  - **Destello blanco del enemigo:** de 26 cuadros a 6 con H3, de 16 a 6 con el Corte volador, y de 30 a 18 con el Torbellino.
+  - **Corte volador:** la pose de la espada y el corte pasaban más rápido sobre los enemigos.
+
+### Qué se hizo (`config/balance.js` → `animacionGolpe`)
+- **La pausa la hace solo el que ataca** (`pausaAtacante: 1`): el personaje y su golpe, o el corte volador, esperan lo mismo que antes en cada golpe. Los enemigos no se frenan ni se mueven de su sitio.
+  - El personaje solo espera mientras hace la habilidad, cuando no le pueden pegar.
+- **Destello del enemigo** (`destelloLargo: 1`): el enemigo queda blanco el mismo tiempo que antes, sin cambiar su posición ni su estado.
+- **Sin reinicio en bucle** (`repetirDestello: 0.15`): un golpe repetido antes de 0,15 s no reinicia el destello.
+- Solo se aplica a los golpes con `aturdimiento: 0` (H3, Corte volador, Torbellino). H1, H2, H4 y Cataclismo no cambiaron.
+- No se agregó ningún efecto nuevo: partículas y números siguen dentro del límite de efectos (calidad automática).
+- Código: `Mundo.animarGolpeSinPausa` y el paso `Mundo.actualizar` (`pausaGolpe` del jugador, del golpe y del proyectil); `Golpe` y `Proyectil` pasan `origen` en `info`.
+- Daño, área, maná y enfriamientos iguales. **Versus igual:** contra un jugador se usa la pausa de impacto de siempre.
+
+### Medido (5 enemigos en fila, 48 cuadros seguidos; cuadros con el enemigo en blanco)
+| Habilidad | v1.03 (con empujón y pausa) | v1.05 | v1.06 |
+|---|---|---|---|
+| H3 | 26 | 6 | 22 |
+| Corte volador | 16 | 6 | 18 |
+| Torbellino | 30 | 18 | 28 |
+
+- Tiras de cuadros comparadas a la vista: el rayo de H3 dura otra vez hasta el cuadro 28, el corte recorre lo mismo y la espada se ve el mismo tiempo, y el Torbellino se ve igual.
+- Con 15 enemigos juntos (H3, Corte, Torbellino): 0 cuadros con el mundo en pausa, 0 empujones, y los enemigos solo se mueven lo que caminan (2,7 px por cuadro). H4 sigue empujando.
+- Versus: H3 deja a Dudu en 472/500, con 4 cuadros de pausa y empuje de 342 px/s, igual que antes.
+- En línea (dos pestañas reales): el invitado ve el destello blanco de los enemigos. Velocidad máxima de los enemigos: caminando 166 px/s, H3 157, Corte 232, Torbellino 330, H4 (empuja) 774.
+
+### Cómo probar
+Usar H3, Corte volador (H1+H2) y Torbellino (H2+H3) contra un grupo: se ve el rayo, el corte o el giro completos y los enemigos se ponen blancos, pero siguen caminando hacia ti sin saltar hacia atrás.
 
 **No se pudo probar:** en un celular real con dedos ni en dos dispositivos reales.

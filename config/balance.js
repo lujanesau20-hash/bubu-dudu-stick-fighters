@@ -48,6 +48,16 @@ const BALANCE = {
   // Distancia del empujón = pasos x pasoPx (1 paso ≈ el ancho del personaje).
   empujon: { pasos: 1.5, pasoPx: 40, velocidad: 700 },
 
+  // ---------- Animación del golpe SIN frenar al enemigo (v1.06) ----------
+  // Para las habilidades con aturdimiento 0 (H3, Corte volador, Torbellino).
+  // Antes, la pausa de impacto dejaba ver la animación más tiempo. Ahora esa pausa
+  // la hace solo el que ataca (el personaje o su corte); el enemigo no se frena ni se mueve.
+  //   pausaAtacante: 1 = la misma pausa que antes, 0 = sin pausa (la animación pasa muy rápido).
+  //   destelloLargo: 1 = el enemigo queda blanco el mismo tiempo que antes, 0 = destello corto.
+  //   repetirDestello: segundos mínimos entre un destello y el siguiente en el mismo enemigo
+  //     (un golpe repetido antes de ese tiempo no reinicia el destello).
+  animacionGolpe: { pausaAtacante: 1, destelloLargo: 1, repetirDestello: 0.15 },
+
   // ---------- Daño de área con caída por distancia ----------
   // Las habilidades de área hacen 100% al enemigo más cercano al centro y el daño
   // baja con la distancia (medida al borde más cercano del enemigo) hasta "minimo" en el borde.

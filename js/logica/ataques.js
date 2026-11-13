@@ -78,7 +78,7 @@ class Golpe {
         }
         mundo.aplicarDanio(obj, danio, {
           atacante: this.duenio, dirX: dir, empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
-          retroceso: this.retroceso, aturdimiento: this.aturdimiento,
+          retroceso: this.retroceso, aturdimiento: this.aturdimiento, origen: this,
           x: obj.x, y: obj.y - obj.alto * 0.6, color: this.color,
         });
       }
@@ -149,7 +149,7 @@ class Proyectil {
         this.golpeados.add(obj);
         mundo.aplicarDanio(obj, this.danio, {
           atacante: this.duenio, dirX: U.signo(this.vx || 1), empujeX: this.empujeX, empujeY: this.empujeY, empujon: this.empujon,
-          retroceso: this.retroceso, aturdimiento: this.aturdimiento,
+          retroceso: this.retroceso, aturdimiento: this.aturdimiento, origen: this,
           x: this.x, y: this.y, color: this.color,
         });
         if (!this.perfora) { this.vivo = false; return; }
