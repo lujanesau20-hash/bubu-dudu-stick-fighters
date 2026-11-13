@@ -7,3 +7,4 @@ Una línea por versión, en español simple. Cada actualización sube 0.01 (1.01
 - **v1.02** (2026-11-12): daños nuevos (espada 22, cuchilla 16, Cataclismo 100…). Pestaña "Mejoras" en la tienda: 7 mejoras de daño por personaje, 5 niveles cada una (+20% por nivel); se abre al completar el nivel 5 y en línea el invitado usa las suyas. Versus con 500 de vida y siempre con el daño base.
 - **v1.03** (2026-11-12): Cataclismo con radio 380 px (antes 260) y 60% de daño en el borde (antes 40%), para que alcance a los magos del Espacio que se quedan lejos.
 - **v1.04** (2026-11-12): Corte volador y Torbellino ya no empujan ni frenan a los enemigos (dejan de temblar); en versus siguen igual. Monedas del suelo y del jefe al doble de tamaño.
+- **v1.05** (2026-11-12): H3 (Flash, el rayo) ya no empuja ni frena a los enemigos (igual que Corte volador y Torbellino); en versus sigue igual.

@@ -21,7 +21,9 @@ const BALANCE = {
   habilidades: [
     { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 16, bloqueo: 0.30 },
     { tecla: 'H2', nombre: 'Espada (tajo)',       mana: 4,  enfriamiento: 0, danio: 22, bloqueo: 0.35 },
-    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 35, bloqueo: 0 },               // antes 2 s
+    // H3 (v1.05): retroceso 0 y aturdimiento 0 contra enemigos y jefes, igual que Corte volador y Torbellino
+    // (1 = empujón / pausa de impacto normal; ver la explicación en "combos"). En versus no se usan.
+    { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 35, bloqueo: 0, retroceso: 0, aturdimiento: 0 }, // antes 2 s
     { tecla: 'H4', nombre: 'Onda de choque',      mana: 20, enfriamiento: 7, danio: 70, bloqueo: 0.35, area: true, radio: 250 }, // antes 5 s; en el borde 40% = 28
   ],
 
@@ -225,7 +227,8 @@ BALANCE.factorArea = (fraccion, minimo) => {
   CONFIG.energia.inicial = b.jugador.manaInicial;
 
   b.habilidades.forEach((h, i) => {
-    Object.assign(CONFIG.habilidades[i], { energia: h.mana, enfriamiento: h.enfriamiento, danio: h.danio, bloqueo: h.bloqueo });
+    Object.assign(CONFIG.habilidades[i], { energia: h.mana, enfriamiento: h.enfriamiento, danio: h.danio, bloqueo: h.bloqueo,
+      retroceso: h.retroceso ?? 1, aturdimiento: h.aturdimiento ?? 1 });
   });
   b.combos.forEach((c, i) => {
     const d = CONFIG.combos.lista[i];

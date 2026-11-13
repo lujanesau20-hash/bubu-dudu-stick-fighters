@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: Corte volador y Torbellino sin retroceso, monedas al doble — sección 22; antes: Cataclismo más ancho — sección 21). **Versión actual: `v1.04`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.04`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: H3 sin retroceso — sección 23; antes: Corte volador y Torbellino sin retroceso, monedas al doble — sección 22). **Versión actual: `v1.05`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.05`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`
 
 ---
 
@@ -158,7 +158,7 @@ herramientas/               Simulaciones para la consola del navegador (no forma
 - **Un ataque no interrumpe a otro:** tras H1/H2/H4 hay un pequeño "bloqueo" en que no sale otro ataque (los combos sí pueden salir).
 - **H1 Daga:** saltito + cuchilla lanzada. **H2 Espada:** tajo en arco al frente. **H3 Flash:** dash que atraviesa enemigos (invulnerable). **H4 Onda de choque:** golpe al suelo de área (si estás en el aire, primero caes en picada).
 - **Daño de área (H4, Torbellino, Cataclismo):** 100% al enemigo más cercano al centro; los demás reciben menos según la distancia (medida al borde del enemigo), hasta un mínimo de 40% en el borde.
-- **Golpes y enemigos:** ningún golpe deja al enemigo "tieso". H1 y H2 no lo empujan. H3, H4 y el Cataclismo le dan un **empujón corto** (≈1.5 pasos) y el enemigo sigue atacando enseguida. **Corte volador y Torbellino no lo empujan ni frenan** (desde v1.04, sección 22). Igual para jefes, aves y refuerzos. El retroceso que **recibe el jugador** no cambió.
+- **Golpes y enemigos:** ningún golpe deja al enemigo "tieso". H1 y H2 no lo empujan. H4 y el Cataclismo le dan un **empujón corto** (≈1.5 pasos) y el enemigo sigue atacando enseguida. **H3, Corte volador y Torbellino no lo empujan ni frenan** (v1.04 y v1.05, secciones 22 y 23). Igual para jefes, aves y refuerzos. El retroceso que **recibe el jugador** no cambió.
 
 ### Combinaciones (solo 3, entre habilidades vecinas)
 | Combo | Teclas | Qué hace |
@@ -1251,3 +1251,43 @@ Sin saltos con las dos habilidades.
 - Las monedas caídas se ven el doble de grandes.
 
 **No se pudo probar:** con dedos en un celular real ni en dos dispositivos reales.
+
+## 23. H3 (Flash, el rayo) sin retroceso (v1.05)
+
+Versión **v1.05** (técnica `2026.11.12-v1.05`). Respaldo: etiqueta `respaldo-antes-h3-sin-retroceso`.
+
+### Qué cambió
+- Se usa el mismo sistema que en la sección 22: H3 tiene `retroceso: 0` y `aturdimiento: 0` en `config/balance.js → habilidades`.
+- Contra enemigos y jefes, H3 ya no empuja ni hace la pausa de impacto. El enemigo sigue caminando o atacando mientras pierde vida, con el destello rápido de siempre.
+- El daño (35), el área, el maná (10), el enfriamiento (3 s) y el efecto del rayo no cambiaron.
+- `aplicarBalance` copia `retroceso` y `aturdimiento` a `CONFIG.habilidades`, y `HABILIDADES.dash` los pasa al golpe.
+- H1, H2, H4 y Cataclismo no se tocaron. Probado: H4 sigue empujando.
+- **Versus no cambió:** contra un jugador se usan el empuje y la pausa de siempre. Probado: H3 empuja al rival a 342 px/s y pausa 4 cuadros.
+
+### Medido: oleada grande (15 enemigos juntos, 4 lanzamientos de H3, navegador headless)
+| | Laptop antes | Laptop después | Celular antes | Celular después |
+|---|---|---|---|---|
+| Tiempo de cuadro, promedio (simulación + dibujo) | 2,42 ms | 2,30 ms | 3,04 ms | 2,94 ms |
+| Tiempo de cuadro, 95% de los cuadros | 3,6 ms | 3,5 ms | 3,6 ms | 4,2 ms |
+| Cuadros con el mundo en pausa de impacto | **63 de 132** | **0** | **68 de 142** | **0** |
+| Cuadros con algún enemigo empujado | 831 | 0 | 896 | 0 |
+| Retroceso máximo de un enemigo por cuadro | 13,3 px | 2,6 px (camina) | 13,3 px | 2,3 px (camina) |
+| Números de daño | 84 | 60 (1 por enemigo) | 88 | 60 |
+
+- **Conclusión:** no había un problema de cálculo; los cuadros tardan unos 3 ms de los 16 ms disponibles.
+- La sensación de "trabado" venía de la **pausa de impacto**: el mundo quedaba congelado casi la mitad del tiempo después de golpear a muchos a la vez. A eso se sumaban los empujones.
+- Los picos sueltos (17–80 ms) aparecen antes y después y no dependen de H3: son del navegador de prueba.
+
+**En línea** (dos pestañas reales; velocidad máxima de los enemigos que ve el invitado):
+| Situación | Velocidad máxima |
+|---|---|
+| Solo caminando | 141 px/s |
+| H3 | 161–274 px/s |
+| H4 (empuja, sin cambios) | 738 px/s |
+
+Sin saltos.
+
+### Cómo probar
+Usar H3 contra un grupo grande: los enemigos siguen avanzando mientras el rayo los atraviesa, sin saltar hacia atrás ni congelarse.
+
+**No se pudo probar:** en un celular real con dedos ni en dos dispositivos reales.

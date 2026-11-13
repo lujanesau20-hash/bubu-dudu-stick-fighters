@@ -57,6 +57,7 @@ const HABILIDADES = {
     });
     m.agregarGolpe(new Golpe({
       duenio: j, seguir: j, offX: 0, offY: -j.alto / 2, w: j.ancho + 80, h: j.alto + 24, empujon: true,
+      retroceso: h.retroceso, aturdimiento: h.aturdimiento, // config/balance.js -> habilidades (0 = sin empujón ni pausa)
       danio: h.danio, empujeX: h.empuje, empujeY: 260, duracion: h.duracion + 0.04, color: '#ffe066',
     }));
     m.emitir('dash', { jugador: j.indice, x: j.x, y: j.y - j.alto / 2, dir: j.dir });
