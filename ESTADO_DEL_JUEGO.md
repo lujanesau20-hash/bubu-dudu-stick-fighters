@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.19`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.19`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.20`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.20`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -1836,3 +1836,71 @@ Tiempo de dibujo de cada cuadro (el límite para 60 FPS es 16,7 ms). La diferenc
 | Sprite de jefe constructor en acción.png | 1536 × 1024 |
 
 Cada una pesa entre 1,3 y 1,7 MB. Si algún día se usan, habría que quitar el fondo verde, cortar los cuadros y achicarlas (como las hojas de Bubu y Dudu para celular). La carpeta no está en el repositorio (no se subió).
+
+## 36. Pruebas y cierre de la tarea (v1.20)
+
+Sin cambios de juego; solo documentos. Pruebas con navegador automático en celular horizontal (800×360, táctil) y laptop (1280×800). Scripts de prueba en `.playwright-mcp/` (carpeta local, no se sube).
+
+### Enemigo normal por oleada en el modo infinito (Isla; daño base 4, vida base 70)
+Velocidad en px/s (antes de v1.15 un enemigo normal caminaba a 135). Enemigos = cantidad en solitario (pareja ×1,5, máximo 15).
+
+| Oleada | Vida | Daño por golpe | Velocidad | Enemigos | Jefe (vida en solitario) |
+|---|---|---|---|---|---|
+| 1 | 70 | 4 | 176 | 4 | |
+| 2 | 74 | 6 | 179 | 5 | |
+| 3 | 77 | 8 | 183 | 5 | |
+| 4 | 81 | 10 | 186 | 6 | |
+| 5 | 85 | 12 | 190 | 6 | |
+| 6 | 89 | 13 | 193 | 7 | |
+| 7 | 94 | 14 | 197 | 8 | |
+| 8 | 98 | 15 | 200 | 8 | |
+| 9 | 103 | 16 | 204 | 9 | |
+| 10 | 109 | 17 | 207 | — | **1090** (Gigante, daño ×1) |
+| 11 | 114 | 18 | 211 | 10 | |
+| 12 | 120 | 19 | 214 | 11 | |
+| 13 | 126 | 20 | 218 | 11 | |
+| 14 | 132 | 21 | 221 | 12 | |
+| 15 | 139 | 22 | 225 | 12 | |
+| 16 | 146 | 23 | 228 | 13 | |
+| 17 | 153 | 24 | 232 | 14 | |
+| 18 | 160 | 25 | 235 | 14 | |
+| 19 | 168 | 26 | 239 | 15 | |
+| 20 | 177 | 27 | 242 | — | **2213** (×1,25) |
+| 21 | 186 | 28 | 246 (tope +40%) | 15 | |
+| 22 | 195 | 29 | 246 | 15 | |
+| 23 | 205 | 30 (tope 30%) | 246 | 15 | |
+| 24 | 215 | 30 | 246 | 15 | |
+| 25 | 226 | 30 | 246 | 15 | |
+| 26 | 237 | 30 | 246 | 15 | |
+| 27 | 249 | 30 | 246 | 15 | |
+| 28 | 261 | 30 | 246 | 15 | |
+| 29 | 274 | 30 | 246 | 15 | |
+| 30 | 288 | 30 | 246 | — | **4500** (×1,56) |
+
+En otros mundos la vida empieza en la de su nivel 1 (Cielo 100, Espacio 130, Ciudad 160, Jungla 190), el daño suma su extra (+1 o +2) y la velocidad su +5% por mundo.
+
+### Tiempos de cuadro (dibujo; oleada de 12 enemigos + 3 aves): ver sección 35
+Laptop 1,83 → 2,11 ms de promedio (p95 2,7 → 2,7). Celular 1,70 → 1,69–1,91 ms (p95 2,3 → 2,3–2,4). Sin cambio real.
+
+### Qué se probó
+- **Menús nuevos** en celular y laptop: botones de cada submenú, Atrás, Esc, flechas + Enter; todo cabe en 800×360 sin desplazar.
+- **Enemigos que se detienen al atacar:** capturas seguidas (aviso "!", golpe estirado, recuperación, guardia); nunca más de 4 atacando al mismo jugador (prueba con 10 enemigos).
+- **3 pulsaciones rápidas de H2 = 3 cortes:** con teclado en laptop y con el botón táctil en celular (el maná baja 12 en los dos), y la prueba de lógica de la sección 32 (3 cortes = 66 de daño al mismo enemigo). En pantalla los arcos se ven superpuestos porque siguen al personaje.
+- **Modo infinito acelerado** (enemigos que mueren al llegar, pausa corta entre oleadas) hasta pasar la oleada 10:
+  - Solitario en Cielo: jefe Arquero Maestro en la oleada 10 (1550 de vida), sigue a la 11.
+  - Pareja local en Cielo: jefe con 2480 de vida (×1,6), sigue a la 11.
+  - Sala en línea (líder laptop, invitado celular, conexión real): ver sección 34; el invitado vio el modo en la sala, la oleada 10 con el Gigante, la 11, la pantalla de fin y el reinicio del líder.
+- Sin errores en ninguna prueba.
+
+### No se pudo probar
+- Con dedos en un celular real ni con dos dispositivos reales.
+- Partidas largas jugadas a mano (la dificultad real para una persona del modo infinito y de los enemigos más rápidos).
+- La reconexión del invitado en medio del modo infinito (usa el mismo camino que las demás partidas).
+
+### Propuestas que NO se aplicaron
+1. **Aviso de 0,25 s** (pedido) puede ser poco para reaccionar en celular: subirlo a 0,3 s (`comportamiento.aviso`), o espera entre ataques `[0.7, 1.3]` (+10% de daño por segundo en lugar de +25%).
+2. **Modo infinito después de la oleada 20:** el golpe llega al tope de 30 en la 23 (4 golpes te tiran) y la vida sigue creciendo ×1,05 sin tope (288 en la 30). Si se siente imposible, poner un tope de vida (por ejemplo ×3 de la inicial) o bajar `vidaPorOleada` a 1,04.
+3. **Los 3 cortes de H2 se dibujan en el mismo lugar** (siguen al personaje): si se quiere que se distingan, cada arco podría salir un poco girado o más grande que el anterior.
+
+### PENDIENTE
+Nada de la tarea quedó sin hacer.
