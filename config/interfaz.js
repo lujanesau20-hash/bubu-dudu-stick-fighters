@@ -94,6 +94,8 @@ CONFIG.interfaz = {
   // Monedas en el mundo: radio del dibujo (no cambia la zona para recogerlas)
   // v1.04: el doble que antes (13 y 8). hud: radio de la moneda del contador de arriba (x escala del HUD)
   monedas: { radioCelular: 26, radioLaptop: 16, hud: 13 },
+  // Esferas de maná (v1.07): azules, sin brillo; más grandes en celular, como las monedas
+  esferasMana: { radioCelular: 22, radioLaptop: 15, relleno: '#4dabf7', borde: '#1c5fa8', reflejo: 'rgba(255,255,255,0.75)' },
 
   // Registro de atrasos (panel de depuración y "Copiar registro")
   rendimiento: {

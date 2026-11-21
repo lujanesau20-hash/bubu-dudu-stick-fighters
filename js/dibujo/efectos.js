@@ -205,6 +205,11 @@ class Efectos {
           this.anillo(e.x, e.y, 10, 80, 0.4, '#ff6b8a', 6);
           this.chispas(e.x, e.y, '#ff8fab', 14);
           break;
+        case 'mana':
+          // Esfera de maná recogida: destello azul corto (sin brillo pesado)
+          this.texto(e.x, e.y - 30, '+' + e.cantidad + ' maná', '#74c0fc', false, true);
+          this.anillo(e.x, e.y, 8, 60, 0.3, '#4dabf7', 5);
+          break;
         case 'caido': this.chispas(e.x, e.y - 40, '#ff6b6b', 20); this.camara.sacudir(10); break;
         case 'revivido':
           this.anillo(e.x, e.y - 40, 20, 140, 0.5, '#7dff9b', 10);

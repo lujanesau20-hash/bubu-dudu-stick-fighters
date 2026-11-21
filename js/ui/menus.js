@@ -212,7 +212,7 @@ function consejosCortos() {
   const b = BALANCE;
   return [
     `El maná se recupera ${b.jugador.manaPorSegundo} por segundo y ${b.jugador.manaPorGolpe} más por cada golpe que aciertas.`,
-    `Cada ${b.corazones.intervalo} s cae un corazón: cura el ${Math.round(b.corazones.curacion * 100)}% de tu vida. ¡Recógelo antes de ${b.corazones.duracion} s!`,
+    `Cada ${b.esferasMana.intervalo} s cae una esfera azul: te da ${b.esferasMana.mana} de maná. ¡Recógela antes de ${b.esferasMana.duracion} s!`,
     `Combina dos habilidades vecinas: ${b.combos.map((c) => `${c.teclas} ${c.nombre}`).join(' · ')}.`,
     'En celular, desliza el dedo de un botón de habilidad al vecino sin soltar para hacer una combinación.',
     `Para revivir a tu compañero, quédate a su lado y mantén la tecla de revivir ${CONFIG.revivir.tiempoRevivir} segundos.`,
@@ -279,8 +279,8 @@ Object.assign(Menus, {
       cuerpo = `<ul class="lista-ayuda">
         <li>Tienes ${b.jugador.vidaMax} de vida y ${b.jugador.manaMax} de maná (barra azul).</li>
         <li>El maná se recupera solo, ${b.jugador.manaPorSegundo} por segundo, y ${b.jugador.manaPorGolpe} más por cada golpe que acierta a un enemigo.</li>
-        <li>Cada ${b.corazones.intervalo} segundos cae un corazón cerca de ti: cura el ${Math.round(b.corazones.curacion * 100)}% de tu vida.
-            Dura ${b.corazones.duracion} s y parpadea antes de desaparecer. En pareja, lo recibe quien lo toque primero.</li>
+        <li>Cada ${b.esferasMana.intervalo} segundos cae una esfera de maná (azul) cerca de ti: te da ${b.esferasMana.mana} de maná.
+            Dura ${b.esferasMana.duracion} s y parpadea antes de desaparecer. Contra un jefe caen más. En pareja, la toma quien la toque primero.</li>
         <li>Al limpiar un tramo (cuando aparece "¡ADELANTE!") recuperas el ${Math.round((b.jugador.curaPorTramo || 0) * 100)}% de tu vida.</li>
         <li>Las habilidades caras rinden más daño por cada punto de maná: guarda maná para la Onda de choque y los combos.</li>
         <li><b>Revivir (modo pareja):</b> si tu compañero cae, tienes ${CONFIG.revivir.tiempoCaido} s para llegar a su lado y mantener

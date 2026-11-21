@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: animación recuperada de H3, Corte volador y Torbellino — sección 24; antes: H3 sin retroceso — sección 23). **Versión actual: `v1.06`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.12-v1.06`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: esferas de maná en lugar de corazones — sección 25). **Versión actual: `v1.07`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.07`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`
 
 ---
 
@@ -1330,3 +1330,37 @@ Comparado con git (`git diff 67abd90 c4a3b83`): en v1.04 y v1.05 **no se borró 
 Usar H3, Corte volador (H1+H2) y Torbellino (H2+H3) contra un grupo: se ve el rayo, el corte o el giro completos y los enemigos se ponen blancos, pero siguen caminando hacia ti sin saltar hacia atrás.
 
 **No se pudo probar:** en un celular real con dedos ni en dos dispositivos reales.
+
+## 25. Tarea larga de noviembre (v1.07 en adelante): auditoría y esferas de maná
+
+Respaldo antes de empezar: etiqueta `respaldo-antes-esferas-mana`. Cada fase se publicó por separado (commit y push), para poder volver atrás.
+
+### Fase 0: auditoría (cómo estaba el juego en v1.06)
+- **Mundos y niveles:**
+  - **Isla Flotante:** 10 niveles. Tramos por nivel: 7, 8, 9, 10, 11, 11, 11, 12, 12 y 10. Cada tramo tiene 3 oleadas; la base es 3, 4 y 7 enemigos, multiplicada por `1 + 0,12 × (tramo − 1) + 0,06 × (nivel − 1)`. El jefe está **solo en el nivel 10**: El Gigante, con vida fija de 1700 (×1,6 en pareja).
+  - **Cielo, Espacio y Ciudad:** **1 nivel cada uno**, del estilo viejo: 3 oleadas por grupos, sin tramos. Tienen jefe propio (Arquero Maestro, Mago Cósmico y Ninja Sombra), con 10 veces la vida de su enemigo: niveles de vida 11, 12 y 13, o sea enemigos de 283, 326 y 375 y jefes de 2830, 3260 y 3750.
+  - **No existía un 5.º mundo.**
+- **Pestaña "Mejoras":** existe desde **v1.02**. Tiene 7 mejoras de daño por personaje (H1–H4 y los 3 combos), 5 niveles cada una con +20% por nivel, y se abre al superar el nivel 5 de la Isla.
+- **Corazones, curación y maná:**
+  - **Corazones:** 1 cada 18 s (2 en pareja), cada uno curaba 30% de la vida y duraba 12 s, parpadeando los últimos 3 s.
+  - **Curación por tramo** (`curaPorTramo`): 40% de la vida máxima al limpiar cada tramo.
+  - **Maná:** se recupera 5 por segundo, más 2 por cada golpe acertado; se empieza con 50 de 100.
+- **Daño de los enemigos:** era **fijo en todos los niveles**.
+  - Normales: normal 4, arquero 3, mago 4, ninja 4 (su shuriken hace 70%, o sea 3), ave 4 y espadachín 5.
+  - Jefes: Gigante 9, 8 y 11 (puño, pisotón y embestida); Arquero Maestro 7 y 9; Mago Cósmico 6 y 11; Ninja Sombra 9 y 4.
+- **Mundos encadenados:** sí. Cada nivel se abre al superar el anterior, y el Mundo 2 se abre al terminar el nivel 10 de la Isla.
+
+### Fase 1: esferas de maná en lugar de corazones (v1.07)
+- **Ya no caen corazones de curación.** Siguen en `BALANCE.corazones`, con `activo: false`, por si algún día se quieren volver a usar.
+- **No cambian** el contador "Revivir ♥♥" del HUD (es el sistema de revivir) ni la curación por tramo (40%).
+- **Esferas de maná** (`BALANCE.esferasMana`):
+  - Caen cada 12 s: 1 en solitario y 2 en pareja.
+  - Cada una da +20 de maná, sin pasar del máximo.
+  - Duran 12 s en el suelo y parpadean los últimos 3 s.
+  - **Con un jefe vivo:** 2 cada 12 s en solitario y 3 en pareja (`esferasMana.jefe`).
+  - En versus no caen.
+- **Dibujo:** círculo azul con borde y un pequeño reflejo, sin brillo ni sombras. El tamaño está en `config/interfaz.js` → `esferasMana`: radio 22 en celular y 15 en laptop.
+- **Recogida:** con el mismo alcance que las monedas (más amplio en celular y en línea). Solo la toma un jugador que no tenga el maná lleno.
+- **Al tomarla:** aparece el texto "+20 maná" y un anillo azul corto (evento `mana`).
+- **En línea:** las esferas viajan en la misma lista que antes usaban los corazones (`m.corazones`). El líder decide dónde caen y quién las toma, y el invitado las ve interpoladas.
+- **Probado** (laptop y celular): caen 1, 2 o 2 (solitario, pareja y jefe), y se recogen (maná de 10 a 30). En versus caen 0. Sin tomarla, una esfera dura 12 s. No hubo errores.

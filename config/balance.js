@@ -99,8 +99,11 @@ const BALANCE = {
     // El JEFE no cambia: suelta CONFIG.jefes[...].monedas (80 a 110) con imán, como antes.
   },
 
-  // ---------- 4. Corazones de curación ----------
+  // ---------- 4. Corazones de curación (YA NO CAEN desde v1.07: los reemplazan las esferas de maná) ----------
+  // Se dejan los números por si se quieren volver a usar (activo: true y esferasMana.activo: false).
+  // El contador "Revivir ♥♥" del HUD es otra cosa (sistema de revivir) y no cambia.
   corazones: {
+    activo: false,
     intervalo: 18,            // segundos de juego entre caídas (se detiene en pausa; se reinicia en cada nivel)
     duracion: 12,             // segundos que dura si nadie lo toma
     parpadeo: 3,              // parpadea los últimos segundos
@@ -109,6 +112,22 @@ const BALANCE = {
     separacionMin: 300,       // distancia mínima entre los dos corazones
     velocidadCaida: 260,
     enVersus: false,
+  },
+
+  // ---------- 4b. Esferas de maná (v1.07): caen en lugar de los corazones ----------
+  // Usan la misma caída y la misma lista que los corazones (así el juego en línea no cambia).
+  esferasMana: {
+    activo: true,
+    intervalo: 12,            // segundos de juego entre caídas (se detiene en pausa; se reinicia en cada nivel)
+    duracion: 12,             // segundos que dura en el suelo si nadie la toma
+    parpadeo: 3,              // parpadea los últimos segundos
+    mana: 20,                 // maná que recupera (sin pasar del máximo)
+    porCaida: { solo: 1, pareja: 2 }, // en pareja caen separadas, una hacia cada jugador
+    // Durante la pelea con un jefe caen más
+    jefe: { intervalo: 12, porCaida: { solo: 2, pareja: 3 } },
+    separacionMin: 300,       // distancia mínima entre dos esferas
+    velocidadCaida: 260,
+    enVersus: false,          // en versus no caen
   },
 
   // ---------- Refuerzos durante la pelea con el jefe ----------

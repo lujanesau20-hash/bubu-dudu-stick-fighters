@@ -97,14 +97,20 @@ class Render {
       ctx.beginPath(); ctx.ellipse(c.x, y, rm * giro + 1, rm, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
-    // Corazones de curación (parpadean al final)
-    if (m.corazones) {
-      const bc = BALANCE.corazones;
+    // Esferas de maná (v1.07) o corazones de curación (parpadean al final)
+    if (m.corazones && m.corazones.length) {
+      const be = BALANCE.esferasMana;
+      const esferas = !!(be && be.activo);
+      const bc = esferas ? be : BALANCE.corazones;
+      const ci = CONFIG.interfaz.esferasMana;
+      const re = (typeof Juego !== 'undefined' && Juego.esTactil) ? ci.radioCelular : ci.radioLaptop;
       for (const c of m.corazones) {
+        if (!U.visibleX(v, c.x, 40)) continue;
         const quedan = bc.duracion - c.t;
         if (quedan < bc.parpadeo && Math.floor(t * 8) % 2 === 0) continue;
         const flota = c.enSuelo ? Math.sin(t * 4 + c.x) * 4 : 0;
-        dibujarCorazon(ctx, c.x, c.y - 16 + flota, 30, t);
+        if (esferas) dibujarEsferaMana(ctx, c.x, Math.min(c.y, m.sueloY) - re - 2 + flota, re, ci);
+        else dibujarCorazon(ctx, c.x, c.y - 16 + flota, 30, t);
       }
     }
 
@@ -243,6 +249,16 @@ class Render {
     }
     ctx.restore();
   }
+}
+
+// Esfera de maná (v1.07): círculo azul con borde y un reflejo. Sin brillo ni sombras (rápido en celular).
+function dibujarEsferaMana(ctx, x, y, r, ci) {
+  ctx.fillStyle = ci.relleno;
+  ctx.strokeStyle = ci.borde;
+  ctx.lineWidth = Math.max(2, r / 7);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = ci.reflejo;
+  ctx.beginPath(); ctx.ellipse(x - r * 0.35, y - r * 0.4, r * 0.3, r * 0.18, -0.6, 0, Math.PI * 2); ctx.fill();
 }
 
 // Corazón de curación dibujado por código (contorno oscuro y brillo).

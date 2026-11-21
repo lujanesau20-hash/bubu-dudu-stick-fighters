@@ -302,23 +302,35 @@ class Mundo {
     this.monedas.length = k;
   }
 
-  // ---------- Corazones de curación (config/balance.js -> corazones) ----------
+  // ---------- Esferas de maná (config/balance.js -> esferasMana) ----------
+  // Desde v1.07 en la lista "corazones" caen ESFERAS DE MANÁ (el nombre de la lista se deja igual
+  // para no cambiar el juego en línea). Si esferasMana.activo es false, vuelven los corazones.
   actualizarCorazones(dt) {
     if (typeof BALANCE === 'undefined') return;
-    const bc = BALANCE.corazones;
+    const be = BALANCE.esferasMana;
+    const esferas = !!(be && be.activo);
+    const bc = esferas ? be : BALANCE.corazones;
+    if (!esferas && !bc.activo) { this.corazones.length = 0; return; }
     if (this.modo === 'versus' && !bc.enVersus) return;
     if (this.estado !== 'jugando') return;
 
-    // Cada "intervalo" segundos de juego cae un corazón cerca de los jugadores
+    // Pelea con jefe: más esferas
+    const conJefe = esferas && be.jefe && this.jefe && this.jefe.vivo;
+    const intervalo = conJefe ? be.jefe.intervalo : bc.intervalo;
+    const pc = conJefe ? be.jefe.porCaida : bc.porCaida;
+    const cant = this.jugadores.length > 1 ? pc.pareja : pc.solo;
+
+    // Cada "intervalo" segundos de juego cae una (o más) cerca de los jugadores
     this.tCorazon += dt;
-    if (this.tCorazon >= bc.intervalo) {
+    if (this.tCorazon >= intervalo) {
       this.tCorazon = 0;
-      for (const x of this.lugaresCorazones()) {
-        this.corazones.push({ x, y: this.sueloY - 760, vx: 0, vy: bc.velocidadCaida, ancho: 34, alto: 30, t: 0, enSuelo: false });
+      for (const x of this.lugaresCorazones(cant, bc.separacionMin)) {
+        this.corazones.push({ x, y: this.sueloY - 760, vx: 0, vy: bc.velocidadCaida, ancho: 34, alto: 30, t: 0, enSuelo: false, esfera: esferas });
         this.emitir('corazonAparece', { x });
       }
     }
 
+    if (esferas) { this.actualizarEsferas(dt, be); return; }
     for (const c of this.corazones) {
       c.t += dt;
       if (!c.enSuelo) { c.vy = bc.velocidadCaida; this.moverCuerpo(c, dt, true); }
@@ -337,6 +349,31 @@ class Mundo {
     this.corazones.length = k;
   }
 
+  // Esferas: caen, se quedan en el suelo y las toma el primero que las toque (con el maná no lleno).
+  // Se recogen con el mismo alcance que las monedas (más amplio en celular y en línea).
+  actualizarEsferas(dt, be) {
+    const r = this.radioMonedas || BALANCE.monedas.radioRecogida.laptop;
+    for (const c of this.corazones) {
+      c.t += dt;
+      if (!c.enSuelo) { c.vy = be.velocidadCaida; this.moverCuerpo(c, dt, true); }
+      const cy = c.y - 16; // centro de la esfera
+      for (const j of this.jugadores) {
+        if (!j.vivo || j.energia >= CONFIG.energia.max) continue;
+        const dx = Math.max(0, Math.abs(c.x - j.x) - j.ancho / 2);
+        const dy = cy < j.y - j.alto ? j.y - j.alto - cy : cy > j.y ? cy - j.y : 0;
+        if (dx * dx + dy * dy > r * r) continue;
+        const antes = j.energia;
+        j.energia = Math.min(CONFIG.energia.max, j.energia + be.mana);
+        c.tomado = true;
+        this.emitir('mana', { jugador: j.indice, x: c.x, y: cy, cantidad: Math.round(j.energia - antes) });
+        break;
+      }
+    }
+    let k = 0;
+    for (const c of this.corazones) if (!c.tomado && c.t < be.duracion) this.corazones[k++] = c;
+    this.corazones.length = k;
+  }
+
   // Al limpiar un tramo, cada jugador vivo recupera parte de su vida (config/balance.js -> jugador.curaPorTramo)
   curarPorTramo() {
     const k = typeof BALANCE !== 'undefined' ? BALANCE.jugador.curaPorTramo || 0 : 0;
@@ -349,10 +386,9 @@ class Mundo {
     }
   }
 
-  // Dónde caen los corazones: 1 en solitario; 2 en pareja, separados (uno hacia cada jugador)
-  lugaresCorazones() {
-    const bc = BALANCE.corazones;
-    const cant = this.jugadores.length > 1 ? bc.porCaida.pareja : bc.porCaida.solo;
+  // Dónde caen: 1 en solitario; 2 en pareja, separados (uno hacia cada jugador); el resto, cerca del centro
+  lugaresCorazones(cant, separacionMin) {
+    const bc = { separacionMin };
     const izq = this.limiteIzq + 60, der = this.limiteDer - 60;
     const vivos = this.jugadores.filter((j) => j.vivo);
     const centro = vivos.length ? vivos.reduce((s, j) => s + j.x, 0) / vivos.length : (izq + der) / 2;
