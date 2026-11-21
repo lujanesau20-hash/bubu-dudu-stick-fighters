@@ -229,7 +229,7 @@ const BALANCE = {
   // Cura una parte del daño REALMENTE hecho (sin el sobrante al matar) con H1, H2, H3 y H4.
   // Los combos (Corte volador, Torbellino, Cataclismo) NO roban vida.
   roboVida: {
-    porcentajes: [0.03, 0.05, 0.08, 0.10, 0.15], // nivel 0 (gratis) y las 4 compras de la tienda
+    porcentajes: [0.03, 0.05, 0.07, 0.08, 0.10], // nivel 0 (gratis) y las 4 compras de la tienda (v1.14: máximo 10%; antes 5, 8, 10, 15)
     topePorUso: 0.15,         // máximo curado por cada uso de una habilidad (15% de la vida máxima), útil en H3 y H4
     juntarMs: 400,            // los "+N" verdes dentro de este tiempo se suman en un solo número
     // Versus: opción que se elige antes de empezar (local en PC; en línea, el líder en la sala).

@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: menos vida en los mundos 2 a 5 — sección 29; antes: pruebas de cierre — sección 28, calibración — sección 27, 10 niveles y Jungla — sección 26, esferas, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.13`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.13`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.14`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.14`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`
 
 ---
 
@@ -1560,7 +1560,7 @@ El jefe tiene 10 veces la vida del enemigo de su nivel (en pareja, ×1,6). Cada 
 
 ### Propuestas que NO se aplicaron (cambian mucho el juego)
 1. **Golpes de H1** (**aplicada en v1.13**, sección 29): 32 de los 50 niveles piden más de 8 golpes con la mitad de las mejoras. Propuesta: bajar la vida de los mundos 2 a 5 (`BALANCE.mundos[].vida`) a Cielo 100→240, Espacio 130→270, Ciudad 160→300 y Jungla 190→330. Con las mejoras que alcanza a comprar el jugador quedarían unos 9 a 10 golpes al final de cada mundo. La Isla 9 y 10 ya pedían 9 y 11 golpes desde v1.02.
-2. **Robo de vida al 15%:** es muy fuerte, porque cura casi todo el daño. Propuesta: máximo 10% (porcentajes 3, 5, 7, 8, 10) o tope por uso de 10 en lugar de 15.
+2. **Robo de vida al 15%** (**aplicada en v1.14**, sección 30): es muy fuerte, porque cura casi todo el daño. Propuesta: máximo 10% (porcentajes 3, 5, 7, 8, 10) o tope por uso de 10 en lugar de 15.
 3. **Economía:** al final del Mundo 1 se tiene el 41% de las mejoras (16 de 39). Para llegar justo a la mitad habría que bajar todos los precios un 30%.
 4. **Jefe por nivel:** hoy cada mundo tiene jefe solo en el nivel 10, como la Isla. Si se quiere un jefe en otros niveles, basta con `jefe: '<tipo>'` en esa línea de `BALANCE.mundos`.
 
@@ -1631,3 +1631,41 @@ Respaldo: etiqueta `respaldo-antes-vida-mundos`. Es la propuesta 1 de la secció
   | Jungla | 2 de 2 | 2 de 2 | 2 de 2 |
 
   El jefe de la Ciudad (Ninja Sombra, muy rápido) le cuesta al bot: antes de bajar la vida ganaba 1 de 2.
+
+## 30. Robo de vida con máximo de 10% (v1.14)
+
+Respaldo: etiqueta `respaldo-antes-robo-10`. Es la propuesta 2 de la sección 27, elegida por el usuario.
+
+### Qué cambió
+- `BALANCE.roboVida.porcentajes`: **3% (gratis), 5%, 7%, 8% y 10%**. Antes eran 3, 5, 8, 10 y 15.
+- **Sin cambios:**
+  - el tope por uso (15 de vida);
+  - los precios (100, 175, 275 y 400);
+  - el versus, que ya era fijo en 10%;
+  - las mejoras ya compradas, que se mantienen: quien tenía la 4.ª compra ahora roba 10%.
+- La tienda muestra los nuevos porcentajes sola, porque los lee de la configuración.
+
+### Medido con el bot (robo de vida al máximo, mejoras según las monedas, 3 partidas)
+
+| Nivel | Ganadas | Vida más baja |
+|---|---|---|
+| Isla 5 | 3 de 3 | 83 |
+| Isla 8 | 3 de 3 | 82 |
+| Isla 10 | 3 de 3 | 80 |
+| Cielo 5 | 3 de 3 | 83 |
+| Cielo 8 | 2 de 3 | 28 |
+| Cielo 10 | 2 de 3 | 51 |
+
+**Hallazgo:** bajar de 15% a 10% cambia poco.
+- El jugador hace mucho más daño del que recibe, así que hasta un 10% alcanza para curarse casi todo entre golpe y golpe: el robo cubrió entre el 92% y el 99% del daño recibido.
+- También se probó el tope por uso, sin aplicarlo:
+
+  | Tope por uso | Isla 8 | Cielo 8 | Espacio 10 |
+  |---|---|---|---|
+  | 15 | 3 de 3 | 2 de 3 | 1 de 3 |
+  | 10 | 3 de 3 | 2 de 3 | 1 de 3 |
+  | 5 | 3 de 3 | 1 de 3 | 1 de 3 |
+
+  Con tope 5, lo curado baja a un 86–98% del daño recibido.
+
+**Si se quiere que el robo pese menos**, lo que más cambia el resultado es bajar `topePorUso` (por ejemplo a 0,05) o los porcentajes de abajo. No se aplicó.
