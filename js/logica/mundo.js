@@ -38,6 +38,8 @@ class Mundo {
     this.tramoActual = 0;        // para el indicador "Tramo X/Y"
     this.totalTramos = (datos.oleadas || []).length;
     this.escenario = datos;
+    // Fondo de un mundo que se carga aparte (Jungla): se pide ahora si todavía no llegó
+    if (typeof CARGA_MUNDOS !== 'undefined') CARGA_MUNDOS.asegurar(datos.fondo);
     this.ancho = datos.ancho;
     this.sueloY = datos.sueloY;
     this.plataformas = datos.plataformas.map((p) => ({ ...p }));
@@ -484,7 +486,7 @@ class Mundo {
       if (plat && this.rng() < 0.6) x = plat.x + plat.w / 2;
     }
     const e = new Enemigo(this, tipo, x, -200);
-    e.vida = e.vidaMax = BALANCE.vidaEnemigo(this.nivel);
+    e.vida = e.vidaMax = this.vidaEnemigoNivel();
     e.esRefuerzo = true;
     this.enemigos.push(e);
     this.refuerzos.push(e);
@@ -549,7 +551,7 @@ class Mundo {
       const xj = Math.min(xMax + 520, this.limiteDer - 120);
       this.jefe = new Jefe(this, esc.jefe, xj, -400, mv);
       // Vida del jefe según el nivel (config/balance.js)
-      if (typeof BALANCE !== 'undefined') this.jefe.vida = this.jefe.vidaMax = Math.round((esc.vidaJefe || BALANCE.vidaJefe(this.nivel)) * mv);
+      if (typeof BALANCE !== 'undefined') this.jefe.vida = this.jefe.vidaMax = Math.round((esc.vidaJefe || this.vidaEnemigoNivel() * BALANCE.enemigos.multiplicadorJefe) * mv);
     }
   }
 
@@ -612,7 +614,8 @@ class Mundo {
   // Cuántos salen a distancia en este tramo (entre min y max) y en qué orden de salida
   planDistancia(total) {
     const bd = BALANCE.distancia;
-    const min = this.valorPorNivel(bd.minPorTramo), max = this.valorPorNivel(bd.maxPorTramo);
+    const extra = this.escenario.distanciaExtra || 0; // mundos con más arqueros/magos
+    const min = this.valorPorNivel(bd.minPorTramo) + extra, max = this.valorPorNivel(bd.maxPorTramo) + extra;
     const n = Math.min(total, min + Math.floor(this.rng() * (max - min + 1)));
     const plan = new Set();
     while (plan.size < n) plan.add(Math.floor(this.rng() * total));
@@ -660,7 +663,7 @@ class Mundo {
       if (filtrados.length) tipos = filtrados;
       else if (clase === 'distancia') tipos = ['arquero'];
     }
-    const pesos = BALANCE.isla.pesos;
+    const pesos = this.escenario.pesos || BALANCE.isla.pesos; // cada mundo con sus frecuencias
     const total = tipos.reduce((s, t) => s + (pesos[t] || 1), 0);
     let r = this.rng() * total;
     for (const t of tipos) { r -= pesos[t] || 1; if (r <= 0) return t; }
@@ -676,8 +679,13 @@ class Mundo {
     }
     const e = new Enemigo(this, tipo, x, -150 - k * 140 - this.rng() * 120);
     // Vida según el nivel (config/balance.js)
-    if (typeof BALANCE !== 'undefined') e.vida = e.vidaMax = BALANCE.vidaEnemigo(this.nivel);
+    if (typeof BALANCE !== 'undefined') e.vida = e.vidaMax = this.vidaEnemigoNivel();
     this.enemigos.push(e);
+  }
+
+  // Vida del enemigo normal de este nivel: la del mundo (Cielo..Jungla) o la fórmula de la Isla
+  vidaEnemigoNivel() {
+    return this.escenario.vidaEnemigo || BALANCE.vidaEnemigo(this.nivel);
   }
 
   comprobarFin(dt) {

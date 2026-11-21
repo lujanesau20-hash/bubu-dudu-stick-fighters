@@ -95,7 +95,8 @@ Object.assign(FONDOS, {
       ctx.fill();
       // Brillos dorados (polvo de estrellas) en la nube
       const brillos = decoracion('cielo-brillos', (r) => Array.from({ length: 60 }, () => ({ x: r() * 4700, y: 40 + r() * 160, f: r() * 6 })));
-      brillos.forEach((b) => {
+      for (let off = 0; off < m.ancho; off += 4700) brillos.forEach((b0) => { // se repite cada 4700 px
+        const b = off ? { ...b0, x: b0.x + off } : b0;
         if (!U.visibleX(v, b.x, 4)) return;
         ctx.globalAlpha = 0.3 + Math.abs(Math.sin(t * 2 + b.f)) * 0.5;
         ctx.fillStyle = '#ffe066';
@@ -110,7 +111,8 @@ Object.assign(FONDOS, {
     decorado(ctx, m) {
       const cols = decoracion('cielo-columnas', (r) => Array.from({ length: 12 }, (_, i) => ({ x: 260 + i * 380 + r() * 140, h: 120 + r() * 120, rota: r() < 0.3 })));
       const v = U.rangoVisibleX(ctx);
-      cols.forEach((c) => {
+      for (let off = 0; off < m.ancho; off += 4700) cols.forEach((c0) => { // se repite cada 4700 px
+        const c = off ? { ...c0, x: c0.x + off } : c0;
         if (c.x > m.ancho - 80 || !U.visibleX(v, c.x, 30)) return;
         const y = m.sueloY;
         const h = c.rota ? c.h * 0.55 : c.h;
@@ -205,7 +207,8 @@ Object.assign(FONDOS, {
       // Cráteres
       const crat = decoracion('esp-crateres', (r) => Array.from({ length: 45 }, () => ({ x: r() * 4700, y: 30 + r() * 120, r: 8 + r() * 26 })));
       const v = U.rangoVisibleX(ctx);
-      crat.forEach((c) => {
+      for (let off = 0; off < m.ancho; off += 4700) crat.forEach((c0) => { // se repite cada 4700 px
+        const c = off ? { ...c0, x: c0.x + off } : c0;
         if (!U.visibleX(v, c.x, 60)) return;
         ctx.fillStyle = 'rgba(30,25,50,0.45)';
         ctx.beginPath(); ctx.ellipse(c.x, y + c.y, c.r * 1.5, c.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
@@ -240,7 +243,8 @@ Object.assign(FONDOS, {
       const ant = decoracion('esp-antenas', (r) => Array.from({ length: 10 }, (_, i) => ({ x: 300 + i * 450 + r() * 160, h: 90 + r() * 90 })));
       const t = performance.now() / 1000;
       const v = U.rangoVisibleX(ctx);
-      ant.forEach((a) => {
+      for (let off = 0; off < m.ancho; off += 4700) ant.forEach((a0) => { // se repite cada 4700 px
+        const a = off ? { ...a0, x: a0.x + off } : a0;
         if (a.x > m.ancho - 80 || !U.visibleX(v, a.x, 30)) return;
         const y = m.sueloY;
         ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = 4;

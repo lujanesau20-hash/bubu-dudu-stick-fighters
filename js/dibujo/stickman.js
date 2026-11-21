@@ -178,6 +178,13 @@ function dibujarStickman(ctx, e, t) {
   if (e.esJefe) {
     ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 3;
     if (e.tipo === 'gigante') { ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(6, -40); ctx.stroke(); }
+    // Guardián de la Jungla: corona de hojas sobre la cabeza
+    if (e.tipo === 'guardianJungla') {
+      ctx.fillStyle = '#69db7c'; ctx.strokeStyle = '#1b5e20'; ctx.lineWidth = 2;
+      for (let k = -2; k <= 2; k++) {
+        ctx.beginPath(); ctx.ellipse(cx + k * 7, cy - 15 - (2 - Math.abs(k)) * 3, 4, 9, k * 0.35, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
     ctx.fillStyle = '#ff4d4d';
     if (e.fase2 && !muerto) { ctx.beginPath(); ctx.arc(cx + 5, cy - 1, 2.2, 0, Math.PI * 2); ctx.fill(); }
   }

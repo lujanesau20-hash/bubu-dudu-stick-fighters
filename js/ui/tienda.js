@@ -28,6 +28,8 @@ const Guardado = {
     // Partidas guardadas antes de v1.02 no tienen mejoras: se agregan en 0 (no se borra nada)
     if (!this.datos.mejoras || typeof this.datos.mejoras !== 'object') this.datos.mejoras = {};
     for (const id of Object.keys(CONFIG.personajes)) this.datos.mejoras[id] = MEJORAS.normalizar(this.datos.mejoras[id]);
+    // v1.10: los mundos de un solo nivel pasaron a tener 10 (se respeta lo ya superado)
+    if (typeof PROGRESO !== 'undefined' && PROGRESO.migrar && PROGRESO.migrar(this.datos)) this.guardar();
   },
 
   guardar() {

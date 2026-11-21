@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: daño enemigo por tramo — sección 25). **Versión actual: `v1.09`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.09`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: 10 niveles por mundo y Mundo 5 Jungla Encantada — sección 26; antes: esferas de maná, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.10`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.10`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`
 
 ---
 
@@ -28,9 +28,10 @@ Los protagonistas son **Bubu** (oso panda **blanco**, con moño negro) y **Dudu*
 | Mundo | Niveles | Enemigo típico | Jefe |
 |---|---|---|---|
 | 1. Isla Flotante | **10 niveles** (por tramos) | stickman normal, espadachín, arquero; desde el nivel 4 ninja; desde el 5 mago | **El Gigante** (solo en el nivel 10) |
-| 2. Cielo con Nubes | 1 nivel | arqueros | Arquero Maestro |
-| 3. Espacio | 1 nivel | magos | Mago Cósmico |
-| 4. Calle de la Ciudad | 1 nivel | ninjas | Ninja Sombra |
+| 2. Cielo con Nubes | **10 niveles** (v1.10) | más arqueros | Arquero Maestro (nivel 10) |
+| 3. Espacio | **10 niveles** (v1.10) | más magos | Mago Cósmico (nivel 10) |
+| 4. Calle de la Ciudad | **10 niveles** (v1.10) | más ninjas | Ninja Sombra (nivel 10) |
+| 5. Jungla Encantada | **10 niveles** (v1.10, nuevo) | todos, con colores propios | Rey de la Jungla (nivel 10) |
 
 Los niveles se desbloquean **en orden**: para jugar el nivel 2 hay que pasar el 1; el Mundo 2 se abre al terminar el nivel 10 de la Isla, y así sucesivamente. En **todos** los mundos aparecen también arqueros/magos y aves voladoras (ver sección 3).
 
@@ -1424,3 +1425,71 @@ Respaldo antes de empezar: etiqueta `respaldo-antes-esferas-mana`. Cada fase se 
   - En el nivel 4, 8 en el tramo 3 y 20 en el tramo 10.
   - La embestida del Gigante en el nivel 10, tramo 10, pega 25.
   - En versus, la espada sigue haciendo 18.
+
+## 26. Diez niveles por mundo y Mundo 5 "Jungla Encantada" (v1.10)
+
+Respaldo: etiqueta `respaldo-antes-diez-niveles`.
+
+### Qué cambió
+- **50 niveles:** cada mundo tiene 10 niveles, armados igual que la Isla.
+  - Tramos por nivel: 7, 8, 9, 10, 11, 11, 11, 12, 12 y 10.
+  - Cada tramo tiene 3 oleadas, la curación del 40% al limpiarlo, monedas por enemigo y 60 de bono al terminar.
+  - El jefe sale en el **nivel 10**, como en la Isla.
+  - Ids: `cielo-1` … `cielo-10`, `espacio-1…10`, `ciudad-1…10` y `jungla-1…10`.
+  - Código: `js/logica/niveles_mundos.js` (nuevo). La Isla sigue en `niveles_isla.js` y no cambió.
+- **Datos de cada mundo** (`config/balance.js` → `BALANCE.mundos`):
+  - `niveles`: tramos de cada nivel y el jefe.
+  - `vida`: vida del enemigo en el nivel 1 y en el nivel 10.
+  - `danioExtra`: daño que se suma a cada golpe enemigo desde el tramo 1.
+  - `distanciaExtra`: arqueros o magos de más por tramo.
+  - `tiposDesde` y `pesos`: qué enemigos salen y con qué frecuencia.
+  - `colores`: color propio de cada tipo de enemigo.
+- **Jefe en cada nivel:** para que un nivel tenga jefe, basta con poner `jefe: '<tipo>'` en su línea.
+- **Jefes:**
+  - Isla: Gigante.
+  - Cielo: Arquero Maestro.
+  - Espacio: Mago Cósmico.
+  - Ciudad: Ninja Sombra.
+  - Jungla: **Rey de la Jungla** (nuevo; `BALANCE.jefeJungla`). Pelea como el Gigante, pero es verde, tiene una corona de hojas y pega un poco más (puño 10, pisotón 9, embestida 12).
+- **Mundo 5, Jungla Encantada** (`js/dibujo/fondo_jungla.js`, nuevo): bosque oscuro con siluetas de árboles gigantes, plantas de hojas grandes que se mecen, luciérnagas, neblina, hongos de colores, raíces y plataformas de tronco con lianas.
+  - Todo dibujado por código y sin brillos.
+  - Enemigos stickman con colores propios: naranja, rojo, lima, lila y violeta.
+- **Carga:** el fondo de la Jungla **no** se baja al abrir el juego. `CARGA_MUNDOS` lo pide en segundo plano 4 s después de cargar, o al empezar un nivel de la Jungla, también en el invitado. Mientras no llega se ve el fondo de la Isla.
+- **Mundos encadenados:** el mundo siguiente se abre al terminar el nivel 10 del anterior. El selector muestra 5 mundos, con un candado y el aviso "Termina el Mundo N".
+- **Guardados viejos** (`PROGRESO.migrar`, llamado desde `Guardado.cargar`): si ya se había superado el nivel único de Cielo, Espacio o Ciudad, se marcan superados sus 10 niveles nuevos. No se borra nada.
+- **Mejoras en los fondos:** la decoración de Cielo y Espacio (columnas, antenas, brillos y cráteres) ahora se repite en los niveles largos. Antes llegaba solo hasta 4700 px.
+- **En línea:** el líder elige mundo y nivel. El invitado arma el mismo nivel, con los mismos colores y el mismo fondo.
+
+### Vida del enemigo normal y del jefe
+
+| Mundo | N1 | N2 | N3 | N4 | N5 | N6 | N7 | N8 | N9 | N10 | Jefe (N10) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Isla | 70 | 81 | 93 | 106 | 122 | 141 | 162 | 186 | 214 | 246 | 1700 (fijo, como antes) |
+| Cielo | 110 | 122 | 135 | 150 | 167 | 185 | 205 | 228 | 252 | 280 | 2800 |
+| Espacio | 150 | 163 | 178 | 193 | 210 | 229 | 249 | 270 | 294 | 320 | 3200 |
+| Ciudad | 190 | 204 | 219 | 235 | 252 | 271 | 291 | 312 | 335 | 360 | 3600 |
+| Jungla | 230 | 245 | 260 | 277 | 294 | 313 | 333 | 354 | 376 | 400 | 4000 |
+
+El jefe tiene 10 veces la vida del enemigo de su nivel (en pareja, ×1,6). Cada mundo empieza 40 puntos por encima del anterior y termina entre 34 y 40 más arriba.
+
+### Daño de un enemigo normal: primer tramo → último tramo (tope 20)
+
+| Mundo | N1 | N2 | N3 | N4 … N10 |
+|---|---|---|---|---|
+| Isla (+0) | 4→10 | 4→11 | 4→12 | 4→20 |
+| Cielo (+1) | 5→11 | 5→12 | 5→13 | 5→20 |
+| Espacio (+2) | 6→12 | 6→13 | 6→14 | 6→20 |
+| Ciudad (+3) | 7→13 | 7→14 | 7→15 | 7→20 |
+| Jungla (+4) | 8→14 | 8→15 | 8→16 | 8→20 |
+
+### Probado
+- Hay 50 niveles en orden.
+- Guardado viejo con la Isla completa y el "cielo" viejo superado:
+  - Los niveles superados pasan de 11 a 21.
+  - El Espacio 1 queda abierto y el Espacio 2 cerrado.
+  - Ciudad y Jungla quedan con candado.
+  - Las mejoras se mantienen.
+- La Jungla 1 tiene enemigos con 230 de vida y colores propios.
+- La Jungla 10 tiene al Rey de la Jungla con 4000 de vida.
+- El fondo de la Jungla llega solo, en segundo plano.
+- Capturas del fondo, del jefe y del selector, sin errores.

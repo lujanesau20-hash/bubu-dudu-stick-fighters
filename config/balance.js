@@ -249,13 +249,56 @@ const BALANCE = {
   },
 
   // ---------- Mundos (se desbloquean en orden) ----------
-  // nivelVida: nivel que usan para la vida de sus enemigos y jefe
+  // Desde v1.10 cada mundo tiene 10 niveles, armados igual que la Isla (js/logica/niveles_mundos.js).
+  // El mundo siguiente se abre al terminar el nivel 10 del anterior.
+  //   niveles:    tramos de cada nivel (y el jefe final en el nivel 10)
+  //   vida:       vida del enemigo normal en el nivel 1 y en el nivel 10 (crece parejo entre los dos).
+  //               El jefe tiene 10 veces la vida del enemigo de su nivel (enemigos.multiplicadorJefe).
+  //   danioExtra: daño que se suma a cada golpe de los enemigos de este mundo (desde el tramo 1)
+  //   distanciaExtra: arqueros/magos de más por tramo (sobre BALANCE.distancia)
+  //   tiposDesde / pesos: qué enemigos salen desde qué nivel y con qué frecuencia
+  //   colores: color propio de cada tipo de enemigo (si no, el de siempre)
+  // nivelVida (Cielo, Espacio, Ciudad): solo para los niveles viejos de un nivel (ya no se juegan)
   mundos: [
-    { id: 'isla', nombre: 'Isla Flotante' },
-    { id: 'cielo', nombre: 'Cielo con Nubes', nivelVida: 11 },
-    { id: 'espacio', nombre: 'Espacio', nivelVida: 12 },
-    { id: 'ciudad', nombre: 'Calle de la Ciudad', nivelVida: 13 },
+    { id: 'isla', nombre: 'Isla Flotante' }, // números en BALANCE.isla (sin cambios)
+    { id: 'cielo', nombre: 'Cielo con Nubes', nivelVida: 11,
+      niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
+        { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'arqueroMaestro' }],
+      vida: [110, 280], danioExtra: 1, distanciaExtra: 1,
+      tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 3, mago: 5 },
+      pesos: { normal: 2, espadachin: 2, arquero: 3, ninja: 1.5, mago: 1 } },
+    { id: 'espacio', nombre: 'Espacio', nivelVida: 12,
+      niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
+        { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'magoCosmico' }],
+      vida: [150, 320], danioExtra: 2, distanciaExtra: 1,
+      tiposDesde: { normal: 1, espadachin: 1, mago: 1, arquero: 2, ninja: 3 },
+      pesos: { normal: 2, espadachin: 2, mago: 3, arquero: 1, ninja: 1.5 } },
+    { id: 'ciudad', nombre: 'Calle de la Ciudad', nivelVida: 13,
+      niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
+        { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'ninjaSombra' }],
+      vida: [190, 360], danioExtra: 3, distanciaExtra: 0,
+      tiposDesde: { normal: 1, ninja: 1, espadachin: 1, arquero: 1, mago: 3 },
+      pesos: { normal: 2, espadachin: 2, ninja: 3, arquero: 1, mago: 1 } },
+    // Mundo 5 (v1.10): fondo de bosque oscuro con plantas gigantes y luciérnagas (js/dibujo/fondo_jungla.js)
+    { id: 'jungla', nombre: 'Jungla Encantada', fondo: 'jungla',
+      niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
+        { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'guardianJungla' }],
+      vida: [230, 400], danioExtra: 4, distanciaExtra: 1,
+      tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 1, mago: 2 },
+      pesos: { normal: 2, espadachin: 2, ninja: 2, arquero: 1.5, mago: 1.5 },
+      colores: { normal: '#ff922b', espadachin: '#f03e3e', arquero: '#c0eb75', mago: '#e599f7', ninja: '#9775fa', ave: '#ffd43b' } },
   ],
+
+  // Jefe del Mundo 5 (v1.10): pelea como el Gigante, con su propio aspecto
+  jefeJungla: { nombre: 'REY DE LA JUNGLA', color: '#2b8a3e', velocidad: 85, ancho: 96, alto: 235, monedas: 120,
+    punio: 10, pisoton: 9, embestida: 12 },
+};
+
+// Vida del enemigo normal de un mundo (2..5) en su nivel 1..10: crece parejo de vida[0] a vida[1]
+BALANCE.vidaMundo = (mu, nivel) => {
+  const n = mu.niveles ? mu.niveles.length : 10;
+  const [a, b] = mu.vida;
+  return Math.round(a * Math.pow(b / a, (Math.max(1, nivel) - 1) / Math.max(1, n - 1)));
 };
 
 // Tabla de vida por nivel (se calcula con la fórmula de arriba)
@@ -309,6 +352,10 @@ BALANCE.factorArea = (fraccion, minimo) => {
   Object.assign(CONFIG.jefes.arqueroMaestro, { danioFlecha: am.flecha, danioLluvia: am.lluvia });
   Object.assign(CONFIG.jefes.magoCosmico, { danioOrbe: mc.orbe, danioMeteoro: mc.meteoro });
   Object.assign(CONFIG.jefes.ninjaSombra, { danioCorte: ns.corte, danioShuriken: ns.shuriken });
+  // Jefe del Mundo 5 (usa la pelea del Gigante)
+  const jj = b.jefeJungla;
+  CONFIG.jefes.guardianJungla = { nombre: jj.nombre, color: jj.color, vida: b.vidaJefe(1), velocidad: jj.velocidad, ancho: jj.ancho,
+    alto: jj.alto, monedas: jj.monedas, danioPunio: jj.punio, danioPisoton: jj.pisoton, danioEmbestida: jj.embestida };
   CONFIG.multiplicadorPareja.enemigos = b.enemigos.parejaCantidad;
   CONFIG.multiplicadorPareja.vidaJefe = b.enemigos.parejaVidaJefe;
 })();

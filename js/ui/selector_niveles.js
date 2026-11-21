@@ -36,7 +36,7 @@ Object.assign(Menus, {
           ${abierto ? e.numero : '🔒'}${hecho ? '<i>✓</i>' : ''}${e.jefe ? '<em>👑</em>' : ''}</button>`;
       }).join('')}</div>`;
       const e = ESCENARIOS[sel.nivel];
-      if (e && e.mundo === sel.mundo) niveles += `<p class="info-nivel">${e.nombre}: ${e.oleadas.length} tramos${e.jefe ? ' + jefe final (El Gigante)' : ''}</p>`;
+      if (e && e.mundo === sel.mundo) niveles += `<p class="info-nivel">${e.nombre}: ${e.oleadas.length} tramos${e.jefe ? ` + jefe final (${(CONFIG.jefes[e.jefe] || {}).nombre || 'jefe'})` : ''}</p>`;
     } else if (ids.length === 1) {
       const e = ESCENARIOS[ids[0]];
       niveles = `<p class="info-nivel">${e.nombre}: ${e.oleadas.length} tramos + jefe final</p>`;

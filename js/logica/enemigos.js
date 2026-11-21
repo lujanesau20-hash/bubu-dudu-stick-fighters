@@ -16,6 +16,9 @@ class Enemigo {
     this.vidaMax = this.cfg.vida;
     this.vida = this.vidaMax;
     this.color = this.cfg.color;
+    // Mundos con colores propios (config/balance.js -> mundos[].colores), también en el invitado
+    const pal = mundo.escenario && mundo.escenario.colores;
+    if (pal && pal[tipo]) this.color = pal[tipo];
     this.estado = 'entrando';      // entrando | perseguir | preparar | atacar | aturdido | muerto
     this.t = 0;
     this.enfriamientoAtaque = mundo.rng.rango(0.6, 1.6);
