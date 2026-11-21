@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.18`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.18`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.19`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.19`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`
 
 ---
 
@@ -1787,3 +1787,52 @@ Daño = golpe del enemigo normal (base 4). Velocidad en px/s (antes de v1.15 era
 - Simulación de la lógica real hasta la oleada 12, en solitario y en pareja: oleadas, jefe en la 10 (+60 monedas), números de la tabla, sin errores.
 - Solitario por el menú (laptop y celular), pareja local por el menú, fin con Reintentar.
 - Sala en línea (líder laptop, invitado celular): el invitado ve el modo elegido, la oleada, el jefe de la oleada 10, la 11, la pantalla de fin, y el reinicio del líder.
+
+## 35. Mejor animación de los enemigos (v1.19)
+
+Respaldo: etiqueta `respaldo-antes-animacion-enemigos`. Todo dibujado por código (sin imágenes nuevas) en `js/dibujo/stickman.js`. Números en `config/interfaz.js` → `animEnemigos` (solo cambian cómo se ven).
+
+### Qué cambió
+- **Caminar:** ciclo de piernas al ritmo del movimiento (v1.15), balanceo de brazos, inclinación hacia adelante y **rebote** de cabeza y cuerpo (2,5 px, dos veces por ciclo: arriba cuando las piernas se cruzan).
+- **Ataque:** el aviso se echa hacia atrás **cada vez más** hasta el golpe; al pegar, el cuerpo se **estira** hacia adelante un 16% y vuelve.
+- **Recibir daño:** destello (como antes) y un **encogimiento** rápido de 0,14 s, sin mover al enemigo ni frenarlo. Un golpe repetido antes de 0,25 s (`encogeMinimo`) no reinicia la animación. Se detecta en el dibujo cuando sube el destello, así también se ve igual en el invitado.
+- **Muerte:** cae en 0,25 s (antes 0,35) y se desvanece entre 0,35 y 0,8 s (antes 0,7 a 1,4). Un enemigo ya invisible no se dibuja.
+- **Arqueros:** tensan la cuerda poco a poco con la flecha puesta y la cuerda vibra al soltar.
+- **Aves:** aleteo de siempre, vaivén al ritmo del aleteo, alas arriba en el aviso y plegadas en la picada (v1.15).
+
+### Rendimiento (oleada grande: 12 enemigos de a pie + 3 aves, golpes y destellos, 6 s; navegador de prueba en la laptop)
+| | Antes (v1.18) promedio / p95 / peor | Después (v1.19) promedio / p95 / peor |
+|---|---|---|
+| Laptop 1280×800 | 1,83 / 2,7 / 5,7 ms | 2,11 / 2,7 / 5,5 ms (2.ª medición 2,12 / 2,7 / 5,9) |
+| Celular 800×360 | 1,70 / 2,3 / 4,1 ms | 1,91 / 2,4 / 4,0 ms (2.ª medición 1,69 / 2,3 / 5,9) |
+
+Tiempo de dibujo de cada cuadro (el límite para 60 FPS es 16,7 ms). La diferencia está dentro de la variación entre mediciones. No se agregaron brillos, sombras ni partículas: los límites de efectos y la calidad automática no cambian.
+
+### Carpeta `enemigos_nuevos/` (solo inspeccionada; NO se integró, movió ni borró)
+21 imágenes PNG, todas en color RGB **sin transparencia, con fondo verde** (verde neón para recortar):
+
+| Archivo | Tamaño (px) |
+|---|---|
+| Cinco flechas elementales sobre verde neón.png | 2172 × 724 |
+| Hoja de poses del arquero tribal forestal.png | 1536 × 1024 |
+| Hoja de sprites de astronauta morado.png | 1536 × 1024 |
+| Hoja de sprites de ave chibi voladora.png | 1536 × 1024 |
+| Hoja de sprites de dron cíclope.png | 1536 × 1024 |
+| Hoja de sprites de personaje chibi alado.png | 1536 × 1024 |
+| Hoja de sprites de polilla morada.png | 1536 × 1024 |
+| Hoja de sprites del arquero chibi.png | 1536 × 1024 |
+| Hoja de sprites del arquero del bosque.png | 1536 × 1024 |
+| Hoja de sprites del arquero espacial.png | 1536 × 1024 |
+| Hoja de sprites del caballero espacial 中国福利彩票天天.png | 1536 × 1024 |
+| Hoja de sprites del chamán tribal.png | 1536 × 1024 |
+| Hoja de sprites del guardián forestal.png | 1536 × 1024 |
+| Hoja de sprites del guerrero hoja.png | 1536 × 1024 |
+| Hoja de sprites del obrero azul.png | 1536 × 1024 |
+| Hoja guerrera_ sprite sheet animado.png | 1536 × 1024 |
+| Sprite de arquero encapuchado.png | 1536 × 1024 |
+| Sprite de ave tormentosa animada.png | 1536 × 1024 |
+| Sprite de combate del rey de la tormenta.png | 1536 × 1024 |
+| Sprite de dron enojado en acción.png | 1536 × 1024 |
+| Sprite de jefe constructor en acción.png | 1536 × 1024 |
+
+Cada una pesa entre 1,3 y 1,7 MB. Si algún día se usan, habría que quitar el fondo verde, cortar los cuadros y achicarlas (como las hojas de Bubu y Dudu para celular). La carpeta no está en el repositorio (no se subió).

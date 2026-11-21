@@ -30,11 +30,14 @@ function poseStickman(e, t) {
     case 'caminar': {
       const s = Math.sin(f);
       if (Math.abs(e.vx) > 15) {
+        const ca = CONFIG.interfaz.animEnemigos;
         p.pD = [s * 0.6, Math.max(0, -s) * -0.7];
         p.pI = [-s * 0.6, Math.max(0, s) * -0.7];
         p.bD = [-s * 0.7, -s * 0.3 + 0.4];
         p.bI = [s * 0.7, s * 0.3 + 0.4];
-        p.cuerpo = 0.12;
+        p.cuerpo = ca.inclinacionPaso + Math.abs(s) * 0.03;
+        // Rebote: más alto cuando las piernas se cruzan, más bajo con el paso abierto (dos por ciclo)
+        p.dy = -(1 - Math.abs(s)) * ca.rebotePaso;
       } else {
         const r = Math.sin(t * 3 + f) * 0.05;
         p.bD = [0.3 + r, 0.6]; p.bI = [-0.2 - r, 0.2];
@@ -56,11 +59,15 @@ function poseStickman(e, t) {
       p.pD = [0.45, 0]; p.pI = [-0.4, 0];
       break;
     case 'preparar':
-    case 'prepPunio':
-      p.cuerpo = -0.25;
+    case 'prepPunio': {
+      // Se echa hacia atrás cada vez más hasta el golpe (k: 0 al empezar el aviso, 1 al pegar)
+      const av = (BALANCE.comportamiento.avisoPorTipo || {})[e.tipo] || BALANCE.comportamiento.aviso;
+      const k = e.esJefe ? 1 : U.clamp(1 - (e.t || 0) / av, 0, 1);
+      p.cuerpo = -0.08 - CONFIG.interfaz.animEnemigos.retrocesoAviso * k;
       p.bD = [-2.3, -1.2]; p.bI = [0.6, 1.6];
       p.pD = [0.45, 0]; p.pI = [-0.45, 0];
       break;
+    }
     case 'atacar':
     case 'punio':
       p.cuerpo = 0.3;
@@ -135,13 +142,25 @@ function dibujarStickman(ctx, e, t) {
     ctx.beginPath(); ctx.ellipse(e.x, e.mundo.sueloY >= e.y - 1 ? e.y : e.y, 22 * esc, 6 * esc, 0, 0, Math.PI * 2); ctx.fill();
   }
 
+  const ca = CONFIG.interfaz.animEnemigos;
   ctx.translate(e.x, e.y);
   if (muerto) {
-    const k = Math.min(1, e.tiempoMuerto / 0.35);
+    // Cae y se desvanece rápido (config/interfaz.js -> animEnemigos)
+    const k = Math.min(1, e.tiempoMuerto / ca.muerteCaida);
     ctx.rotate(-e.dir * k * Math.PI / 2);
-    ctx.globalAlpha = e.esJefe ? 1 : Math.max(0, 1 - Math.max(0, e.tiempoMuerto - 0.7) / 0.7);
+    ctx.globalAlpha = e.esJefe ? 1 : Math.max(0, 1 - Math.max(0, e.tiempoMuerto - ca.muerteDesvanece[0]) / ca.muerteDesvanece[1]);
+    if (ctx.globalAlpha <= 0.01) { ctx.restore(); return; } // ya no se ve: no se dibuja
   }
-  ctx.scale(e.dir * esc, esc);
+  let sx = 1, sy = 1;
+  // Golpe: el cuerpo se estira hacia adelante un instante
+  if (e.estado === 'atacar' && !e.esJefe) {
+    const k = U.clamp((e.t || 0) / BALANCE.comportamiento.golpe, 0, 1); // 1 al pegar -> 0
+    sx += ca.estiramientoGolpe * k; sy -= ca.estiramientoGolpe * 0.4 * k;
+  }
+  // Recibir daño: destello y un encogimiento rápido, sin moverlo de lugar ni frenarlo
+  const enc = animEncoger(e, t, ca);
+  if (enc > 0) { sx *= 1 + ca.encogeDanio * 0.5 * enc; sy *= 1 - ca.encogeDanio * enc; }
+  ctx.scale(e.dir * esc * sx, esc * sy);
 
   const p = poseStickman(e, t);
   ctx.translate(0, p.dy);
@@ -223,6 +242,18 @@ function dibujarStickman(ctx, e, t) {
   }
 }
 
+// Encogimiento al recibir daño (0 = nada, 1 = máximo). Se detecta cuando el destello sube.
+// Un golpe repetido antes de "encogeMinimo" no reinicia la animación (no queda en bucle).
+// Funciona igual en el invitado en línea (el destello llega en los snapshots).
+function animEncoger(e, t, ca) {
+  const fl = e.anim.flash || 0;
+  if (fl > (e._flashAntes || 0) + 0.3 && (e._tEncoge == null || t - e._tEncoge >= ca.encogeMinimo || t < e._tEncoge)) e._tEncoge = t;
+  e._flashAntes = fl;
+  if (e._tEncoge == null) return 0;
+  const k = (t - e._tEncoge) / ca.encogeDuracion;
+  return k >= 0 && k < 1 ? Math.sin(k * Math.PI) : 0;
+}
+
 /* ---------- Accesorios de los enemigos y jefes de los niveles 2-4 ---------- */
 // Coordenadas locales del stickman (mira a la derecha, pies en 0, cabeza ~ -70)
 function accesorioDetras(ctx, e, t) {
@@ -262,9 +293,20 @@ function accesorioDelante(ctx, e, t, d) {
       ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(manoD.x - 4, manoD.y, 13, -1.2, 1.2); ctx.stroke();
       ctx.strokeStyle = '#f1f3f5'; ctx.lineWidth = 1;
-      const tens = (e.estado === 'preparar' || e.estado === 'prepDisparo') ? -8 : 0;
+      // Tensa el arco poco a poco (preparar) y la cuerda vuelve de golpe al soltar
+      let tens = 0;
+      if (e.estado === 'prepDisparo') tens = -8;
+      else if (e.estado === 'preparar') tens = -10 * U.clamp(1 - (e.t || 0) / BALANCE.comportamiento.arquero.tensar, 0.15, 1);
+      else if (e.estado === 'atacar') tens = 3 * Math.sin((e.t || 0) * 60); // vibra al soltar
       ctx.beginPath(); ctx.moveTo(manoD.x - 4 + 13 * Math.cos(-1.2), manoD.y + 13 * Math.sin(-1.2));
       ctx.lineTo(manoD.x - 4 + tens, manoD.y); ctx.lineTo(manoD.x - 4 + 13 * Math.cos(1.2), manoD.y + 13 * Math.sin(1.2)); ctx.stroke();
+      // Flecha puesta en la cuerda mientras tensa
+      if (e.estado === 'preparar' && !e.esJefe) {
+        ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(manoD.x - 4 + tens, manoD.y); ctx.lineTo(manoD.x + 14, manoD.y); ctx.stroke();
+        ctx.fillStyle = '#dee2e6';
+        ctx.beginPath(); ctx.moveTo(manoD.x + 18, manoD.y); ctx.lineTo(manoD.x + 12, manoD.y - 3); ctx.lineTo(manoD.x + 12, manoD.y + 3); ctx.closePath(); ctx.fill();
+      }
     }
   }
   if (base === 'mago') {

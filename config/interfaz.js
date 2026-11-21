@@ -174,4 +174,17 @@ CONFIG.interfaz = {
     colorPico: '#ffc078',
     imagen: null,             // ruta de una imagen para reemplazar el dibujo (ej. 'assets/enemigos/ave.png')
   },
+
+  // Animación de los enemigos dibujados por código (v1.19, js/dibujo/stickman.js). Solo cambia cómo se VEN.
+  animEnemigos: {
+    rebotePaso: 2.5,          // px que sube y baja la cabeza/cuerpo al caminar (dos veces por ciclo)
+    inclinacionPaso: 0.10,    // inclinación hacia adelante al caminar
+    retrocesoAviso: 0.18,     // cuánto se echa hacia atrás durante el aviso (crece hasta el golpe)
+    estiramientoGolpe: 0.16,  // el cuerpo se estira hacia adelante al pegar (16%)
+    encogeDanio: 0.12,        // al recibir daño se encoge un 12% (sin moverse de lugar)
+    encogeDuracion: 0.14,     // segundos que dura el encogimiento
+    encogeMinimo: 0.25,       // un golpe repetido antes de este tiempo no reinicia la animación
+    muerteCaida: 0.25,        // segundos en caer al morir (antes 0.35)
+    muerteDesvanece: [0.35, 0.45], // empieza a desvanecerse a los 0.35 s y tarda 0.45 s (antes 0.7 y 0.7)
+  },
 };
