@@ -88,6 +88,18 @@ const BALANCE = {
     ninjaSombra: { corte: 9, shuriken: 4 },
   },
 
+  // ---------- Daño de los enemigos que sube con cada tramo (v1.09) ----------
+  // Dentro de un nivel, cada tramo que avanzas los enemigos (y el jefe) pegan más:
+  //   daño = daño base + porTramo x (tramo - 1), sin pasar del tope.
+  // porTramo según el número de nivel DENTRO del mundo (1..10). Se reinicia en cada nivel.
+  // El tope evita que un golpe pase del 25% de la vida del jugador (100).
+  // En versus no se usa.
+  danioPorTramo: {
+    porTramo: [1, 1, 1, 2, 2, 2, 2, 3, 3, 3],
+    tope: 20,                 // enemigos comunes (refuerzos y aves incluidos): nunca más de 20 por golpe
+    topeJefe: 25,             // jefes: nunca más de 25 por golpe
+  },
+
   // ---------- Monedas que sueltan los enemigos ----------
   // Caen al suelo o a la plataforma donde estaba el enemigo, se quedan quietas
   // y hay que ir a tocarlas (sin imán). En pareja, para el primero que la toque.

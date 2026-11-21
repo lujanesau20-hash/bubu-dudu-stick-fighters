@@ -109,6 +109,8 @@ class Mundo {
 
   aplicarDanio(obj, danio, info) {
     if (this.modo === 'versus') danio *= CONFIG.versus.multiplicadorDanio;
+    // Enemigos y jefes pegan más en cada tramo (config/balance.js -> danioPorTramo)
+    else if (obj.esJugador && info.atacante && !info.atacante.esJugador) danio = this.danioEnemigo(danio, info.atacante);
     danio = Math.round(danio);
     const flashAntes = obj.anim ? obj.anim.flash : 0;
     const vidaAntes = obj.vida;
@@ -129,6 +131,17 @@ class Mundo {
     if (obj._idDanio == null) obj._idDanio = (this._siguienteIdDanio = (this._siguienteIdDanio || 0) + 1);
     this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador, quien: obj._idDanio });
     if (danio >= 30) this.emitir('sacudir', { fuerza: Math.min(14, danio / 4) });
+  }
+
+  // Daño de un golpe enemigo según el tramo del nivel (y el extra del mundo, si lo tiene), con tope
+  danioEnemigo(base, atacante) {
+    if (typeof BALANCE === 'undefined' || !BALANCE.danioPorTramo) return base;
+    const bd = BALANCE.danioPorTramo;
+    const extraMundo = (this.escenario && this.escenario.danioExtra) || 0;
+    const tramo = Math.max(1, this.tramoActual || 1);
+    const sube = extraMundo + this.valorPorNivel(bd.porTramo) * (tramo - 1);
+    const tope = atacante.esJefe ? bd.topeJefe : bd.tope;
+    return Math.max(base, Math.min(tope, base + sube));
   }
 
   // Porcentaje de robo de vida de un jugador (tienda) o el fijo del versus (si está activado)

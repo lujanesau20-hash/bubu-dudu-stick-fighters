@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: robo de vida — sección 25). **Versión actual: `v1.08`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.08`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: daño enemigo por tramo — sección 25). **Versión actual: `v1.09`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.09`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`
 
 ---
 
@@ -1399,3 +1399,28 @@ Respaldo antes de empezar: etiqueta `respaldo-antes-esferas-mana`. Cada fase se 
   - Versus con robo: cura 1,8 por 18 de daño. Versus sin robo: cura 0.
   - Tienda en celular: la fila "Robo de vida" muestra 5% → 8% y el precio.
   - Sin errores.
+
+### Fase 3: el daño de los enemigos sube con cada tramo (v1.09)
+- **Fórmula** (`BALANCE.danioPorTramo`): daño = daño base + `porTramo` × (tramo − 1), sin pasar del tope.
+  - `porTramo` va según el número de nivel dentro del mundo: **+1** en los niveles 1–3, **+2** en los 4–7 y **+3** en los 8–10.
+  - Sube dentro del nivel y vuelve a la base al empezar el siguiente.
+  - Durante la pelea con el jefe se usa el último tramo.
+- **Topes:** **20 por golpe** para los enemigos comunes (refuerzos y aves incluidos) y **25** para los jefes (`tope` y `topeJefe`). Así ningún golpe pasa del 25% de la vida del jugador (100).
+- **Código:** `Mundo.danioEnemigo`, llamado desde `aplicarDanio` cuando un enemigo golpea a un jugador. El versus no pasa por ahí.
+- No cambian la vida de los enemigos, el maná, los enfriamientos ni las monedas.
+- **Isla, enemigo normal** (base 4): daño en el primer tramo → en el último tramo.
+
+  | Nivel | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | Tramos | 7 | 8 | 9 | 10 | 11 | 11 | 11 | 12 | 12 | 10 |
+  | Último tramo (sin tope) | 10 | 11 | 12 | 22 | 24 | 24 | 24 | 37 | 37 | 31 |
+  | Último tramo (con tope) | 10 | 11 | 12 | **20** | **20** | **20** | **20** | **20** | **20** | **20** |
+
+  - Desde el nivel 4, el último tramo llega al tope de 20.
+  - El Gigante (embestida de 11) pega como máximo 25.
+  - Los demás mundos se ven en la Fase 4 (sección 26).
+- **Probado:**
+  - En el nivel 1, el enemigo normal pega 4 en el tramo 1 y 10 en el tramo 7.
+  - En el nivel 4, 8 en el tramo 3 y 20 en el tramo 10.
+  - La embestida del Gigante en el nivel 10, tramo 10, pega 25.
+  - En versus, la espada sigue haciendo 18.
