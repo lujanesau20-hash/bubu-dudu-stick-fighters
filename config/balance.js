@@ -301,6 +301,19 @@ const BALANCE = {
   jefeJungla: { nombre: 'REY DE LA JUNGLA', color: '#2b8a3e', velocidad: 85, ancho: 96, alto: 235, monedas: 120,
     punio: 10, pisoton: 9, embestida: 12 },
 
+  // ---------- Espada rápida (v1.16): H1 y H2 sin esperar ----------
+  // Cada pulsación lanza su corte AL INSTANTE, aunque el anterior siga en pantalla.
+  // Cada corte tiene su propia zona de golpe: un corte no golpea dos veces al mismo enemigo,
+  // pero dos cortes distintos sí. No se juntan: el combo H1+H2 sale igual que antes.
+  espadaRapida: {
+    habilidades: [0, 1],      // H1 (cuchilla) y H2 (espada)
+    maxCortes: 3,             // hasta 3 cortes de cada habilidad a la vez
+    duracionCorte: 0.33,      // segundos que cuenta un corte como "en pantalla" (su animación)
+    intervaloMin: 0.08,       // mínimo entre dos pulsaciones de la misma habilidad (evita doble registro)
+    velocidadAnim: 1.25,      // animación ~25% más rápida (se ve igual, solo más rápida)
+    saltitoAireCada: 0.5,     // H1 en el aire: el saltito solo una vez cada 0.5 s (si no, se podría flotar)
+  },
+
   // ---------- Cómo se mueven y atacan los enemigos (v1.15) ----------
   // No cambia la vida ni el daño de cada golpe: solo el ritmo y la velocidad.
   comportamiento: {

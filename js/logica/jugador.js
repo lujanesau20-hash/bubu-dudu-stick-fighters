@@ -147,7 +147,20 @@ class Jugador {
     if (!c.saltoMantenido && this.vy < -380) this.vy += 2600 * dt;
 
     // Mientras dura un ataque solo se permiten combinaciones (no otro ataque)
-    if (this.aturdido <= 0) COMBOS.procesar(this, c, m, this.bloqueoAtaque > 0);
+    if (this.aturdido <= 0) COMBOS.procesar(this, c, m, this.bloqueoAtaque > 0 ? 'bloqueo' : false);
+    if (this.aturdido <= 0) this.cortesEnEspera(m);
+  }
+
+  // Espada rápida: un corte pulsado demasiado pronto sale apenas se puede (hasta 0.3 s después)
+  cortesEnEspera(m) {
+    const ce = this.corteEnEspera;
+    if (!ce) return;
+    for (let i = 0; i < 4; i++) {
+      if (ce[i] == null) continue;
+      if (m.tiempo - ce[i] > 0.3) { ce[i] = null; continue; }
+      const libre = !(this.bloqueoAtaque > 0) || this.bloqueoSoloRapidas;
+      if (libre && HABILIDADES.puedeCortar(this, i, m) === 'si') { ce[i] = null; HABILIDADES.usar(this, i, m); }
+    }
   }
 
   actualizarCaido(dt) {

@@ -155,7 +155,7 @@ class Efectos {
           if (this.menores()) this.anillo(e.x, e.y, 10, 50, 0.3, '#ffffff', 4, true);
           break;
         case 'lanzar': if (this.menores()) this.chispas(e.x, e.y, '#dfe9f5', 3); break;
-        case 'arco': this.arco({ jugador: e.jugador, dir: e.dir, radio: e.radio, color: e.color, t: 0, dur: 0.22, tipo: 'arco' }); break;
+        case 'arco': this.arco({ jugador: e.jugador, dir: e.dir, radio: e.radio, color: e.color, t: 0, dur: e.duracion || 0.22, tipo: 'arco' }); break; // espada rápida: más corto
         case 'dash':
           for (let i = 0, n = this.cant(10); i < n; i++) this.particula(e.x, e.y + (Math.random() - 0.5) * 60, -e.dir * (200 + Math.random() * 300), 0, 0.3, '#ffe066', 3, 0, 'linea');
           break;

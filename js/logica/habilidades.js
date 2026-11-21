@@ -5,13 +5,49 @@
    ===================================================================== */
 const HABILIDADES = {
   // Intenta usar la habilidad i. Devuelve true si se usó.
+  // ¿Es una habilidad de "espada rápida" (H1 y H2)? config/balance.js -> espadaRapida
+  esRapida(i) {
+    const er = typeof BALANCE !== 'undefined' && BALANCE.espadaRapida;
+    return !!(er && er.habilidades.includes(i));
+  },
+
+  // Espada rápida: ¿puede salir otro corte de esta habilidad ahora?
+  // (mínimo entre pulsaciones y máximo de cortes a la vez)
+  // Devuelve 'si', 'doble' (pulsación demasiado pegada a la anterior: se descarta) o 'lleno' (ya hay 3)
+  puedeCortar(j, i, m) {
+    const er = BALANCE.espadaRapida;
+    const ahora = m.tiempoReal ?? m.tiempo; // reloj que no se detiene en la pausa de impacto
+    const lista = j.cortes || (j.cortes = [[], [], [], []]);
+    const c = lista[i];
+    while (c.length && ahora - c[0] >= er.duracionCorte) c.shift();
+    if (c.length && ahora - c[c.length - 1] < er.intervaloMin - 1e-6) return 'doble';
+    return c.length < er.maxCortes ? 'si' : 'lleno';
+  },
+
   usar(j, i, m) {
     const h = CONFIG.habilidades[i];
     if (!h || j.enfriamientos[i] > 0) return false;
+    const rapida = this.esRapida(i);
+    const puede = rapida ? this.puedeCortar(j, i, m) : 'si';
+    if (puede === 'doble') return false; // doble registro de la misma pulsación
+    if (puede === 'lleno') {
+      // Ya hay 3 cortes: este queda guardado y sale apenas termine uno (Jugador.cortesEnEspera)
+      (j.corteEnEspera || (j.corteEnEspera = [null, null, null, null]))[i] = m.tiempo;
+      return false;
+    }
+    if (rapida && j.corteEnEspera) j.corteEnEspera[i] = null;
     if (j.energia < h.energia) { m.emitir('sinEnergia', { jugador: j.indice }); return false; }
     j.energia -= h.energia;
     j.enfriamientos[i] = h.enfriamiento;
-    j.bloqueoAtaque = h.bloqueo || 0;
+    if (rapida) {
+      // H1/H2 bloquean H3/H4 como antes, pero no otro corte de H1/H2
+      j.cortes[i].push(m.tiempoReal ?? m.tiempo);
+      if (!(j.bloqueoAtaque > 0) || j.bloqueoSoloRapidas) j.bloqueoSoloRapidas = true;
+      j.bloqueoAtaque = Math.max(j.bloqueoAtaque, h.bloqueo || 0);
+    } else {
+      j.bloqueoAtaque = h.bloqueo || 0;
+      j.bloqueoSoloRapidas = false;
+    }
     j.ultimaHabilidad = { indice: i, tiempo: m.tiempo, energia: h.energia };
     // Daño con las mejoras de la tienda de ESTE personaje (en versus, siempre el base)
     const g0 = m.golpes.length, p0 = m.proyectiles.length;
@@ -24,9 +60,11 @@ const HABILIDADES = {
 
   // H1: saltito + cuchilla lanzada hacia adelante
   cuchilla(j, h, m) {
-    if (j.enSuelo) j.vy = -h.saltito; else j.vy = Math.min(j.vy, -h.saltito * 0.6);
+    const er = BALANCE.espadaRapida;
+    if (j.enSuelo) { j.vy = -h.saltito; j.tSaltito = m.tiempo; }
+    else if (!(m.tiempo - (j.tSaltito ?? -9) < er.saltitoAireCada)) { j.vy = Math.min(j.vy, -h.saltito * 0.6); j.tSaltito = m.tiempo; }
     j.anim.ataque = 1;
-    j.animDisparo = { nombre: 'lanzar_cuchilla', t: m.tiempo };
+    j.animDisparo = { nombre: 'lanzar_cuchilla', t: m.tiempo, vel: er.velocidadAnim };
     m.agregarProyectil(new Proyectil({
       duenio: j, tipo: 'cuchilla', x: j.x + j.dir * 30, y: j.y - j.alto * 0.55,
       vx: j.dir * h.velocidad, radio: 16, danio: h.danio, vida: 0.8,
@@ -38,13 +76,15 @@ const HABILIDADES = {
   // H2: corte de espada en arco frente al jugador
   tajo(j, h, m) {
     j.anim.ataque = 1;
-    j.animDisparo = { nombre: 'espada', t: m.tiempo };
-    j.vx += j.dir * 140;
+    const er = BALANCE.espadaRapida;
+    j.animDisparo = { nombre: 'espada', t: m.tiempo, vel: er.velocidadAnim };
+    if (Math.abs(j.vx) < CONFIG.jugador.velocidad) j.vx += j.dir * 140; // varios cortes seguidos no lo lanzan lejos
+    // Cada corte es un golpe propio: no golpea dos veces al mismo enemigo, pero otro corte sí
     m.agregarGolpe(new Golpe({
       duenio: j, seguir: j, offX: h.alcance / 2 + 8, offY: -j.alto * 0.5, w: h.alcance + 24, h: 120,
       danio: h.danio, empujeX: h.empuje, empujeY: 230, duracion: 0.12, color: '#bfefff',
     }));
-    m.emitir('arco', { jugador: j.indice, dir: j.dir, radio: h.alcance, color: '#bfefff' });
+    m.emitir('arco', { jugador: j.indice, dir: j.dir, radio: h.alcance, color: '#bfefff', duracion: Math.round(22 / er.velocidadAnim) / 100 });
   },
 
   // H3: dash relámpago, atraviesa y daña

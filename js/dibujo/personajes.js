@@ -179,8 +179,9 @@ const HOJAS_JUEGO = {
     if (acc === 'dash') return { nombre: 'dash', clave: 'dash' };
     if (acc === 'torbellino') return { nombre: 'doble_salto', clave: 'torbellino', bucle: true };
     if (acc === 'cataclismo' && !j.enSuelo) return { nombre: 'doble_salto', clave: 'cataclismo', bucle: true };
-    if (d && m.tiempo - d.t < this.duracion(j.personaje, d.nombre)) {
-      return { nombre: d.nombre, clave: d.nombre + d.t, t0: d.t };
+    // d.vel: animación más rápida (espada rápida, config/balance.js -> espadaRapida.velocidadAnim)
+    if (d && m.tiempo - d.t < this.duracion(j.personaje, d.nombre) / (d.vel || 1)) {
+      return { nombre: d.nombre, clave: d.nombre + d.t, t0: d.t, vel: d.vel || 1 };
     }
     if (j.aturdido > 0) return { nombre: 'herido', clave: 'herido' + Math.round(j.ultimoDanio * 1000), t0: j.ultimoDanio };
     if (!j.enSuelo) return { nombre: 'saltar', clave: 'saltar' };
@@ -200,7 +201,7 @@ const HOJAS_JUEGO = {
     const hoja = Cuadros.datos[p][nombre];
     const def = PRUEBA_CONFIG.animaciones[nombre];
     const n = hoja.cuadros.length;
-    let i = sustituto ? 0 : Math.floor((m.tiempo - j.vis.t0) * def.fps);
+    let i = sustituto ? 0 : Math.floor((m.tiempo - j.vis.t0) * def.fps * (e.vel || 1));
     i = (e.bucle || def.modo === 'bucle') ? ((i % n) + n) % n : Math.max(0, Math.min(i, n - 1));
     // Se reutiliza el mismo objeto del jugador (se pide en cada cuadro)
     const r = j._infoCuadro || (j._infoCuadro = {});

@@ -16,6 +16,9 @@ class ControlRemoto {
     this.pulsos = new EstadoControl();
     this.ultimoSeq = 0;
     this.ultN = [0, 0, 0, 0, 0, 0]; // contadores de pulsaciones ya usados (salto, H1-H4, combo)
+    // Pulsaciones de H1-H4 que faltan usar (v1.16). Cada contador es un número de secuencia:
+    // si llegan 2 pulsaciones en el mismo mensaje, salen 2 cortes (una en cada paso), no uno.
+    this.pendientes = [0, 0, 0, 0];
   }
   recibir(o) {
     if (o.seq <= this.ultimoSeq) return; // viejo o repetido (el canal rápido no garantiza orden)
@@ -27,7 +30,10 @@ class ControlRemoto {
       this.mantenido.x = c.x; this.mantenido.abajo = c.a; this.mantenido.saltoMantenido = c.sm; this.mantenido.revivir = c.r;
       const u = this.ultN;
       if (o.n[0] > u[0]) this.pulsos.saltoPulsado = true;
-      for (let i = 0; i < 4; i++) if (o.n[1 + i] > u[1 + i]) this.pulsos.habilidades[i] = true;
+      for (let i = 0; i < 4; i++) {
+        const nuevas = o.n[1 + i] - u[1 + i];
+        if (nuevas > 0) this.pendientes[i] = Math.min(this.pendientes[i] + nuevas, 4); // máximo 4 en cola
+      }
       if (o.n[5] > u[5] && o.cb) this.pulsos.combo = o.cb;
       this.ultN = o.n.slice();
       return;
@@ -46,11 +52,20 @@ class ControlRemoto {
     Object.assign(e, { x: this.mantenido.x, abajo: this.mantenido.abajo, saltoMantenido: this.mantenido.saltoMantenido, revivir: this.mantenido.revivir });
     e.saltoPulsado = this.pulsos.saltoPulsado;
     e.habilidades = this.pulsos.habilidades.slice();
+    // Una pulsación pendiente por paso (así dos pulsaciones seguidas dan dos cortes)
+    // separadas por el mínimo entre pulsaciones (config/balance.js -> espadaRapida.intervaloMin)
+    const er = typeof BALANCE !== 'undefined' && BALANCE.espadaRapida;
+    const pasos = er ? Math.ceil(er.intervaloMin / (1 / 60) - 1e-6) : 1;
+    const esp = this.espera || (this.espera = [0, 0, 0, 0]);
+    for (let i = 0; i < 4; i++) {
+      if (esp[i] > 0) esp[i]--;
+      if (this.pendientes[i] > 0 && esp[i] <= 0) { e.habilidades[i] = true; this.pendientes[i]--; esp[i] = pasos; }
+    }
     e.combo = this.pulsos.combo;
     this.pulsos.reiniciar();
     return e;
   }
-  soltarTodo() { this.mantenido.reiniciar(); this.pulsos.reiniciar(); }
+  soltarTodo() { this.mantenido.reiniciar(); this.pulsos.reiniciar(); this.pendientes = [0, 0, 0, 0]; }
 }
 
 // ---------- Acumulador de controles del invitado antes de enviarlos ----------

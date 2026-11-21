@@ -33,7 +33,10 @@ const COMBOS = {
       if (u && Math.abs(u.indice - i) === 1 && (m.tiempo - u.tiempo) * 1000 <= CONFIG.combos.ventanaMs) {
         if (this.intentar(j, [u.indice, i], m, CONFIG.combos.ventanaMs)) return;
       }
-      if (!soloCombos) HABILIDADES.usar(j, i, m);
+      // soloCombos === 'bloqueo': hay un ataque en curso. Si lo puso H1/H2 (espada rápida),
+      // otro corte de H1/H2 sale igual al instante; H3/H4 siguen esperando como antes.
+      const permitir = !soloCombos || (soloCombos === 'bloqueo' && j.bloqueoSoloRapidas && HABILIDADES.esRapida(i));
+      if (permitir) HABILIDADES.usar(j, i, m);
     }
   },
 

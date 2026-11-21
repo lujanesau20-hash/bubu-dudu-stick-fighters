@@ -239,7 +239,10 @@ class Mundo {
 
   // ---------- Paso de simulación ----------
   actualizar(dt, controles) {
-    if (this.congelar > 0) { this.congelar -= dt; return; }
+    // Durante la pausa de impacto las pulsaciones no se pierden: se guardan y salen después (v1.16)
+    this.tiempoReal = (this.tiempoReal || 0) + dt; // sigue corriendo en la pausa de impacto (espada rápida)
+    if (this.congelar > 0) { this.congelar -= dt; this.guardarPulsos(controles); return; }
+    controles = this.soltarPulsos(controles);
     this.tiempo += dt;
 
     if (this.modo === 'pareja') this.actualizarRevivir(dt, controles);
@@ -276,6 +279,32 @@ class Mundo {
 
     if (this.modo === 'versus') this.actualizarVersus(dt);
     else { this.actualizarOleadas(dt); this.comprobarFin(dt); }
+  }
+
+  // Pulsaciones (salto, H1-H4, combo) que llegaron mientras el mundo estaba congelado
+  guardarPulsos(controles) {
+    if (!controles) return;
+    const g = this._pulsosGuardados || (this._pulsosGuardados = []);
+    controles.forEach((c, i) => {
+      if (!c) return;
+      const p = g[i] || (g[i] = { salto: false, hab: [0, 0, 0, 0], combo: null });
+      if (c.saltoPulsado) p.salto = true;
+      c.habilidades.forEach((h, k) => { if (h) p.hab[k] = Math.min(3, p.hab[k] + 1); });
+      if (c.combo) p.combo = c.combo;
+    });
+  }
+  // Las devuelve en los pasos siguientes (una pulsación de cada habilidad por paso)
+  soltarPulsos(controles) {
+    const g = this._pulsosGuardados;
+    if (!g || !controles) return controles;
+    g.forEach((p, i) => {
+      const c = controles[i];
+      if (!p || !c) return;
+      if (p.salto) { c.saltoPulsado = true; p.salto = false; }
+      for (let k = 0; k < 4; k++) if (p.hab[k] > 0 && !c.habilidades[k]) { c.habilidades[k] = true; p.hab[k]--; }
+      if (p.combo && !c.combo) { c.combo = p.combo; p.combo = null; }
+    });
+    return controles;
   }
 
   // En pareja, Bubu y Dudu no pueden alejarse demasiado (una sola cámara)

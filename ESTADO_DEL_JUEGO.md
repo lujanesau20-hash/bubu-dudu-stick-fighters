@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.15`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.15`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.16`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.16`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`
 
 ---
 
@@ -1702,3 +1702,32 @@ Es un **+25%** por enemigo. Con 4 atacando a la vez el máximo real lo pone la i
 
 ### Cómo probarlo
 Jugar Isla 1 y quedarse quieto: los enemigos llegan corriendo, se paran, muestran "!", pegan sin avanzar y vuelven a la guardia. Con muchos alrededor, nunca más de 4 muestran "!" o pegan a la vez.
+
+## 32. Espada rápida: H1 y H2 sin esperar (v1.16)
+
+Respaldo: etiqueta `respaldo-antes-espada-rapida`. Números en `config/balance.js` → `BALANCE.espadaRapida`.
+
+### Qué cambió
+- **Cada pulsación de H1 o H2 lanza su corte al instante**, aunque el anterior siga en pantalla. Antes el "bloqueo" de 0,30/0,35 s tiraba las pulsaciones hechas en ese tiempo. Ahora el bloqueo de H1/H2 sigue frenando a H3 y H4 (como antes), pero no a otro corte de H1/H2 (`j.bloqueoSoloRapidas`, `COMBOS.procesar(..., 'bloqueo')`).
+- **Hasta 3 cortes de cada habilidad a la vez** (`maxCortes`; un corte cuenta 0,33 s, `duracionCorte`). Si ya hay 3, la pulsación espera y sale apenas termina uno (hasta 0,3 s; `Jugador.cortesEnEspera`).
+- **Mínimo 0,08 s entre pulsaciones** de la misma habilidad (`intervaloMin`): lo que llega antes se toma como doble registro y se descarta.
+- **Cada corte tiene su propia zona de golpe** (un `Golpe` o una cuchilla nuevos): un corte no golpea dos veces al mismo enemigo, pero dos cortes distintos sí. Daño y maná por corte sin cambios (H1: 2 de maná, H2: 4).
+- **Se ve igual, ~25% más rápido** (`velocidadAnim: 1.25`): la animación del personaje (`animDisparo.vel`, en `js/dibujo/personajes.js`) y el arco de la espada (0,22 → 0,18 s).
+- **Pausa de impacto:** antes, las pulsaciones hechas durante la pausa de impacto (el mundo se congela un instante al golpear) se perdían. Ahora se guardan y salen enseguida (`Mundo.guardarPulsos` / `soltarPulsos`). Esto vale para todas las habilidades y el salto.
+- **Sin trucos:** el saltito de H1 en el aire solo se da una vez cada 0,5 s (`saltitoAireCada`; si no, pulsando H1 se podía flotar), y el pasito de H2 no se suma si ya va rápido.
+- **Combos:** salen igual que antes (H1+H2 juntas o la segunda dentro de 250 ms). Probado: H1 y H2 separadas 400 ms no hacen combo; H2 tres veces seguidas da 3 cortes y ningún combo.
+- **En línea:** el invitado ya mandaba sus pulsaciones como contadores (número de secuencia por habilidad). Ahora el líder (`ControlRemoto`) cuenta cuántas pulsaciones nuevas trae cada mensaje y las usa una por una, separadas 0,08 s. Antes, dos pulsaciones dentro del mismo envío se juntaban en una.
+- **Celular:** cada toque de un botón es una pulsación, igual que una tecla.
+
+### Probado (lógica real, 60 pasos por segundo)
+| Prueba | Resultado |
+|---|---|
+| H2 tres veces (cada 0,1 s) | 3 cortes, 12 de maná |
+| 3 cortes de H2 sobre el mismo enemigo | 66 de daño (3 × 22) |
+| H2 dos veces en pasos seguidos (16 ms) | 1 corte (doble registro) |
+| Invitado: un mensaje con 3 pulsaciones de H2 | 3 cortes |
+| H1 y luego H2 a los 400 ms | sin combo |
+| H4 justo después de H2 | espera el bloqueo, como antes |
+
+### Cómo probarlo
+Pulsar 2 (o K) tres veces rápido: salen tres arcos seguidos y la barra de maná baja 12.
