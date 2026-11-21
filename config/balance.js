@@ -98,6 +98,11 @@ const BALANCE = {
     porTramo: [1, 1, 1, 2, 2, 2, 2, 3, 3, 3],
     tope: 20,                 // enemigos comunes (refuerzos y aves incluidos): nunca más de 20 por golpe
     topeJefe: 25,             // jefes: nunca más de 25 por golpe
+    // v1.11 (calibración con el "jugador promedio", herramientas/calibrar_bot.js): además, un golpe
+    // nunca pasa de "topeFactor" veces su daño de base (con el extra del mundo). Con 20 de tope
+    // el bot perdía casi todos los niveles desde el 3; con 1,5 gana parecido a v1.06.
+    // Poner 0 para quitar este tope (solo quedan 20 y 25).
+    topeFactor: 1.5,
   },
 
   // ---------- Monedas que sueltan los enemigos ----------
@@ -133,7 +138,7 @@ const BALANCE = {
     intervalo: 12,            // segundos de juego entre caídas (se detiene en pausa; se reinicia en cada nivel)
     duracion: 12,             // segundos que dura en el suelo si nadie la toma
     parpadeo: 3,              // parpadea los últimos segundos
-    mana: 20,                 // maná que recupera (sin pasar del máximo)
+    mana: 25,                 // maná que recupera (sin pasar del máximo). v1.11: antes 20
     porCaida: { solo: 1, pareja: 2 }, // en pareja caen separadas, una hacia cada jugador
     // Durante la pelea con un jefe caen más
     jefe: { intervalo: 12, porCaida: { solo: 2, pareja: 3 } },
@@ -264,26 +269,26 @@ const BALANCE = {
     { id: 'cielo', nombre: 'Cielo con Nubes', nivelVida: 11,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'arqueroMaestro' }],
-      vida: [110, 280], danioExtra: 1, distanciaExtra: 1,
+      vida: [110, 280], danioExtra: 1, distanciaExtra: 1, // danioExtra calibrado en v1.11
       tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 3, mago: 5 },
       pesos: { normal: 2, espadachin: 2, arquero: 3, ninja: 1.5, mago: 1 } },
     { id: 'espacio', nombre: 'Espacio', nivelVida: 12,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'magoCosmico' }],
-      vida: [150, 320], danioExtra: 2, distanciaExtra: 1,
+      vida: [150, 320], danioExtra: 1, distanciaExtra: 1, // v1.11: danioExtra 2 -> 1
       tiposDesde: { normal: 1, espadachin: 1, mago: 1, arquero: 2, ninja: 3 },
       pesos: { normal: 2, espadachin: 2, mago: 3, arquero: 1, ninja: 1.5 } },
     { id: 'ciudad', nombre: 'Calle de la Ciudad', nivelVida: 13,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'ninjaSombra' }],
-      vida: [190, 360], danioExtra: 3, distanciaExtra: 0,
+      vida: [190, 360], danioExtra: 2, distanciaExtra: 0, // v1.11: danioExtra 3 -> 2
       tiposDesde: { normal: 1, ninja: 1, espadachin: 1, arquero: 1, mago: 3 },
       pesos: { normal: 2, espadachin: 2, ninja: 3, arquero: 1, mago: 1 } },
     // Mundo 5 (v1.10): fondo de bosque oscuro con plantas gigantes y luciérnagas (js/dibujo/fondo_jungla.js)
     { id: 'jungla', nombre: 'Jungla Encantada', fondo: 'jungla',
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'guardianJungla' }],
-      vida: [230, 400], danioExtra: 4, distanciaExtra: 1,
+      vida: [230, 400], danioExtra: 2, distanciaExtra: 1, // v1.11: danioExtra 4 -> 2 (el bot perdía los niveles 9 y 10)
       tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 1, mago: 2 },
       pesos: { normal: 2, espadachin: 2, ninja: 2, arquero: 1.5, mago: 1.5 },
       colores: { normal: '#ff922b', espadachin: '#f03e3e', arquero: '#c0eb75', mago: '#e599f7', ninja: '#9775fa', ave: '#ffd43b' } },

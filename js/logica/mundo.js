@@ -142,7 +142,9 @@ class Mundo {
     const extraMundo = (this.escenario && this.escenario.danioExtra) || 0;
     const tramo = Math.max(1, this.tramoActual || 1);
     const sube = extraMundo + this.valorPorNivel(bd.porTramo) * (tramo - 1);
-    const tope = atacante.esJefe ? bd.topeJefe : bd.tope;
+    let tope = atacante.esJefe ? bd.topeJefe : bd.tope;
+    // Tope relativo: nunca más de topeFactor x (base + extra del mundo)
+    if (bd.topeFactor > 0) tope = Math.min(tope, Math.round((base + extraMundo) * bd.topeFactor));
     return Math.max(base, Math.min(tope, base + sube));
   }
 

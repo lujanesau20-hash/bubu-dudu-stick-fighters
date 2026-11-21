@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: 10 niveles por mundo y Mundo 5 Jungla Encantada — sección 26; antes: esferas de maná, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.10`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.10`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: calibración con simulación — sección 27; antes: 10 niveles por mundo y Jungla — sección 26). **Versión actual: `v1.11`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.11`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -1493,3 +1493,73 @@ El jefe tiene 10 veces la vida del enemigo de su nivel (en pareja, ×1,6). Cada 
 - La Jungla 10 tiene al Rey de la Jungla con 4000 de vida.
 - El fondo de la Jungla llega solo, en segundo plano.
 - Capturas del fondo, del jefe y del selector, sin errores.
+
+## 27. Calibración general con números (v1.11)
+
+### Herramientas (nuevas; no cambian el juego)
+- `node herramientas/calibrar.js`: tablas de golpes de H1, Cataclismos y monedas, con los números reales de `config/balance.js` y los 50 niveles.
+- `herramientas/calibrar_bot.js`: en la consola del juego, `calibrarNivel('cielo-5', { robo: 4, mejoras: 2 })`. Juega un nivel completo con el "jugador promedio" de `simular_niveles.js` y la lógica real (esferas, robo, daño por tramo, curación por tramo). Devuelve si ganó, el daño recibido, lo curado, la vida más baja y el % de tiempo con H3 lista pero sin maná.
+- **Mejoras usadas en la simulación de cada nivel:** las que alcanza a comprar el jugador según la tabla de monedas.
+
+### Ajustes aplicados (pequeños y seguros)
+1. **Tope relativo del daño por tramo** (`BALANCE.danioPorTramo.topeFactor: 1.5`): un golpe nunca pasa de 1,5 veces su daño de base, contando el extra del mundo. Siguen también los topes de 20 y 25.
+   - **Motivo:** con el tope de 20, el bot (que ganaba los niveles 1–5 de la Isla en v1.06) perdía todos los niveles desde el 3. Con un tope fijo de 8 también perdía casi todo.
+   - Con 1,5 gana parecido a v1.06.
+   - Ahora el enemigo normal de la Isla pega 4 → 6, y la embestida del Gigante 11 → 17.
+2. **Daño extra por mundo:** Cielo +1, Espacio +1 (antes 2), Ciudad +2 (antes 3) y Jungla +2 (antes 4). Con +4, el bot perdía los niveles 9 y 10 de la Jungla aun con todas las mejoras.
+3. **Esfera de maná: 25** (antes 20; el pedido era entre 20 y 30). La regeneración natural sigue en **5 por segundo**.
+
+### Resultados (bot, 3 partidas por nivel; "ganadas/partidas")
+**Isla, robo 3% (sin comprar)** — N1 a N10: 3, 2, 2, 3, 3, 1, 1, 1, 2 y 0 de 3. En v1.06, con corazones y sin daño por tramo: 3, 3, 3, 3, 3, 1, 2, 1, 0 y 1.
+
+**Con robo de vida al 15%** (en la tienda es lo más barato: al final de la Isla ya se tiene):
+
+| Mundo | Ganadas (N1…N10) | Vida más baja (prom.) | Minutos |
+|---|---|---|---|
+| Isla | 3 3 2 3 3 3 2 3 3 3 | 55–91 | 3–10 |
+| Cielo | 3 2 3 3 3 2 3 2 2 3 | 48–84 | 4–10 |
+| Espacio | 3 3 3 2 3 2 3 3 3 2 | 41–87 | 4–10 |
+| Ciudad (2 partidas) | 2 2 2 2 2 0 2 0 2 1 | 0–80 | 4–12 |
+| Jungla (2 partidas) | 2 2 2 1 2 2 2 1 2 2 | 39–84 | 4–12 |
+
+- **Maná:** la H3 queda "lista pero sin maná" entre el **1% y el 11%** del tiempo (promedio ~4%). El bot usa H3 casi siempre que puede y aun así gasta mucho en combos. Con esferas de 20, 25 o 30 el promedio fue 4,4%, 4,1% y 3,6%: casi no cambia, porque el maná se gasta sobre todo en combos.
+- **Supervivencia:**
+  - Con robo al 15%, el robo **cura casi todo el daño recibido** (por ejemplo, en Cielo 10 recibió 1334 y se curó 1332). El robo pasa a ser la principal fuente de vida; la curación por tramo casi no se usa porque la vida ya está llena.
+  - Con robo al 3%, los mundos 2 a 5 son casi imposibles para el bot a partir de su nivel 5 (Cielo: 0 de 3 en los niveles 5 a 10).
+
+### Tablas
+**Golpes de H1 (16) para un enemigo normal** — mejoras al 0% / 50% / 100% (⚠ = más de 8 golpes con la mitad):
+
+| Mundo | N1 | N2 | N3 | N4 | N5 | N6 | N7 | N8 | N9 | N10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Isla | 5/3/3 | 6/4/3 | 6/4/3 | 7/5/4 | 8/6/4 | 9/6/5 | 11/7/6 | 12/8/6 | 14/9/7 ⚠ | 16/11/8 ⚠ |
+| Cielo | 7/5/4 | 8/6/4 | 9/6/5 | 10/7/5 | 11/7/6 | 12/8/6 | 13/9/7 ⚠ | 15/10/8 ⚠ | 16/11/8 ⚠ | 18/12/9 ⚠ |
+| Espacio | 10/7/5 | 11/7/6 | 12/8/6 | 13/9/7 ⚠ | 14/9/7 ⚠ | 15/10/8 ⚠ | 16/11/8 ⚠ | 17/12/9 ⚠ | 19/13/10 ⚠ | 20/14/10 ⚠ |
+| Ciudad | 12/8/6 | 13/9/7 ⚠ | 14/10/7 ⚠ | 15/10/8 ⚠ | 16/11/8 ⚠ | 17/12/9 ⚠ | 19/13/10 ⚠ | 20/13/10 ⚠ | 21/14/11 ⚠ | 23/15/12 ⚠ |
+| Jungla | 15/10/8 ⚠ | 16/11/8 ⚠ | 17/11/9 ⚠ | 18/12/9 ⚠ | 19/13/10 ⚠ | 20/14/10 ⚠ | 21/14/11 ⚠ | 23/15/12 ⚠ | 24/16/12 ⚠ | 25/17/13 ⚠ |
+
+**Cataclismos para un enemigo normal** — centro/borde sin mejoras · centro/borde con todas:
+
+| Mundo | N1 | N5 | N10 |
+|---|---|---|---|
+| Isla | 1/2 · 1/1 | 2/3 · 1/2 | 3/5 · 2/3 |
+| Cielo | 2/2 · 1/1 | 2/3 · 1/2 | 3/5 · 2/3 |
+| Espacio | 2/3 · 1/2 | 3/4 · 2/2 | 4/6 · 2/3 |
+| Ciudad | 2/4 · 1/2 | 3/5 · 2/3 | 4/6 · 2/3 |
+| Jungla | 3/4 · 2/2 | 3/5 · 2/3 | 4/7 · 2/4 |
+
+**Mejoras compradas al terminar cada nivel** (un personaje, todas las monedas, siempre la más barata; hay 39, que cuestan 16095 en total):
+
+| Mundo | N1 | N5 | N10 | Monedas del mundo |
+|---|---|---|---|---|
+| Isla | 0 | 8 | 16 | 3281 |
+| Cielo | 16 | 20 | 25 | 3291 |
+| Espacio | 25 | 28 | 31 | 3301 |
+| Ciudad | 32 | 33 | 36 | 3311 |
+| Jungla | 36 | 37 | 39 (todo) | 3321 |
+
+### Propuestas que NO se aplicaron (cambian mucho el juego)
+1. **Golpes de H1:** 32 de los 50 niveles piden más de 8 golpes con la mitad de las mejoras. Propuesta: bajar la vida de los mundos 2 a 5 (`BALANCE.mundos[].vida`) a Cielo 100→240, Espacio 130→270, Ciudad 160→300 y Jungla 190→330. Con las mejoras que alcanza a comprar el jugador quedarían unos 9 a 10 golpes al final de cada mundo. La Isla 9 y 10 ya pedían 9 y 11 golpes desde v1.02.
+2. **Robo de vida al 15%:** es muy fuerte, porque cura casi todo el daño. Propuesta: máximo 10% (porcentajes 3, 5, 7, 8, 10) o tope por uso de 10 en lugar de 15.
+3. **Economía:** al final del Mundo 1 se tiene el 41% de las mejoras (16 de 39). Para llegar justo a la mitad habría que bajar todos los precios un 30%.
+4. **Jefe por nivel:** hoy cada mundo tiene jefe solo en el nivel 10, como la Isla. Si se quiere un jefe en otros niveles, basta con `jefe: '<tipo>'` en esa línea de `BALANCE.mundos`.
