@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: esferas de maná en lugar de corazones — sección 25). **Versión actual: `v1.07`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.07`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: robo de vida — sección 25). **Versión actual: `v1.08`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.08`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -1364,3 +1364,38 @@ Respaldo antes de empezar: etiqueta `respaldo-antes-esferas-mana`. Cada fase se 
 - **Al tomarla:** aparece el texto "+20 maná" y un anillo azul corto (evento `mana`).
 - **En línea:** las esferas viajan en la misma lista que antes usaban los corazones (`m.corazones`). El líder decide dónde caen y quién las toma, y el invitado las ve interpoladas.
 - **Probado** (laptop y celular): caen 1, 2 o 2 (solitario, pareja y jefe), y se recogen (maná de 10 a 30). En versus caen 0. Sin tomarla, una esfera dura 12 s. No hubo errores.
+
+### Fase 2: robo de vida (v1.08)
+- **Qué es:** una habilidad de fondo, siempre activa, sin botón. Se configura en `BALANCE.roboVida`.
+- **Con qué funciona:** se aplica al daño de **H1, H2, H3 y H4**. Los combos (Corte volador, Torbellino y Cataclismo) **no** roban vida.
+- **Cómo se reconoce:** `HABILIDADES.usar` marca con `habilidad` los golpes y proyectiles que crea cada habilidad (la Onda también si cae en picada). Los combos no se marcan.
+- **Cuánto cura:**
+  - Se calcula sobre el daño **realmente hecho**: si el enemigo tenía 5 de vida, se roba sobre 5.
+  - **Tope por uso:** 15% de la vida máxima (`topePorUso: 0.15`), sumando todo lo que golpea esa habilidad (útil en H3 y H4).
+  - Nunca pasa de la vida máxima.
+- **Niveles:** 3% gratis desde el principio. En la tienda (pestaña Mejoras, por personaje) hay 4 compras: **5%, 8%, 10% y 15%**.
+- **Número verde:** un "+N" sobre el personaje. Los que llegan dentro de 0,4 s se juntan en uno (`juntarMs`), usando el mismo sistema que junta los números de daño. Las fracciones se acumulan hasta llegar a 1.
+- **En línea:** el líder calcula la curación. El nivel de robo de vida del invitado viaja con sus mejoras de daño: es la 8.ª mejora de la lista. Los guardados viejos quedan en 0, o sea 3%.
+- **Versus:** botón "🩸 Robo de vida: Sí/No" antes de empezar. En PC aparece en la elección de personajes; en línea, el líder lo ve en la sala. Viene activado y roba un **10% fijo** del daño con H1–H4, sin mejoras (`roboVida.versus`). La elección se guarda en el equipo (`Guardado.datos.versusRoboVida`).
+- **Precios:**
+  - Robo de vida: **100, 175, 275 y 400** (950 en total).
+  - Las mejoras de daño crecen ×1,4 por nivel en lugar de ×1,5 (`crecimientoPrecio`).
+  - Precios totales para llegar al máximo: H1 y H2 1255 cada una, H3 y H4 1915, Corte volador y Torbellino 2515, y Cataclismo 3775.
+- **Economía:** calculada con `herramientas/simular_mejoras.js`, contando las monedas del Mundo 1 en un solo personaje y comprando siempre lo más barato.
+
+  | Al terminar el nivel | 5 | 6 | 7 | 8 | 9 | 10 |
+  |---|---|---|---|---|---|---|
+  | Mejoras compradas (100% de las monedas) | 8 | 10 | 11 | 13 | 14 | **16 de 39** |
+  | Mejoras compradas (85% de las monedas) | 7 | 9 | 10 | 11 | 13 | 14 |
+
+  Antes eran 14 de 35 (40%); ahora son 16 de 39 (41%). Llegar justo a la mitad (unas 20) pediría bajar todos los precios un 30%: queda como propuesta, no se aplicó.
+- **Probado:**
+  - Espada (22 de daño): cura 0,66 con 3% y 3,3 con 15%.
+  - H3 contra 5 enemigos (175 de daño): cura exactamente 15, el tope.
+  - H4 contra 5 enemigos: cura 15.
+  - Torbellino: cura 0.
+  - Golpe de 22 a un enemigo con 5 de vida: cura 0,75.
+  - Con la vida casi llena, no pasa de 100.
+  - Versus con robo: cura 1,8 por 18 de daño. Versus sin robo: cura 0.
+  - Tienda en celular: la fila "Robo de vida" muestra 5% → 8% y el precio.
+  - Sin errores.

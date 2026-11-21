@@ -10,3 +10,4 @@ Una línea por versión, en español simple. Cada actualización sube 0.01 (1.01
 - **v1.05** (2026-11-12): H3 (Flash, el rayo) ya no empuja ni frena a los enemigos (igual que Corte volador y Torbellino); en versus sigue igual.
 - **v1.06** (2026-11-12): vuelve la animación de H3, Corte volador y Torbellino (se veía muy rápida desde que se quitó la pausa de impacto). Los enemigos siguen sin retroceder ni frenarse.
 - **v1.07** (2026-11-21): ya no caen corazones para curar: ahora caen esferas de maná azules (+20 de maná cada 12 s; 1 en solitario, 2 en pareja; contra un jefe 2 y 3). El contador "Revivir ♥♥" y la curación por tramo no cambian. En versus no caen.
+- **v1.08** (2026-11-21): robo de vida. Te curas 3% del daño que haces con H1–H4 (no con los combos), gratis desde el principio; en la tienda (Mejoras) sube a 5%, 8%, 10% y 15%. Máximo 15 de vida por cada uso. En versus es una opción (Sí/No, 10%). Las mejoras de daño bajan un poco de precio.

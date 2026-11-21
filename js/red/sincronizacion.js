@@ -454,7 +454,7 @@ const CLAVES_EV = { tipo: 'k', color: 'c', danio: 'd', aJugador: 'a', cantidad: 
 const CLAVES_EV_INV = Object.fromEntries(Object.entries(CLAVES_EV).map(([a, b]) => [b, a]));
 const TIPOS_EV = ['impacto', 'chispa', 'polvo', 'dobleSalto', 'lanzar', 'arco', 'dash', 'torbellino', 'onda', 'explosion', 'combo',
   'banner', 'sacudir', 'muerteEnemigo', 'muerteJefe', 'moneda', 'texto', 'sinEnergia', 'curar', 'caido', 'revivido', 'avanzar',
-  'avisoSuelo', 'teletransporte', 'oleada', 'tramo', 'refuerzo', 'mana']; // los nuevos, siempre al final
+  'avisoSuelo', 'teletransporte', 'oleada', 'tramo', 'refuerzo', 'mana', 'roboVida']; // los nuevos, siempre al final
 
 // ¿Dos valores son iguales? (números, textos, listas cortas u objetos pequeños)
 function igualRed(a, b) {

@@ -162,18 +162,21 @@ class TiendaUI {
   htmlMejoras() {
     const d = Guardado.datos;
     const niveles = d.mejoras[this.personaje];
-    const max = BALANCE.mejoras.niveles;
     const filas = BALANCE.mejoras.lista.map((def, i) => {
       const n = niveles[i];
+      const max = MEJORAS.maximo(i);
       const puntos = '●'.repeat(n) + '○'.repeat(max - n);
-      const ahora = MEJORAS.danioConNivel(i, n);
+      // Robo de vida: se muestra en % (3% gratis al empezar); las demás, el daño
+      const robo = def.tipo === 'robo';
+      const valor = (k) => (robo ? Math.round(MEJORAS.porcentajeRobo(k) * 100) + '%' : MEJORAS.danioConNivel(i, k));
+      const ahora = valor(n);
       const precio = MEJORAS.precio(i, n);
       let danio, boton;
       if (precio == null) {
         danio = `<b>${ahora}</b> <small>máx.</small>`;
         boton = `<button class="btn-chico activo" disabled>Máximo ✓</button>`;
       } else {
-        danio = `${ahora} → <b>${MEJORAS.danioConNivel(i, n + 1)}</b>`;
+        danio = `${ahora} → <b>${valor(n + 1)}</b>`;
         boton = `<button class="btn-chico comprar" ${d.monedas >= precio ? '' : 'disabled'} data-accion="mejorar" data-mejora="${i}">Comprar 🪙 ${precio}</button>`;
       }
       return `<div class="item-tienda item-mejora">
@@ -184,7 +187,8 @@ class TiendaUI {
     }).join('');
     return `
         <div class="lista-mejoras">
-          <p class="ayuda mej-ayuda">Daño de ${CONFIG.personajes[this.personaje].nombre}: cada nivel suma +20% del daño base. Solo lo usa ${CONFIG.personajes[this.personaje].nombre}. En versus no cuenta.</p>
+          <p class="ayuda mej-ayuda">Daño de ${CONFIG.personajes[this.personaje].nombre}: cada nivel suma +20% del daño base. Solo lo usa ${CONFIG.personajes[this.personaje].nombre}. En versus no cuenta.
+            🩸 Robo de vida: te curas una parte del daño que haces con H1–H4 (no con los combos).</p>
           ${filas}
         </div>`;
   }

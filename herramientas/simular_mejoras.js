@@ -54,14 +54,15 @@ function tablasMejoras(factor = 1) {
   console.log('--- Daño por mejora (nivel 0..5) ---');
   console.table(BALANCE.mejoras.lista.map((d, i) => {
     const o = { mejora: d.nombre };
-    for (let n = 0; n <= BALANCE.mejoras.niveles; n++) o['n' + n] = MEJORAS.danioConNivel(i, n);
+    // Robo de vida (v1.08): en % en lugar de daño
+    for (let n = 0; n <= MEJORAS.maximo(i); n++) o['n' + n] = d.tipo === 'robo' ? Math.round(MEJORAS.porcentajeRobo(n) * 100) + '%' : MEJORAS.danioConNivel(i, n);
     return o;
   }));
   // 2) Precios
   console.log('--- Precio de cada nivel ---');
   console.table(BALANCE.mejoras.lista.map((d, i) => {
     const o = { mejora: d.nombre }; let suma = 0;
-    for (let n = 0; n < BALANCE.mejoras.niveles; n++) { const p = MEJORAS.precio(i, n); o['n' + (n + 1)] = p; suma += p; }
+    for (let n = 0; n < MEJORAS.maximo(i); n++) { const p = MEJORAS.precio(i, n); o['n' + (n + 1)] = p; suma += p; }
     o.total = suma; return o;
   }));
   // 3) Monedas por nivel

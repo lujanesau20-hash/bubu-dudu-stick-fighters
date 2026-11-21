@@ -14,7 +14,11 @@ const HABILIDADES = {
     j.bloqueoAtaque = h.bloqueo || 0;
     j.ultimaHabilidad = { indice: i, tiempo: m.tiempo, energia: h.energia };
     // Daño con las mejoras de la tienda de ESTE personaje (en versus, siempre el base)
+    const g0 = m.golpes.length, p0 = m.proyectiles.length;
     this[h.id](j, MEJORAS.conDanio(h, MEJORAS.factor(j, i)), m);
+    // Lo que creó esta habilidad roba vida (config/balance.js -> roboVida); los combos no se marcan
+    for (let k = g0; k < m.golpes.length; k++) m.golpes[k].habilidad = i;
+    for (let k = p0; k < m.proyectiles.length; k++) m.proyectiles[k].habilidad = i;
     return true;
   },
 
@@ -79,10 +83,12 @@ const HABILIDADES = {
   },
 
   explotarOnda(j, h, m) {
-    m.agregarGolpe(new Golpe({
+    const g = new Golpe({
       duenio: j, forma: 'circulo', x: j.x, y: j.y - 30, r: h.radio, radial: true, area: true, empujon: true,
       danio: h.danio, empujeX: h.empuje, empujeY: 480, duracion: 0.1, color: '#9fd8ff',
-    }));
+    });
+    g.habilidad = 3; // H4 roba vida (también si cae en picada desde el aire)
+    m.agregarGolpe(g);
     j.anim.sy = 0.55; j.anim.sx = 1.4;
     m.emitir('onda', { x: j.x, y: j.y, radio: h.radio, color: '#9fd8ff' });
     m.emitir('sacudir', { fuerza: 12 });

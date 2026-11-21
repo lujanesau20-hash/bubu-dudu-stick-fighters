@@ -124,7 +124,7 @@ Object.assign(Menus, {
               <button class="btn ${versus ? '' : 'verde'}" data-ir="modoPareja">🤝 Niveles en pareja</button>
               <button class="btn ${versus ? 'verde' : ''}" data-ir="modoVersus">⚔ Versus</button>
             </div>
-            ${versus ? '<p>Bubu contra Dudu, al mejor de 3 rondas.</p>'
+            ${versus ? '<p>Bubu contra Dudu, al mejor de 3 rondas.</p>' + this.htmlOpcionRoboVersus()
               : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
             <button class="btn grande verde" data-ir="iniciar">▶ ${versus ? 'Iniciar versus' : 'Iniciar: ' + ESCENARIOS[sel.nivel].nombre}</button>`
           : `<p class="esperando" id="modo-sala-invitado">${this.textoModoSalaInvitado()}</p>`}
@@ -132,6 +132,7 @@ Object.assign(Menus, {
         <button class="btn" data-ir="salir">${anfitrion ? 'Cerrar sala' : 'Salir de la sala'}</button>
       </div>`);
     if (anfitrion && !versus) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
+    if (anfitrion && versus) this.conectarOpcionRoboVersus(() => this.enLineaConectado());
     this.conectar({
       salir: () => EnLinea.cerrar(),
       iniciar: () => (versus ? EnLinea.iniciar('isla', 'versus') : EnLinea.iniciar(sel.nivel, 'pareja')),

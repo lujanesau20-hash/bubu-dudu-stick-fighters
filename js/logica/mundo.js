@@ -24,6 +24,8 @@ class Mundo {
     this.tiempoFin = 0;
     this.monedasGanadas = 0;
     this.revivesUsados = 0;
+    // Versus: robo de vida opcional (se elige antes de empezar; config/balance.js -> roboVida.versus)
+    this.roboVersus = opciones.roboVersus ?? (typeof BALANCE !== 'undefined' ? BALANCE.roboVida.versus.porDefecto : false);
 
     const datos = this.modo === 'versus'
       ? ARENAS_VERSUS[opciones.escenario] || ARENAS_VERSUS.isla
@@ -109,8 +111,13 @@ class Mundo {
     if (this.modo === 'versus') danio *= CONFIG.versus.multiplicadorDanio;
     danio = Math.round(danio);
     const flashAntes = obj.anim ? obj.anim.flash : 0;
+    const vidaAntes = obj.vida;
     if (!obj.recibirDanio(danio, info)) return;
     const a = info.atacante;
+    // Robo de vida: solo H1..H4 (lo que la habilidad marcó) y sobre el daño realmente hecho
+    if (a && a.esJugador && info.origen && info.origen.habilidad != null) {
+      this.robarVida(a, Math.max(0, Math.min(danio, vidaAntes - Math.max(0, obj.vida))), info.origen);
+    }
     if (a && a.esJugador) a.energia = Math.min(CONFIG.energia.max, a.energia + CONFIG.energia.porGolpe);
     // Pausa de impacto. Contra enemigos, Corte volador y Torbellino no la usan (aturdimiento 0):
     // así el enemigo no se frena a cada golpe. A los jugadores (versus) siempre igual que antes.
@@ -122,6 +129,34 @@ class Mundo {
     if (obj._idDanio == null) obj._idDanio = (this._siguienteIdDanio = (this._siguienteIdDanio || 0) + 1);
     this.emitir('impacto', { x: info.x, y: info.y, danio, color: info.color, aJugador: !!obj.esJugador, quien: obj._idDanio });
     if (danio >= 30) this.emitir('sacudir', { fuerza: Math.min(14, danio / 4) });
+  }
+
+  // Porcentaje de robo de vida de un jugador (tienda) o el fijo del versus (si está activado)
+  porcentajeRobo(j) {
+    if (typeof BALANCE === 'undefined' || !BALANCE.roboVida) return 0;
+    if (this.modo === 'versus') return this.roboVersus ? BALANCE.roboVida.versus.porcentaje : 0;
+    const i = MEJORAS.indiceRobo();
+    return MEJORAS.porcentajeRobo(i >= 0 && j.mejoras ? j.mejoras[i] : 0);
+  }
+
+  // Cura al jugador una parte del daño hecho. "o" es el golpe o proyectil: lleva la cuenta del
+  // tope por uso (H3 y H4 golpean a varios a la vez). Nunca pasa de la vida máxima.
+  robarVida(j, aplicado, o) {
+    const pct = this.porcentajeRobo(j);
+    if (!(pct > 0) || !(aplicado > 0) || !j.vivo || j.vida >= j.vidaMax) return;
+    const tope = j.vidaMax * BALANCE.roboVida.topePorUso;
+    const cura = Math.min(aplicado * pct, tope - (o.roboUsado || 0));
+    if (cura <= 0) return;
+    o.roboUsado = (o.roboUsado || 0) + cura;
+    const antes = j.vida;
+    j.vida = Math.min(j.vidaMax, j.vida + cura);
+    // El número verde se muestra en enteros: lo que sobra se guarda para el siguiente golpe
+    j.roboPendiente = (j.roboPendiente || 0) + (j.vida - antes);
+    const n = Math.floor(j.roboPendiente);
+    if (n >= 1) {
+      j.roboPendiente -= n;
+      this.emitir('roboVida', { jugador: j.indice, x: j.x, y: j.y - j.alto - 14, cantidad: n });
+    }
   }
 
   // Golpe sin pausa de impacto (H3, Corte volador, Torbellino): la animación se ve igual que antes,

@@ -11,14 +11,21 @@ const MEJORAS = {
   cantidad() { return BALANCE.mejoras.lista.length; },
   vacias() { return BALANCE.mejoras.lista.map(() => 0); },
 
-  // Lista de niveles limpia (7 números entre 0 y 5), venga de donde venga
+  // Niveles máximos de la mejora i (el robo de vida tiene 4; las de daño, 5)
+  maximo(i) { const d = BALANCE.mejoras.lista[i]; return d && d.niveles != null ? d.niveles : BALANCE.mejoras.niveles; },
+
+  // Lista de niveles limpia (un número por mejora, entre 0 y su máximo), venga de donde venga.
+  // Guardados viejos (sin robo de vida) quedan con 0 en las mejoras nuevas.
   normalizar(arr) {
-    const max = BALANCE.mejoras.niveles;
     return BALANCE.mejoras.lista.map((_, i) => {
       const n = Array.isArray(arr) ? Math.floor(+arr[i] || 0) : 0;
-      return Math.max(0, Math.min(max, n));
+      return Math.max(0, Math.min(this.maximo(i), n));
     });
   },
+
+  // Robo de vida: posición en la lista y porcentaje para un nivel
+  indiceRobo() { return BALANCE.mejoras.lista.findIndex((d) => d.tipo === 'robo'); },
+  porcentajeRobo(nivel) { const p = BALANCE.roboVida.porcentajes; return p[Math.max(0, Math.min(p.length - 1, nivel || 0))]; },
 
   // Multiplicador de daño para un nivel de mejora (0 = base)
   multiplicador(nivel) { return 1 + BALANCE.mejoras.subidaPorNivel * (nivel || 0); },
@@ -33,7 +40,8 @@ const MEJORAS = {
   // Precio para subir del nivel "actual" al siguiente (null si ya está al máximo)
   precio(i, actual) {
     const c = BALANCE.mejoras;
-    if (actual >= c.niveles) return null;
+    if (actual >= this.maximo(i)) return null;
+    if (c.lista[i].precios) return c.lista[i].precios[actual]; // precio fijo de cada compra (robo de vida)
     const r = c.redondeoPrecio || 1;
     return Math.round((c.lista[i].precioBase * Math.pow(c.crecimientoPrecio, actual)) / r) * r;
   },

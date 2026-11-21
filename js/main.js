@@ -88,7 +88,8 @@ const Juego = {
     this.escenario = ESCENARIOS[escenario] && !ESCENARIOS[escenario].pendiente ? escenario : ORDEN_NIVELES[0];
     const c = CONFIG.controles;
     this.entrada.configurar(modo === 'solo' ? [c.solo] : [c.j1, c.j2]);
-    this.mundo = new Mundo({ modo, personajes, escenario: modo === 'versus' ? 'isla' : this.escenario, semilla: Math.floor(Math.random() * 1e9) });
+    this.mundo = new Mundo({ modo, personajes, escenario: modo === 'versus' ? 'isla' : this.escenario, semilla: Math.floor(Math.random() * 1e9),
+      roboVersus: Menus.roboVersusActivo() }); // versus: robo de vida sí/no (lo elige este equipo o el líder)
     // Radio para recoger monedas: generoso en celular y en línea (config/balance.js -> monedas.radioRecogida)
     const enLinea = typeof EnLinea !== 'undefined' && EnLinea.activo;
     this.mundo.radioMonedas = BALANCE.monedas.radioRecogida[this.esTactil || enLinea ? 'celular' : 'laptop'];

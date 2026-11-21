@@ -192,7 +192,7 @@ const BALANCE = {
     desbloqueaAlSuperar: 'isla-5', // la pestaña se abre al completar el nivel 5
     niveles: 5,
     subidaPorNivel: 0.20,
-    crecimientoPrecio: 1.5,
+    crecimientoPrecio: 1.4,     // v1.08: antes 1.5 (con el robo de vida, el nivel 10 sigue en ~40% de las mejoras)
     redondeoPrecio: 5,
     // tipo 'habilidad' -> BALANCE.habilidades[indice]; tipo 'combo' -> BALANCE.combos[indice]
     lista: [
@@ -203,7 +203,21 @@ const BALANCE = {
       { id: 'corte',       tipo: 'combo',     indice: 0, icono: '🌙', nombre: 'Corte volador',  precioBase: 230 },
       { id: 'torbellino',  tipo: 'combo',     indice: 1, icono: '🌀', nombre: 'Torbellino',     precioBase: 230 },
       { id: 'cataclismo',  tipo: 'combo',     indice: 2, icono: '☄️', nombre: 'Cataclismo',     precioBase: 345 },
+      // Robo de vida (v1.08): 4 compras (no 5); precio fijo de cada compra (ver BALANCE.roboVida)
+      { id: 'robo',        tipo: 'robo',      icono: '🩸', nombre: 'Robo de vida', niveles: 4, precios: [100, 175, 275, 400] },
     ],
+  },
+
+  // ---------- Robo de vida (v1.08): habilidad de fondo, siempre activa ----------
+  // Cura una parte del daño REALMENTE hecho (sin el sobrante al matar) con H1, H2, H3 y H4.
+  // Los combos (Corte volador, Torbellino, Cataclismo) NO roban vida.
+  roboVida: {
+    porcentajes: [0.03, 0.05, 0.08, 0.10, 0.15], // nivel 0 (gratis) y las 4 compras de la tienda
+    topePorUso: 0.15,         // máximo curado por cada uso de una habilidad (15% de la vida máxima), útil en H3 y H4
+    juntarMs: 400,            // los "+N" verdes dentro de este tiempo se suman en un solo número
+    // Versus: opción que se elige antes de empezar (local en PC; en línea, el líder en la sala).
+    // Fijo, sin mejoras de la tienda.
+    versus: { porDefecto: true, porcentaje: 0.10 },
   },
 
   // ---------- Versus ----------

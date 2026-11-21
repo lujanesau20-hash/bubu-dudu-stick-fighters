@@ -210,6 +210,7 @@ class Efectos {
           this.texto(e.x, e.y - 30, '+' + e.cantidad + ' maná', '#74c0fc', false, true);
           this.anillo(e.x, e.y, 8, 60, 0.3, '#4dabf7', 5);
           break;
+        case 'roboVida': this.numeroRobo(e); break;
         case 'caido': this.chispas(e.x, e.y - 40, '#ff6b6b', 20); this.camara.sacudir(10); break;
         case 'revivido':
           this.anillo(e.x, e.y - 40, 20, 140, 0.5, '#7dff9b', 10);
@@ -228,6 +229,17 @@ class Efectos {
         case 'refuerzo': this.texto(e.x, 120, '¡REFUERZO!', '#ff8787', false, true); break;
       }
     }
+  }
+
+  // Robo de vida: "+N" verde pequeño sobre el jugador; los que llegan juntos se suman en uno
+  // (mismo sistema que junta los números de daño; respeta el límite de efectos).
+  numeroRobo(e) {
+    const clave = 'robo' + e.jugador;
+    const juntar = ((BALANCE.roboVida && BALANCE.roboVida.juntarMs) || 0) / 1000;
+    const t = this.danioPorQuien.get(clave);
+    if (t && t.t <= juntar) { t.valor += e.cantidad; t.texto = '+' + t.valor; return; }
+    const n = this.texto(e.x, e.y, '+' + e.cantidad, '#7dff9b', false, true, 1);
+    if (n) { n.quien = clave; n.valor = e.cantidad; n.aJugador = true; this.danioPorQuien.set(clave, n); }
   }
 
   // Número de daño: los golpes al mismo enemigo en ~150 ms se suman en un solo número

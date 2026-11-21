@@ -16,6 +16,22 @@ const Menus = {
   },
 
   // Asigna funciones a botones con data-ir
+  // ---------- Versus: opción "Robo de vida" (config/balance.js -> roboVida.versus) ----------
+  // Se guarda en este equipo; en línea vale la del líder (él calcula la pelea).
+  roboVersusActivo() {
+    const d = typeof Guardado !== 'undefined' && Guardado.datos;
+    return d && typeof d.versusRoboVida === 'boolean' ? d.versusRoboVida : BALANCE.roboVida.versus.porDefecto;
+  },
+  htmlOpcionRoboVersus() {
+    const si = this.roboVersusActivo();
+    return `<div class="fila-botones"><button class="btn ${si ? 'verde' : ''}" data-robo-versus="1">🩸 Robo de vida: ${si ? 'Sí' : 'No'}
+      <small>(${Math.round(BALANCE.roboVida.versus.porcentaje * 100)}% del daño con H1–H4)</small></button></div>`;
+  },
+  conectarOpcionRoboVersus(repintar) {
+    const b = this.cont.querySelector('[data-robo-versus]');
+    if (b) b.onclick = () => { Guardado.datos.versusRoboVida = !this.roboVersusActivo(); Guardado.guardar(); repintar(); };
+  },
+
   conectar(acciones) {
     this.cont.querySelectorAll('[data-ir]').forEach((b) => {
       b.onclick = () => acciones[b.dataset.ir] && acciones[b.dataset.ir](b);
@@ -98,7 +114,7 @@ const Menus = {
           <h2>${titulos[modo]}</h2>
           <p>${modo === 'solo' ? 'Elige tu personaje' : 'Toca un personaje para que sea el Jugador 1'}</p>
           <div class="tarjetas">${tarjetas}</div>
-          ${modo === 'versus' ? '' : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
+          ${modo === 'versus' ? this.htmlOpcionRoboVersus() : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
           <p class="ayuda">${ayuda}</p>
           <div class="fila-botones">
             <button class="btn" data-ir="volver">Volver</button>
@@ -107,6 +123,7 @@ const Menus = {
         </div>`);
       this.cont.querySelectorAll('.tarjeta').forEach((t) => t.onclick = () => { elegido = t.dataset.id; pintar(); });
       if (modo !== 'versus') this.conectarSelectorNiveles(sel, pintar);
+      else this.conectarOpcionRoboVersus(pintar);
       this.conectar({
         volver: () => this.principal(),
         jugar: () => {
