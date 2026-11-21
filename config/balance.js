@@ -269,26 +269,29 @@ const BALANCE = {
     { id: 'cielo', nombre: 'Cielo con Nubes', nivelVida: 11,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'arqueroMaestro' }],
-      vida: [110, 280], danioExtra: 1, distanciaExtra: 1, // danioExtra calibrado en v1.11
+      vida: [100, 240], danioExtra: 1, distanciaExtra: 1, // v1.13: vida antes 110-280; danioExtra calibrado en v1.11
       tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 3, mago: 5 },
       pesos: { normal: 2, espadachin: 2, arquero: 3, ninja: 1.5, mago: 1 } },
     { id: 'espacio', nombre: 'Espacio', nivelVida: 12,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'magoCosmico' }],
-      vida: [150, 320], danioExtra: 1, distanciaExtra: 1, // v1.11: danioExtra 2 -> 1
+      vida: [130, 270], danioExtra: 1, // v1.13: vida antes 150-320
+      distanciaExtra: 1, // danioExtra v1.11: 2 -> 1
       tiposDesde: { normal: 1, espadachin: 1, mago: 1, arquero: 2, ninja: 3 },
       pesos: { normal: 2, espadachin: 2, mago: 3, arquero: 1, ninja: 1.5 } },
     { id: 'ciudad', nombre: 'Calle de la Ciudad', nivelVida: 13,
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'ninjaSombra' }],
-      vida: [190, 360], danioExtra: 2, distanciaExtra: 0, // v1.11: danioExtra 3 -> 2
+      vida: [160, 300], danioExtra: 2, // v1.13: vida antes 190-360
+      distanciaExtra: 0, // danioExtra v1.11: 3 -> 2
       tiposDesde: { normal: 1, ninja: 1, espadachin: 1, arquero: 1, mago: 3 },
       pesos: { normal: 2, espadachin: 2, ninja: 3, arquero: 1, mago: 1 } },
     // Mundo 5 (v1.10): fondo de bosque oscuro con plantas gigantes y luciérnagas (js/dibujo/fondo_jungla.js)
     { id: 'jungla', nombre: 'Jungla Encantada', fondo: 'jungla',
       niveles: [{ tramos: 7 }, { tramos: 8 }, { tramos: 9 }, { tramos: 10 }, { tramos: 11 },
         { tramos: 11 }, { tramos: 11 }, { tramos: 12 }, { tramos: 12 }, { tramos: 10, jefe: 'guardianJungla' }],
-      vida: [230, 400], danioExtra: 2, distanciaExtra: 1, // v1.11: danioExtra 4 -> 2 (el bot perdía los niveles 9 y 10)
+      vida: [190, 330], danioExtra: 2, // v1.13: vida antes 230-400
+      distanciaExtra: 1, // danioExtra v1.11: 4 -> 2 (el bot perdía los niveles 9 y 10)
       tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 1, mago: 2 },
       pesos: { normal: 2, espadachin: 2, ninja: 2, arquero: 1.5, mago: 1.5 },
       colores: { normal: '#ff922b', espadachin: '#f03e3e', arquero: '#c0eb75', mago: '#e599f7', ninja: '#9775fa', ave: '#ffd43b' } },

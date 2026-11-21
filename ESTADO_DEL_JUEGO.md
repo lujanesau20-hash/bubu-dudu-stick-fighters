@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: pruebas de cierre — sección 28; antes: calibración — sección 27, 10 niveles por mundo y Jungla — sección 26, esferas de maná, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.12`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.12`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: menos vida en los mundos 2 a 5 — sección 29; antes: pruebas de cierre — sección 28, calibración — sección 27, 10 niveles y Jungla — sección 26, esferas, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.13`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.13`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`
 
 ---
 
@@ -1559,7 +1559,7 @@ El jefe tiene 10 veces la vida del enemigo de su nivel (en pareja, ×1,6). Cada 
 | Jungla | 36 | 37 | 39 (todo) | 3321 |
 
 ### Propuestas que NO se aplicaron (cambian mucho el juego)
-1. **Golpes de H1:** 32 de los 50 niveles piden más de 8 golpes con la mitad de las mejoras. Propuesta: bajar la vida de los mundos 2 a 5 (`BALANCE.mundos[].vida`) a Cielo 100→240, Espacio 130→270, Ciudad 160→300 y Jungla 190→330. Con las mejoras que alcanza a comprar el jugador quedarían unos 9 a 10 golpes al final de cada mundo. La Isla 9 y 10 ya pedían 9 y 11 golpes desde v1.02.
+1. **Golpes de H1** (**aplicada en v1.13**, sección 29): 32 de los 50 niveles piden más de 8 golpes con la mitad de las mejoras. Propuesta: bajar la vida de los mundos 2 a 5 (`BALANCE.mundos[].vida`) a Cielo 100→240, Espacio 130→270, Ciudad 160→300 y Jungla 190→330. Con las mejoras que alcanza a comprar el jugador quedarían unos 9 a 10 golpes al final de cada mundo. La Isla 9 y 10 ya pedían 9 y 11 golpes desde v1.02.
 2. **Robo de vida al 15%:** es muy fuerte, porque cura casi todo el daño. Propuesta: máximo 10% (porcentajes 3, 5, 7, 8, 10) o tope por uso de 10 en lugar de 15.
 3. **Economía:** al final del Mundo 1 se tiene el 41% de las mejoras (16 de 39). Para llegar justo a la mitad habría que bajar todos los precios un 30%.
 4. **Jefe por nivel:** hoy cada mundo tiene jefe solo en el nivel 10, como la Isla. Si se quiere un jefe en otros niveles, basta con `jefe: '<tipo>'` en esa línea de `BALANCE.mundos`.
@@ -1592,3 +1592,42 @@ Hechas con navegador automático en tamaño celular horizontal (800×360, tácti
 - Con dedos en un celular real ni en dos dispositivos reales.
 - Una partida completa jugada a mano en cada mundo: se usó la simulación acelerada.
 - La dificultad real para una persona: el bot es más torpe que una persona, así que sus números son orientativos.
+
+## 29. Menos vida en los mundos 2 a 5 (v1.13)
+
+Respaldo: etiqueta `respaldo-antes-vida-mundos`. Es la propuesta 1 de la sección 27, elegida por el usuario. Solo cambia `BALANCE.mundos[].vida`. La Isla, el daño, el maná, las monedas y el versus no cambian.
+
+| Mundo | Antes (N1→N10) | Ahora (N1→N10) | Jefe antes → ahora |
+|---|---|---|---|
+| Cielo | 110→280 | **100→240** | 2800 → **2400** |
+| Espacio | 150→320 | **130→270** | 3200 → **2700** |
+| Ciudad | 190→360 | **160→300** | 3600 → **3000** |
+| Jungla | 230→400 | **190→330** | 4000 → **3300** |
+
+- Cada mundo sigue empezando más fuerte que el anterior: 70, 100, 130, 160 y 190.
+- **Vida por nivel:**
+  - Cielo: 100 110 121 134 148 163 179 198 218 240.
+  - Espacio: 130 141 153 166 180 195 212 230 249 270.
+  - Ciudad: 160 172 184 197 212 227 243 261 280 300.
+  - Jungla: 190 202 215 228 243 258 275 292 310 330.
+- **Golpes de H1 al final de cada mundo**, con las mejoras que alcanza a comprar el jugador (tabla de monedas de la sección 27):
+
+  | Mundo | Daño de H1 | Golpes |
+  |---|---|---|
+  | Cielo | 26 | 10 |
+  | Espacio | 29 | 10 |
+  | Ciudad | 31 | 10 |
+  | Jungla | 32 | 11 |
+
+  Antes eran 11 a 13.
+- **Golpes de H1 con la mitad de las mejoras** (`node herramientas/calibrar.js golpes`): 26 niveles pasan de 8 golpes (antes 32). Los primeros niveles de cada mundo quedan en 5 a 8.
+- **Bot** (robo de vida al 15%, mejoras según las monedas):
+
+  | Mundo | N1 | N5 | N10 |
+  |---|---|---|---|
+  | Cielo | 3 de 3 | 3 de 3 | 3 de 3 |
+  | Espacio | 3 de 3 | 3 de 3 | 3 de 3 |
+  | Ciudad | 2 de 2 | 2 de 2 | **0 de 2** |
+  | Jungla | 2 de 2 | 2 de 2 | 2 de 2 |
+
+  El jefe de la Ciudad (Ninja Sombra, muy rápido) le cuesta al bot: antes de bajar la vida ganaba 1 de 2.
