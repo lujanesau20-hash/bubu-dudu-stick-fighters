@@ -186,6 +186,11 @@ class Render {
       case 'flecha': {
         // Apunta hacia donde va
         ctx.rotate(Math.atan2(p.vy, p.vx));
+        // Rastro corto y tenue detrás (sin brillo) para ver bien la trayectoria
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-64, 0); ctx.lineTo(-28, 0); ctx.stroke();
+        ctx.strokeStyle = 'rgba(20,20,35,0.7)'; ctx.lineWidth = 5; // contorno oscuro del palo
+        ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(12, 0); ctx.stroke();
         ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(12, 0); ctx.stroke();
         ctx.fillStyle = '#dee2e6';

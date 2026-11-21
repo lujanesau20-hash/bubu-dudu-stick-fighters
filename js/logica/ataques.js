@@ -44,6 +44,8 @@ class Golpe {
 
   actualizar(dt, mundo) {
     if (this.retraso > 0) { this.retraso -= dt; return; }
+    // Un enemigo que muere a mitad de su ataque (p. ej. la picada del ave) ya no hace daño
+    if (this.duenio && !this.duenio.esJugador && this.duenio.estado === 'muerto') { this.vivo = false; return; }
     this.actualizarPosicion();
     if (this.intervalo > 0) {
       this.tInterv += dt;

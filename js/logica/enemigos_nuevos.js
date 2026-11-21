@@ -67,23 +67,32 @@ Object.assign(IA_ENEMIGOS, {
     const obj = m.jugadorMasCercano(e.x, e.y);
     if (!obj) { e.vx = U.aproximar(e.vx, 0, 800 * dt); e.estado = 'perseguir'; return; }
     const dx = obj.x - e.x, dist = Math.abs(dx);
+    // Se detiene, tensa el arco (preparar), suelta (atacar) y recarga (recuperar).
+    // Números en config/balance.js -> comportamiento.arquero
+    const ba = BALANCE.comportamiento.arquero;
     switch (e.estado) {
       case 'perseguir':
-        mantenerDistancia(e, dt, dx, 240, 430, c.velocidad);
+        mantenerDistancia(e, dt, dx, 240, 430, e.velocidad);
         e.dir = dx > 0 ? 1 : -1; // siempre mira al jugador
-        if (e.enfriamientoAtaque <= 0 && dist < c.alcance && e.enSuelo) { e.estado = 'preparar'; e.t = c.preparacion; }
+        if (e.enfriamientoAtaque <= 0 && dist < c.alcance && e.enSuelo) { e.estado = 'preparar'; e.t = ba.tensar; }
         break;
       case 'preparar':
-        e.vx = U.aproximar(e.vx, 0, 1500 * dt);
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
         e.dir = dx > 0 ? 1 : -1;
         e.t -= dt;
         if (e.t <= 0) {
           DISPAROS.flecha(e, m, obj, c.danio);
-          e.estado = 'atacar'; e.t = 0.3;
-          e.enfriamientoAtaque = m.rng.rango(1.7, 2.7);
+          e.estado = 'atacar'; e.t = ba.soltar;
+          e.enfriamientoAtaque = m.rng.rango(ba.enfriamiento[0], ba.enfriamiento[1]) + e.desfase;
         }
         break;
       case 'atacar':
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
+        e.t -= dt;
+        if (e.t <= 0) { e.estado = 'recuperar'; e.t = ba.recarga; }
+        break;
+      case 'recuperar':
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
         e.t -= dt;
         if (e.t <= 0) e.estado = 'perseguir';
         break;
@@ -100,7 +109,7 @@ Object.assign(IA_ENEMIGOS, {
     const dx = obj.x - e.x, dist = Math.abs(dx);
     switch (e.estado) {
       case 'perseguir':
-        mantenerDistancia(e, dt, dx, 220, 380, c.velocidad);
+        mantenerDistancia(e, dt, dx, 220, 380, e.velocidad);
         e.dir = dx > 0 ? 1 : -1;
         // Si te acercas mucho, se teletransporta lejos
         if (dist < 160 && e.cdTele <= 0) {
@@ -135,7 +144,7 @@ Object.assign(IA_ENEMIGOS, {
     const obj = m.jugadorMasCercano(e.x, e.y);
     e.cdEsquiva = (e.cdEsquiva ?? 0) - dt;
     e.cdShuriken = (e.cdShuriken ?? m.rng.rango(1, 3)) - dt;
-    if (obj && e.estado === 'perseguir' && e.enSuelo) {
+    if (obj && (e.estado === 'perseguir' || e.estado === 'esperar') && e.enSuelo) {
       const dx = obj.x - e.x, dist = Math.abs(dx);
       // Esquivar: salta hacia atrás justo cuando el jugador ataca cerca
       if (dist < 170 && obj.anim.ataque > 0.75 && e.cdEsquiva <= 0) {
@@ -158,7 +167,7 @@ Object.assign(IA_ENEMIGOS, {
       e.t -= dt;
       if (e.t <= 0) {
         DISPAROS.shuriken(e, m, 0, Math.round(c.danio * 0.7));
-        e.estado = 'atacar'; e.t = 0.2;
+        e.estado = 'recuperar'; e.t = 0.2; // sin golpe cuerpo a cuerpo: solo se recupera
         e.cdShuriken = m.rng.rango(2.8, 4.2);
       }
       return;
@@ -173,19 +182,59 @@ Object.assign(IA_ENEMIGOS, {
 IA_ENEMIGOS.ave = function (e, dt, m) {
   const c = e.cfg;
   const ba = BALANCE.aves;
+  const bv = BALANCE.comportamiento.ave;
   e.ignorarPlataformasHasta = Infinity; // vuela: no se posa en las plataformas
-  // Mantener la altura de vuelo con un pequeño vaivén
-  const yObj = m.sueloY - ba.alturaVuelo + Math.sin(m.tiempo * 2.2 + e.anim.fase) * 14;
-  e.vy = U.clamp((yObj - e.y) * 3, -260, 260);
+  // Mantener la altura de vuelo con un vaivén al ritmo del aleteo
+  const aleteo = CONFIG.interfaz.ave.aleteosPorSegundo || 3;
+  const yObj = m.sueloY - ba.alturaVuelo + Math.sin(m.tiempo * aleteo * Math.PI * 2 * 0.5 + e.anim.fase) * bv.vaiven;
+  if (e.estado !== 'picada') e.vy = U.clamp((yObj - e.y) * 3, -bv.velocidadSubida, bv.velocidadSubida);
   e.anim.fase += dt * 0.5;
   const obj = m.jugadorMasCercano(e.x, e.y);
-  if (!obj) { e.vx = U.aproximar(e.vx, 0, 600 * dt); e.estado = 'perseguir'; return; }
-  const dx = obj.x - e.x, dist = Math.abs(dx);
+  if (!obj && e.estado !== 'picada') { e.vx = U.aproximar(e.vx, 0, 600 * dt); e.estado = 'perseguir'; return; }
+  const dx = obj ? obj.x - e.x : 0, dist = Math.abs(dx);
   switch (e.estado) {
     case 'perseguir':
       e.dir = dx > 0 ? 1 : -1;
-      mantenerDistancia(e, dt, dx, 200, 360, c.velocidad);
-      if (e.enfriamientoAtaque <= 0 && dist < c.alcance && Math.abs(e.y - yObj) < 60) { e.estado = 'preparar'; e.t = c.preparacion; }
+      mantenerDistancia(e, dt, dx, 200, 360, e.velocidad);
+      if (e.enfriamientoAtaque <= 0 && dist < c.alcance && Math.abs(e.y - yObj) < 60) {
+        e.nAtaques = (e.nAtaques || 0) + 1;
+        // Cada "picadaCada" ataques, uno es una picada (con aviso) en lugar de la bola de fuego
+        if (bv.picadaCada > 0 && e.nAtaques % bv.picadaCada === 0 && dist < 420) { e.estado = 'prepPicada'; e.t = bv.avisoPicada; }
+        else { e.estado = 'preparar'; e.t = c.preparacion; }
+      }
+      break;
+    case 'prepPicada':
+      // Aviso: se frena, sube un poco y levanta las alas
+      e.vx = U.aproximar(e.vx, 0, 1200 * dt);
+      e.vy = -40;
+      e.dir = dx > 0 ? 1 : -1;
+      e.t -= dt;
+      if (e.t <= 0) {
+        // Se lanza en línea recta hacia donde está el jugador ahora
+        const tx = obj.x, ty = Math.min(m.sueloY - 30, obj.y - obj.alto * 0.5);
+        const ang = Math.atan2(ty - (e.y - e.alto / 2), tx - e.x);
+        e.vx = Math.cos(ang) * bv.velocidadPicada; e.vy = Math.sin(ang) * bv.velocidadPicada;
+        e.estado = 'picada'; e.t = bv.duracionPicada;
+        e.golpePicada = new Golpe({
+          duenio: e, seguir: e, offX: 0, offY: -e.alto / 2, w: e.ancho + 12, h: e.alto + 8,
+          danio: c.danio, empujeX: 200, empujeY: 160, duracion: bv.duracionPicada, color: e.color,
+        });
+        m.agregarGolpe(e.golpePicada);
+      }
+      break;
+    case 'picada':
+      e.t -= dt;
+      // Termina al acabar el tiempo o al llegar cerca del suelo; luego vuelve a su altura
+      if (e.t <= 0 || e.y >= m.sueloY - 24) {
+        if (e.golpePicada) e.golpePicada.vivo = false;
+        e.golpePicada = null;
+        if (e.y > m.sueloY - 24) e.y = m.sueloY - 24;
+        e.estado = 'subir'; e.vx *= 0.3;
+      }
+      break;
+    case 'subir':
+      e.vx = U.aproximar(e.vx, 0, 600 * dt);
+      if (Math.abs(e.y - yObj) < 30) { e.estado = 'perseguir'; e.enfriamientoAtaque = m.rng.rango(2.0, 3.0) + e.desfase; }
       break;
     case 'preparar':
       e.vx = U.aproximar(e.vx, 0, 1200 * dt);

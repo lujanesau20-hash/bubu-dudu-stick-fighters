@@ -8,6 +8,8 @@ class Jefe extends Enemigo {
     const cfg = Object.assign({ ancho: 90, alto: 220, velocidad: 80, monedas: 60 }, CONFIG.jefes[tipo]);
     super(mundo, tipo, x, y, cfg);
     this.esJefe = true;
+    // Jefes: +15% de velocidad (config/balance.js -> comportamiento.velocidadJefeMult)
+    this.velocidad = cfg.velocidad * (mundo.factorVelocidad ? mundo.factorVelocidad(true) : 1);
     this.nombre = cfg.nombre;
     this.vidaMax = Math.round(cfg.vida * multVida);
     this.vida = this.vidaMax;
@@ -52,7 +54,7 @@ class Jefe extends Enemigo {
     }
     (IA_JEFES[this.tipo] || IA_JEFES.gigante)(this, dt, m);
     m.moverCuerpo(this, dt);
-    if (Math.abs(this.vx) > 10) this.anim.fase += dt * Math.abs(this.vx) * 0.03;
+    this.avanzarPaso(dt); // piernas al ritmo del movimiento
   }
 
   recibirDanio(cantidad, info) {
@@ -98,7 +100,7 @@ const IA_JEFES = {
 
       case 'caminar':
         e.dir = dx > 0 ? 1 : -1;
-        e.vx = U.aproximar(e.vx, Math.abs(dx) > 120 ? e.dir * c.velocidad * rapidez : 0, 500 * dt);
+        e.vx = U.aproximar(e.vx, Math.abs(dx) > 120 ? e.dir * e.velocidad * rapidez : 0, 500 * dt);
         if (Math.abs(dx) < 190 && e.enfriamientoAtaque <= 0) {
           e.estado = 'prepPunio'; e.t = 0.65 / rapidez;
         } else if (e.tPisoton <= 0) {
@@ -113,7 +115,7 @@ const IA_JEFES = {
         e.t -= dt;
         if (e.t <= 0) {
           e.estado = 'punio'; e.t = 0.35;
-          e.vx = e.dir * 260;
+          e.vx = e.dir * (BALANCE.comportamiento.retrocesoGolpe || 0); // se queda quieto al pegar (antes 260)
           m.agregarGolpe(new Golpe({
             duenio: e, seguir: e, offX: 120, offY: -e.alto * 0.62, w: 190, h: 110,
             danio: c.danioPunio, empujeX: 560, empujeY: 380, duracion: 0.14, color: e.color,

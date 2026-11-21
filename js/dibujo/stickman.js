@@ -41,6 +41,20 @@ function poseStickman(e, t) {
       }
       break;
     }
+    case 'esperar': {
+      // Quieto en guardia (esperando su turno para atacar): puños arriba y pequeño balanceo
+      const r = Math.sin(t * 4 + f) * 0.06;
+      p.cuerpo = 0.08 + r * 0.5;
+      p.bD = [1.0 + r, 2.4]; p.bI = [0.6 - r, 2.2];
+      p.pD = [0.35, 0]; p.pI = [-0.3, 0];
+      break;
+    }
+    case 'recuperar':
+      // Vuelve a la guardia después del golpe
+      p.cuerpo = 0.12;
+      p.bD = [1.2, 1.9]; p.bI = [0.2, 1.4];
+      p.pD = [0.45, 0]; p.pI = [-0.4, 0];
+      break;
     case 'preparar':
     case 'prepPunio':
       p.cuerpo = -0.25;
@@ -325,7 +339,8 @@ const CUADROS_ALA_AVE = {
 function dibujarAve(ctx, e, t) {
   const ca = CONFIG.interfaz.ave;
   const muerto = e.estado === 'muerto';
-  const prep = e.estado === 'preparar', ataca = e.estado === 'atacar';
+  const prep = e.estado === 'preparar' || e.estado === 'prepPicada', ataca = e.estado === 'atacar';
+  const picada = e.estado === 'picada';
   const cy = e.y - e.alto / 2;
   ctx.save();
   // Sombra en el suelo (más chica cuanto más alto vuela)
@@ -340,6 +355,8 @@ function dibujarAve(ctx, e, t) {
     ctx.rotate(e.dir * Math.min(1, e.tiempoMuerto / 0.4) * 2.4);
     ctx.globalAlpha = Math.max(0, 1 - Math.max(0, e.tiempoMuerto - 0.7) / 0.7);
   }
+  // Picada: el cuerpo apunta hacia donde se lanza
+  if (picada) ctx.rotate(e.dir * U.clamp(Math.atan2(e.vy, Math.abs(e.vx) + 1), -1.2, 1.2));
   ctx.scale(e.dir * ca.escala, ca.escala);
 
   const img = imagenAve();
@@ -355,6 +372,7 @@ function dibujarAve(ctx, e, t) {
     if (muerto) ala = [0.3, 0.2];
     else if (prep) ala = [1.15, 0.7];          // alas bien arriba: se prepara
     else if (ataca) ala = [-0.7, -0.35];       // golpe de alas hacia abajo al lanzar
+    else if (picada) ala = [0.35, 1.1];        // alas plegadas hacia atrás en la picada
     else ala = cuadros[Math.floor(t * ca.aleteosPorSegundo * cuadros.length + e.anim.fase * 3) % cuadros.length];
     // Pequeño sube y baja del cuerpo con el aleteo
     const sube = muerto ? 0 : -ala[0] * 3;

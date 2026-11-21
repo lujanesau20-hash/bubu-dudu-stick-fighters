@@ -300,6 +300,32 @@ const BALANCE = {
   // Jefe del Mundo 5 (v1.10): pelea como el Gigante, con su propio aspecto
   jefeJungla: { nombre: 'REY DE LA JUNGLA', color: '#2b8a3e', velocidad: 85, ancho: 96, alto: 235, monedas: 120,
     punio: 10, pisoton: 9, embestida: 12 },
+
+  // ---------- Cómo se mueven y atacan los enemigos (v1.15) ----------
+  // No cambia la vida ni el daño de cada golpe: solo el ritmo y la velocidad.
+  comportamiento: {
+    velocidadMult: 1.30,        // velocidad de caminar de los enemigos (1 = la de antes; 1.30 = +30%)
+    velocidadPorMundo: 0.05,    // +5% por cada mundo (Isla +0%, Cielo +5%, Espacio +10%, Ciudad +15%, Jungla +20%)
+    velocidadJefeMult: 1.15,    // jefes: +15% (no suben por mundo: cada mundo ya tiene su jefe)
+    // Cuerpo a cuerpo (normal, espadachín y ninja): se DETIENEN para atacar.
+    // aviso (se echa hacia atrás) -> golpe (quieto) -> recuperación -> espera y repite
+    aviso: 0.25,                // segundos de aviso (antes: preparación de 0.42 a 0.5 según el tipo)
+    avisoPorTipo: { espadachin: 0.30, ninja: 0.22 },
+    golpe: 0.15,                // segundos quieto mientras pega
+    recuperacion: 0.22,         // segundos quieto después del golpe
+    enfriamiento: [0.54, 1.14], // espera entre ataques (antes 0.9–1.9 s: 40% menos)
+    desfaseMax: 0.35,           // cada enemigo suma un retraso fijo al azar (0 a 0.35 s) para no atacar todos juntos
+    maxAtacantesPorJugador: 4,  // nunca más de 4 atacando (aviso o golpe) al mismo jugador; los demás esperan su turno
+    distanciaEspera: 1.7,       // los que esperan su turno se quedan a 1.7 veces su alcance
+    retrocesoGolpe: 0,          // 0 = el enemigo no avanza al pegar (antes daba un pasito de 160 px/s)
+    // Caminar sin "patinar": la animación de las piernas avanza según los píxeles recorridos.
+    // Un ciclo completo (dos pasos) del stickman de 82 px de alto recorre ~80 px.
+    ritmoPaso: 0.078,
+    // Arqueros: se detienen, tensan el arco, disparan y recargan. Un poco más de cadencia (−20% de espera).
+    arquero: { tensar: 0.5, soltar: 0.25, recarga: 0.35, enfriamiento: [1.35, 2.15] }, // antes 0.6 s y 1.7–2.7 s
+    // Aves: aleteo con vaivén; cada "picadaCada" ataques uno es una picada con aviso (en vez de la bola de fuego)
+    ave: { picadaCada: 2, avisoPicada: 0.5, velocidadPicada: 640, duracionPicada: 0.9, velocidadSubida: 260, vaiven: 14 },
+  },
 };
 
 // Vida del enemigo normal de un mundo (2..5) en su nivel 1..10: crece parejo de vida[0] a vida[1]

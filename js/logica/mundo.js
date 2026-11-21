@@ -197,6 +197,22 @@ class Mundo {
     obj.anim.flash = 1 + pausa * 6 * c.destelloLargo; // el destello baja 6 por segundo
   }
 
+  // Número del mundo (0 = Isla, 1 = Cielo ... 4 = Jungla) según el escenario
+  indiceMundo() {
+    const id = (this.escenario && this.escenario.mundo) || 'isla';
+    const i = typeof BALANCE !== 'undefined' ? BALANCE.mundos.findIndex((mu) => mu.id === id) : 0;
+    return Math.max(0, i);
+  }
+
+  // Multiplicador de la velocidad de caminar de enemigos y jefes (config/balance.js -> comportamiento).
+  // multVelocidadExtra: lo usa el modo infinito (sube cada oleada).
+  factorVelocidad(esJefe) {
+    const bc = typeof BALANCE !== 'undefined' && BALANCE.comportamiento;
+    if (!bc || this.modo === 'versus') return 1;
+    const f = esJefe ? bc.velocidadJefeMult : bc.velocidadMult * (1 + bc.velocidadPorMundo * this.indiceMundo());
+    return f * (this.multVelocidadExtra || 1);
+  }
+
   jugadorMasCercano(x, y) {
     let mejor = null, dMin = Infinity;
     for (const j of this.jugadores) {
@@ -235,6 +251,9 @@ class Mundo {
     });
     if (this.modo === 'pareja') this.limitarSeparacion();
 
+    // Cuántos enemigos están atacando (aviso o golpe) a cada jugador: máximo comportamiento.maxAtacantesPorJugador
+    for (const j of this.jugadores) j.atacantes = 0;
+    for (const e of this.enemigos) if (e.objetivo && e.vivo && e.atacando) e.objetivo.atacantes = (e.objetivo.atacantes || 0) + 1;
     for (const e of this.enemigos) e.actualizar(dt);
     // Se quitan los terminados en la MISMA lista (antes se creaba una lista nueva en cada paso)
     let k = 0;

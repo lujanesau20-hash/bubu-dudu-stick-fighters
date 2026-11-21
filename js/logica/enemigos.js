@@ -28,6 +28,24 @@ class Enemigo {
     this.tiempoMuerto = 0;
     this.borrar = false;
     this.anim = { fase: mundo.rng() * 6, flash: 0 };
+    // Velocidad de caminar (config/balance.js -> comportamiento): +30% y un poco más en cada mundo
+    this.velocidad = (this.cfg.velocidad || 0) * (mundo.factorVelocidad ? mundo.factorVelocidad(false) : 1);
+    // Retraso fijo al azar de cada enemigo, para que no ataquen todos a la vez
+    const bc = typeof BALANCE !== 'undefined' && BALANCE.comportamiento;
+    this.desfase = bc ? mundo.rng() * bc.desfaseMax : 0;
+    this.objetivo = null;          // jugador al que está atacando (para el máximo de atacantes)
+  }
+
+  // ¿Está en medio de un ataque cuerpo a cuerpo? (cuenta para el máximo de atacantes por jugador)
+  get atacando() { return this.estado === 'preparar' || this.estado === 'atacar'; }
+
+  // Avanza la animación de las piernas según lo que caminó (sin "patinar")
+  avanzarPaso(dt) {
+    const v = Math.abs(this.vx);
+    if (v <= 10) return;
+    const bc = typeof BALANCE !== 'undefined' && BALANCE.comportamiento;
+    const ritmo = bc ? bc.ritmoPaso / Math.max(0.5, this.alto / 82) : 0.05;
+    this.anim.fase += dt * v * ritmo;
   }
 
   get vivo() { return this.estado !== 'muerto'; }
@@ -64,7 +82,7 @@ class Enemigo {
     this.aplicarEmpuje(dt);
     (IA_ENEMIGOS[this.tipo] || IA_ENEMIGOS.normal)(this, dt, m);
     m.moverCuerpo(this, dt, !!this.cfg.vuela);
-    if (Math.abs(this.vx) > 10) this.anim.fase += dt * Math.abs(this.vx) * 0.05;
+    if (!this.cfg.vuela) this.avanzarPaso(dt);
   }
 
   // Empujón corto hacia atrás (config/balance.js -> empujon). No deja al enemigo "tieso".
@@ -119,52 +137,76 @@ class Enemigo {
 }
 
 const IA_ENEMIGOS = {
-  // Stickman normal: persigue, se prepara (telegrafía) y da un puñetazo
+  // Stickman normal (también espadachín y ninja): persigue, se DETIENE, avisa (se echa hacia atrás),
+  // pega quieto, se recupera y repite. Números en config/balance.js -> comportamiento.
+  // Estados: perseguir (camina) | esperar (quieto en guardia) | preparar (aviso) | atacar (golpe) | recuperar
   normal(e, dt, m) {
     const obj = m.jugadorMasCercano(e.x, e.y);
     const c = e.cfg;
-    if (!obj) { e.vx = U.aproximar(e.vx, 0, 800 * dt); e.estado = 'perseguir'; return; }
+    const bc = BALANCE.comportamiento;
+    if (!obj) { e.vx = U.aproximar(e.vx, 0, 800 * dt); e.estado = 'perseguir'; e.objetivo = null; return; }
     const dx = obj.x - e.x;
     const dy = obj.y - e.y;
 
     switch (e.estado) {
-      case 'perseguir': {
+      case 'perseguir':
+      case 'esperar': {
+        e.objetivo = obj;
         e.dir = dx > 0 ? 1 : -1;
-        let velObj = 0;
-        if (Math.abs(dx) > c.alcance * 0.75) velObj = e.dir * c.velocidad;
-        // No amontonarse con otros enemigos
-        for (const o of m.enemigos) {
-          if (o === e || !o.vivo) continue;
-          const d = e.x - o.x;
-          if (Math.abs(d) < 40) velObj += (d >= 0 ? 1 : -1) * 70;
+        const adx = Math.abs(dx);
+        const enAlcance = adx <= c.alcance && Math.abs(dy) < 70;
+        const lleno = (obj.atacantes || 0) >= bc.maxAtacantesPorJugador;
+        // Le toca atacar: se detiene y avisa
+        if (!lleno && e.enfriamientoAtaque <= 0 && enAlcance && e.enSuelo) {
+          e.estado = 'preparar';
+          e.t = (bc.avisoPorTipo && bc.avisoPorTipo[e.tipo]) || bc.aviso;
+          obj.atacantes = (obj.atacantes || 0) + 1;
+          break;
         }
-        e.vx = U.aproximar(e.vx, velObj, 1400 * dt);
+        // Distancia a la que se queda: cerca para pegar, o un poco más lejos si ya hay 4 atacando
+        let velObj = 0;
+        const cercaObj = lleno ? c.alcance * bc.distanciaEspera : c.alcance * 0.75;
+        if (adx > cercaObj + 6) velObj = e.dir * e.velocidad;
+        else if (lleno && adx < cercaObj - 30) velObj = -e.dir * e.velocidad * 0.5; // da lugar a los que pegan
+        // No amontonarse con otros enemigos (solo si están casi encima)
+        let separar = 0;
+        for (const o of m.enemigos) {
+          if (o === e || !o.vivo || o.cfg.vuela) continue;
+          const d = e.x - o.x;
+          if (Math.abs(d) < 30) separar += (d >= 0 ? 1 : -1) * 60;
+        }
+        if (Math.abs(velObj) > 1) velObj += separar;
+        else e.x += separar * 0.4 * dt; // quieto: se aparta despacio sin ponerse a caminar
+        e.vx = U.aproximar(e.vx, velObj, 1600 * dt);
+        e.estado = Math.abs(velObj) > 1 ? 'perseguir' : 'esperar';
         // Saltar a plataformas si el jugador está arriba
-        if (dy < -90 && Math.abs(dx) < 220 && e.enSuelo && m.rng() < 1.2 * dt) e.vy = -880;
+        if (dy < -90 && adx < 220 && e.enSuelo && m.rng() < 1.2 * dt) e.vy = -880;
         // Bajar de plataformas si el jugador está abajo
         if (dy > 90 && e.enSuelo && e.plataforma && m.rng() < 1.2 * dt) e.ignorarPlataformasHasta = m.tiempo + 0.3;
-        if (e.enfriamientoAtaque <= 0 && Math.abs(dx) <= c.alcance && Math.abs(dy) < 70 && e.enSuelo) {
-          e.estado = 'preparar';
-          e.t = c.preparacion;
-        }
         break;
       }
       case 'preparar':
-        e.vx = U.aproximar(e.vx, 0, 1600 * dt);
+        // Aviso: quieto, echado hacia atrás
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
         e.t -= dt;
         if (e.t <= 0) {
           e.estado = 'atacar';
-          e.t = 0.22;
-          e.vx = e.dir * 160;
+          e.t = bc.golpe;
+          e.vx = e.dir * (bc.retrocesoGolpe || 0);
           e.golpear(c.danio, c.alcance);
         }
         break;
       case 'atacar':
-        e.vx = U.aproximar(e.vx, 0, 1200 * dt);
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
+        e.t -= dt;
+        if (e.t <= 0) { e.estado = 'recuperar'; e.t = bc.recuperacion; }
+        break;
+      case 'recuperar':
+        e.vx = U.aproximar(e.vx, 0, 3000 * dt);
         e.t -= dt;
         if (e.t <= 0) {
-          e.estado = 'perseguir';
-          e.enfriamientoAtaque = m.rng.rango(0.9, 1.9);
+          e.estado = 'esperar';
+          e.enfriamientoAtaque = m.rng.rango(bc.enfriamiento[0], bc.enfriamiento[1]) + e.desfase;
         }
         break;
       default:

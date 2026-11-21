@@ -34,7 +34,7 @@ Object.assign(IA_JEFES, {
 
       case 'caminar':
         e.dir = dx > 0 ? 1 : -1;
-        mantenerDistancia(e, dt, dx, 230, 420, c.velocidad * r);
+        mantenerDistancia(e, dt, dx, 230, 420, e.velocidad * r);
         // Si te acercas: salto hacia atrás
         if (dist < 170 && e.cdSalto <= 0 && e.enSuelo) {
           e.vy = -820; e.vx = -Math.sign(dx) * 430; e.enSuelo = false;
@@ -108,7 +108,7 @@ Object.assign(IA_JEFES, {
 
       case 'caminar':
         e.dir = dx > 0 ? 1 : -1;
-        mantenerDistancia(e, dt, dx, 200, 380, c.velocidad * r);
+        mantenerDistancia(e, dt, dx, 200, 380, e.velocidad * r);
         if (dist < 190 && e.cdTele <= 0) {
           // Desaparece y aparece lejos
           e.estado = 'oculto'; e.t = 0.45;
@@ -206,7 +206,7 @@ Object.assign(IA_JEFES, {
 
       case 'caminar':
         e.dir = dx > 0 ? 1 : -1;
-        mantenerDistancia(e, dt, dx, 150, 260, c.velocidad * r);
+        mantenerDistancia(e, dt, dx, 150, 260, e.velocidad * r);
         if (e.cdSombra <= 0) {
           e.estado = 'oculto'; e.t = 0.5;
           m.emitir('teletransporte', { x: e.x, y: e.y - e.alto / 2, color: '#495057' });

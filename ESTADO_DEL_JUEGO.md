@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.14`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.14`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.15`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.15`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`
 
 ---
 
@@ -1669,3 +1669,36 @@ Respaldo: etiqueta `respaldo-antes-robo-10`. Es la propuesta 2 de la sección 27
   Con tope 5, lo curado baja a un 86–98% del daño recibido.
 
 **Si se quiere que el robo pese menos**, lo que más cambia el resultado es bajar `topePorUso` (por ejemplo a 0,05) o los porcentajes de abajo. No se aplicó.
+
+## 31. Enemigos que atacan de verdad y más rápidos (v1.15)
+
+Respaldo: etiqueta `respaldo-antes-enemigos-rapidos`. Tarea larga de 6 fases (v1.15 en adelante). No cambia la vida de los enemigos ni el daño de cada golpe. Números en `config/balance.js` → `BALANCE.comportamiento`.
+
+### Qué cambió
+- **Cuerpo a cuerpo (normal, espadachín, ninja)** — `IA_ENEMIGOS.normal` (`js/logica/enemigos.js`). Estados nuevos:
+  - `perseguir` (camina) → `esperar` (quieto en guardia, ya no camina en el lugar) → `preparar` (aviso de **0,25 s**, se echa hacia atrás; espadachín 0,30, ninja 0,22) → `atacar` (golpe, **quieto**: ya no da el pasito de 160 px/s) → `recuperar` (0,22 s) → espera y repite.
+  - Espera entre ataques **0,54–1,14 s** (antes 0,9–1,9: 40% menos), más un retraso fijo al azar por enemigo (0 a 0,35 s, `desfaseMax`) para que no ataquen todos juntos.
+  - **Máximo 4 atacando** (aviso o golpe) al mismo jugador (`maxAtacantesPorJugador`); los demás esperan a 1,7 veces su alcance y entran cuando hay lugar. Se cuenta en `Mundo.actualizar` (`jugador.atacantes`).
+  - Ya no se empujan entre ellos caminando cuando están quietos (se apartan despacio sin mover las piernas).
+- **Velocidad:** enemigos **+30%** (`velocidadMult`) y **+5% por mundo** (`velocidadPorMundo`: Isla +0%, Cielo +5% … Jungla +20%). Jefes **+15%** (`velocidadJefeMult`). Se calcula en `Mundo.factorVelocidad()`; cada enemigo guarda su `velocidad`.
+- **Piernas sin patinar:** la fase de caminar avanza según los píxeles recorridos (`ritmoPaso: 0.078`, dividido por el tamaño del enemigo; también en los jefes). `Enemigo.avanzarPaso()`.
+- **Arqueros:** se detienen, tensan el arco 0,5 s (antes 0,6), sueltan (0,25 s), recargan (`recuperar`, 0,35 s). Espera entre flechas 1,35–2,15 s (antes 1,7–2,7). La flecha apunta hacia donde va, con un rastro corto y tenue y contorno oscuro, sin brillo.
+- **Aves:** vaivén al ritmo del aleteo. Uno de cada 2 ataques (`ave.picadaCada`) es una **picada**: aviso de 0,5 s (`prepPicada`, alas arriba y "!"), se lanza en línea recta hacia el jugador (640 px/s, golpe por contacto con el daño del ave), y vuelve a su altura (`subir`). El otro ataque sigue siendo la bola de fuego.
+- **Jefes:** el puñetazo del Gigante (y del Rey de la Jungla) ya no avanza al pegar. Los demás ya se detenían al preparar.
+- Un golpe de un enemigo que muere a mitad del ataque deja de hacer daño (`Golpe.actualizar`).
+- **En línea:** los estados nuevos (`esperar`, `recuperar`, `prepPicada`, `picada`, `subir`) viajan en el campo `estado` que ya tenían los snapshots, así el invitado ve la misma animación. No hubo que cambiar el formato.
+
+### Daño por segundo de un enemigo normal (contra un jugador quieto, un solo enemigo)
+Ciclo antes: 0,42 + 0,22 + 1,4 (promedio) = 2,04 s. Ahora: 0,25 + 0,15 + 0,22 + 0,84 + 0,18 = 1,64 s.
+
+| Nivel (Isla) | Golpe (tramo 1 → último) | Antes (daño/s) | Ahora (daño/s) |
+|---|---|---|---|
+| Nivel 1 | 4 → 6 | 2,0 → 2,9 | 2,4 → 3,7 |
+| Nivel 10 | 4 → 6 (tope 1,5×) | 2,0 → 2,9 | 2,4 → 3,7 |
+
+Es un **+25%** por enemigo. Con 4 atacando a la vez el máximo real lo pone la invulnerabilidad del jugador tras un golpe (0,6 s): como mucho ~10 de daño/s con golpes de 6.
+
+**Propuesta (no aplicada):** si se siente injusto, subir el aviso a 0,3 s (`aviso`) para tener más tiempo de reaccionar, o `enfriamiento: [0.7, 1.3]` (queda en +10% de daño/s en lugar de +25%).
+
+### Cómo probarlo
+Jugar Isla 1 y quedarse quieto: los enemigos llegan corriendo, se paran, muestran "!", pegan sin avanzar y vuelven a la guardia. Con muchos alrededor, nunca más de 4 muestran "!" o pegan a la vez.
