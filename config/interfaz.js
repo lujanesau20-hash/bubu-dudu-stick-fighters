@@ -129,10 +129,14 @@ CONFIG.interfaz = {
   // Textos pequeños debajo de cada modo en el menú de inicio (cambian según el dispositivo)
   textosMenu: {
     solo: '(sin internet)',
-    pareja: '(2 jugadores en este equipo · sin internet)',
-    versus: '(en este equipo sin internet · o en línea)',        // PC/laptop: se elige local o en línea
-    versusCelular: '(en línea · 2 dispositivos)',                // celular: solo en línea (el local se oculta)
-    enlinea: '(pareja o versus · 2 dispositivos con internet)',
+    pareja: '(local, sin internet)',                             // v1.17 (antes: 2 jugadores en este equipo · sin internet)
+    versus: '(en este equipo sin internet · o en línea)',        // (ya no se usa en el menú principal: el versus está en "Jugar en línea")
+    versusCelular: '(en línea · 2 dispositivos)',
+    enlinea: '(2 usuarios, cada uno en su dispositivo)',         // v1.17
+    // Submenús (v1.17)
+    normal: '(mundos y niveles)',
+    infinito: '(oleadas sin fin)',
+    versusSub: '(Bubu contra Dudu)',
   },
 
   // Joystick FIJO en celular: la base siempre en el mismo lugar y la dirección se mide

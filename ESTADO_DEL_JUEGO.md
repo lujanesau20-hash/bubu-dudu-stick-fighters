@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.16`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.16`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.17`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.17`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`
 
 ---
 
@@ -1731,3 +1731,23 @@ Respaldo: etiqueta `respaldo-antes-espada-rapida`. Números en `config/balance.j
 
 ### Cómo probarlo
 Pulsar 2 (o K) tres veces rápido: salen tres arcos seguidos y la barra de maná baja 12.
+
+## 33. Menú de inicio nuevo (v1.17)
+
+Respaldo: etiqueta `respaldo-antes-menu-nuevo`. Código en `js/ui/menus.js` y `js/ui/menu_enlinea.js`; textos en `config/interfaz.js` → `textosMenu`; estilos al final de `css/estilo.css`.
+
+### Qué cambió
+- **Menú principal:**
+  - Laptop/PC: **Nivel solitario** "(sin internet)", **Niveles en pareja** "(local, sin internet)" y **🌐 Jugar en línea** "(2 usuarios, cada uno en su dispositivo)".
+  - Celular: Nivel solitario y Jugar en línea (pareja local sigue oculta).
+  - Siguen Tienda, Cómo jugar, pantalla completa, monedas y el número de versión.
+  - **El botón Versus salió del menú principal**; todo su código sigue igual, ahora se entra desde "Jugar en línea".
+- **Submenús** (`Menus.submenuModo`):
+  - Nivel solitario → **Normal** / **♾ Infinito**.
+  - Niveles en pareja (solo PC) → Normal / Infinito.
+  - Jugar en línea → Normal / Infinito / **⚔ Versus**. En PC, Versus pregunta "Local" o "En línea"; en celular va directo a en línea.
+- **Infinito:** la pantalla de elegir personaje muestra, en lugar de mundo y nivel, los **mundos desbloqueados** (por defecto Isla Flotante; se recuerda en `Guardado.datos.mundoInfinito`) y el récord.
+- **Atrás:** cada submenú tiene "← Atrás". **Esc** también vuelve (en la tienda y en Cómo jugar cierra). Con teclado: flechas ↑/↓ para moverse entre botones y Enter o Espacio para elegir (antes el juego "se comía" Enter y Espacio). Con mouse y toque, igual que siempre.
+- **Celular horizontal (800×360):** todos los menús nuevos caben sin desplazar (medido: el más alto, la elección de Infinito, ocupa 318 de 360 px).
+- **Sala en línea:** el líder elige entre **🤝 Normal**, **♾ Infinito** (con el mundo) y **⚔ Versus**. El invitado ve el modo elegido (y el mundo, en Infinito). Mensajes `modoSala` y `hola` llevan ahora también `mundo`.
+- **Cómo jugar:** se agregó la espada rápida (pestaña Habilidades) y el modo infinito (pestaña Consejos).

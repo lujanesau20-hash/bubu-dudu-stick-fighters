@@ -8,20 +8,21 @@ Object.assign(Menus, {
     const ok = EnLinea.disponible();
     this.mostrarHTML(`
       <div class="panel panel-enlinea">
-        <h2>🌐 ${this.modoRedInicial === 'versus' ? 'Versus en línea' : 'Jugar en línea'}</h2>
-        <p>Juega "Niveles en pareja" o "Versus" con otra persona, cada una en su dispositivo.<br>Quien crea la sala es <b>Bubu</b>; quien se une es <b>Dudu</b>.</p>
+        <h2>🌐 ${{ versus: 'Versus en línea', infinito: '♾ Infinito en línea' }[this.modoRedInicial] || 'Jugar en línea'}</h2>
+        <p>Juega Normal, Infinito o Versus con otra persona, cada una en su dispositivo.<br>Quien crea la sala es <b>Bubu</b>; quien se une es <b>Dudu</b>.</p>
         ${ok ? '' : '<p class="error-red">No se pudo cargar la conexión en línea. Revisa tu internet y recarga la página.</p>'}
         ${error ? `<p class="error-red">${error}</p>` : ''}
         <button class="btn grande" data-ir="crear" ${ok ? '' : 'disabled'}>➕ Crear sala</button>
         <button class="btn grande" data-ir="unirse" ${ok ? '' : 'disabled'}>🔑 Unirse a sala</button>
         <p class="nota-red">💡 Consejo: que cree la sala el dispositivo más potente (por ejemplo, la laptop). Ese dispositivo calcula todo el juego.</p>
-        <button class="btn" data-ir="volver">Volver</button>
+        <button class="btn" data-ir="volver" data-atras="1">← Atrás</button>
       </div>`);
     this.conectar({
-      crear: () => { this.pantallaCompletaCelular(); EnLinea.modoSala = this.modoRedInicial || 'pareja'; EnLinea.crearSala(); },
+      crear: () => { this.pantallaCompletaCelular(); EnLinea.modoSala = this.modoRedInicial || 'pareja'; EnLinea.mundoSala = this.mundoInfinitoElegido(); EnLinea.crearSala(); },
       unirse: () => this.enLineaUnirse(),
-      volver: () => { this.modoRedInicial = null; this.principal(); },
+      volver: () => { this.modoRedInicial = null; this.submenuModo('enlinea'); },
     });
+    this.enfocarPrimero();
   },
 
   enLineaCreando() {
@@ -70,7 +71,7 @@ Object.assign(Menus, {
             <button class="tecla-num" data-n="0">0</button>
             <button class="tecla-num verde" data-ir="entrar" ${codigo.length === RED_CONFIG.digitosCodigo ? '' : 'disabled'}>✓</button>
           </div>
-          <button class="btn" data-ir="volver">Volver</button>
+          <button class="btn" data-ir="volver" data-atras="1">← Atrás</button>
         </div>`);
       this.cont.querySelectorAll('[data-n]').forEach((b) => b.onclick = () => {
         if (codigo.length < RED_CONFIG.digitosCodigo) { codigo += b.dataset.n; error = ''; pintar(); }
@@ -114,37 +115,53 @@ Object.assign(Menus, {
     // El anfitrión elige con la misma lista de mundos y niveles (según SU avance)
     if (!this.selRed) this.selRed = this.nuevaSeleccionNivel();
     const sel = this.selRed;
-    const versus = EnLinea.modoSala === 'versus';
+    const modoSala = EnLinea.modoSala || 'pareja';
+    const versus = modoSala === 'versus', infinito = modoSala === 'infinito';
+    const mundoInf = this.mundoInfinitoElegido();
     this.mostrarHTML(`
       <div class="panel panel-enlinea">
         <h2 class="verde-txt">✔ Conectado</h2>
         <p>Sala ${EnLinea.codigo}</p>
         <div class="tarjetas">${tarjeta('bubu', anfitrion ? 'Tú' : 'Anfitrión')}${tarjeta('dudu', anfitrion ? 'Invitado' : 'Tú')}</div>
         ${anfitrion ? `<div class="fila-botones modos-sala">
-              <button class="btn ${versus ? '' : 'verde'}" data-ir="modoPareja">🤝 Niveles en pareja</button>
+              <button class="btn ${modoSala === 'pareja' ? 'verde' : ''}" data-ir="modoPareja">🤝 Normal</button>
+              <button class="btn ${infinito ? 'verde' : ''}" data-ir="modoInfinito">♾ Infinito</button>
               <button class="btn ${versus ? 'verde' : ''}" data-ir="modoVersus">⚔ Versus</button>
             </div>
             ${versus ? '<p>Bubu contra Dudu, al mejor de 3 rondas.</p>' + this.htmlOpcionRoboVersus()
+              : infinito ? `<p>Oleadas sin fin. Elige el escenario: <small>(${this.textoRecordInfinito('enlinea')})</small></p>${this.htmlSelectorMundoInfinito(mundoInf)}`
               : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
-            <button class="btn grande verde" data-ir="iniciar">▶ ${versus ? 'Iniciar versus' : 'Iniciar: ' + ESCENARIOS[sel.nivel].nombre}</button>`
+            <button class="btn grande verde" data-ir="iniciar">▶ ${versus ? 'Iniciar versus' : infinito ? 'Iniciar infinito' : 'Iniciar: ' + ESCENARIOS[sel.nivel].nombre}</button>`
           : `<p class="esperando" id="modo-sala-invitado">${this.textoModoSalaInvitado()}</p>`}
         <p class="nota-red" id="versiones-sala">${this.textoVersionesSala()}</p>
         <button class="btn" data-ir="salir">${anfitrion ? 'Cerrar sala' : 'Salir de la sala'}</button>
       </div>`);
-    if (anfitrion && !versus) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
+    if (anfitrion && !versus && !infinito) this.conectarSelectorNiveles(sel, () => this.enLineaConectado());
+    if (anfitrion && infinito) this.conectarSelectorMundoInfinito(() => { EnLinea.avisarModoSala('infinito', this.mundoInfinitoElegido()); this.enLineaConectado(); });
     if (anfitrion && versus) this.conectarOpcionRoboVersus(() => this.enLineaConectado());
     this.conectar({
       salir: () => EnLinea.cerrar(),
-      iniciar: () => (versus ? EnLinea.iniciar('isla', 'versus') : EnLinea.iniciar(sel.nivel, 'pareja')),
+      iniciar: () => {
+        if (versus) EnLinea.iniciar('isla', 'versus');
+        else if (infinito) {
+          if (!ESCENARIOS['infinito-' + mundoInf]) { this.enLineaToast('El modo infinito llega en la próxima actualización'); return; }
+          EnLinea.iniciar('infinito-' + mundoInf, 'pareja');
+        } else EnLinea.iniciar(sel.nivel, 'pareja');
+      },
       modoPareja: () => { EnLinea.avisarModoSala('pareja'); this.enLineaConectado(); },
+      modoInfinito: () => { EnLinea.avisarModoSala('infinito', mundoInf); this.enLineaConectado(); },
       modoVersus: () => { EnLinea.avisarModoSala('versus'); this.enLineaConectado(); },
     });
   },
 
   // Invitado: qué modo eligió el líder en la sala
   textoModoSalaInvitado() {
+    if (EnLinea.modoSala === 'infinito') {
+      const mu = BALANCE.mundos.find((x) => x.id === EnLinea.mundoSala);
+      return `♾ Modo: <b>Infinito</b>${mu ? ' · ' + mu.nombre : ''}. ⏳ Esperando a que el anfitrión inicie…`;
+    }
     return EnLinea.modoSala === 'versus' ? '⚔ Modo: <b>Versus</b> (Bubu contra Dudu). ⏳ Esperando a que el anfitrión inicie…'
-      : '🤝 Modo: <b>Niveles en pareja</b>. ⏳ Esperando a que el anfitrión elija el nivel…';
+      : '🤝 Modo: <b>Normal</b> (niveles en pareja). ⏳ Esperando a que el anfitrión elija el nivel…';
   },
   actualizarModoSala() {
     const el = document.getElementById('modo-sala-invitado');

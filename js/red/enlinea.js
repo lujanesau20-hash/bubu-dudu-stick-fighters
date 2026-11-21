@@ -166,7 +166,7 @@ const EnLinea = {
       this.abrirCanalRapido(conn);
       Sincro.reiniciarDelta(); // el invitado (nuevo o que volvió) no conoce ningún dato: todo se manda completo
       this.controlRemoto = new ControlRemoto();
-      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO, vv: VERSION_VISIBLE, modo: this.modoSala || 'pareja' });
+      this.enviar({ t: 'hola', personaje: 'dudu', version: VERSION_JUEGO, vv: VERSION_VISIBLE, modo: this.modoSala || 'pareja', mundo: this.mundoSala || null });
       if (Juego.mundo && Juego.estado !== 'menu' && this.enPartida) this.reincorporarInvitado();
       else { Menus.enLineaConectado(); this.enviar({ t: 'lobby' }); } // si volvía de una partida que ya terminó, va a la sala
     });
@@ -180,14 +180,16 @@ const EnLinea = {
   iniciar(escenario = 'isla', modo = 'pareja') {
     if (!RED_CONFIG.modos.includes(modo)) modo = 'pareja';
     this.escenario = escenario;
-    this.modoSala = modo;
+    // Modo infinito: se juega como "pareja" pero la sala recuerda que era Infinito (v1.17)
+    this.modoSala = String(escenario).startsWith('infinito-') ? 'infinito' : modo;
     this.enPartida = true;
     Juego.iniciarPartida(modo, ['bubu', 'dudu'], escenario);
   },
   // El líder cambió el modo en la sala: el invitado lo ve en su pantalla
-  avisarModoSala(modo) {
+  avisarModoSala(modo, mundo) {
     this.modoSala = modo;
-    if (this.esAnfitrion) this.enviar({ t: 'modoSala', modo });
+    if (mundo) this.mundoSala = mundo; // modo infinito: escenario elegido (el invitado lo ve)
+    if (this.esAnfitrion) this.enviar({ t: 'modoSala', modo, mundo: this.mundoSala || null });
   },
 
   // Llamado desde Juego.iniciarPartida (anfitrión)
@@ -760,8 +762,8 @@ const EnLinea = {
         break;
       case 'version': this.compararVersion(d.version, d.vv); this.recibirMejorasInvitado(d.mejoras); break;
       // --- al invitado ---
-      case 'modoSala': this.modoSala = d.modo; if (!this.enPartida && Menus.actualizarModoSala) Menus.actualizarModoSala(); break;
-      case 'hola': if (d.modo) this.modoSala = d.modo; if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
+      case 'modoSala': this.modoSala = d.modo; this.mundoSala = d.mundo || null; if (!this.enPartida && Menus.actualizarModoSala) Menus.actualizarModoSala(); break;
+      case 'hola': if (d.modo) this.modoSala = d.modo; this.mundoSala = d.mundo || null; if (!this.enPartida) { Menus.ocultarAvisoRed(); Menus.enLineaConectado(); } this.compararVersion(d.version, d.vv); break;
       case 'llena':
         this.registrarRed('Invitado: el líder rechazó la entrada — motivo: sala llena (ya hay 2 personas)');
         this.cerrar(true); Menus.enLineaUnirse(this.codigo || '', 'Esa sala ya está llena (2 personas).'); break;

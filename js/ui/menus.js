@@ -7,6 +7,7 @@ const Menus = {
     this.juego = juego;
     this.cont = document.getElementById('pantallas');
     this.tienda = new TiendaUI(this.cont);
+    window.addEventListener('keydown', (e) => this.teclasMenu(e)); // Esc = Atrás, flechas = moverse
   },
 
   ocultar() { this.cont.innerHTML = ''; this.cont.classList.add('oculto'); },
@@ -41,15 +42,16 @@ const Menus = {
   principal() {
     // Celular: la pareja local y el versus local se ocultan (necesitan teclado para el jugador 2).
     // Textos pequeños de cada modo: config/interfaz.js -> textosMenu
+    // v1.17: menú nuevo. Cada modo abre un submenú (Normal / Infinito; en línea también Versus).
+    // El botón Versus salió del menú principal: ahora está dentro de "Jugar en línea" (el código es el mismo).
     const tactil = esDispositivoTactil();
     const sub = (k) => `<small class="sub-modo">${CONFIG.interfaz.textosMenu[k]}</small>`;
     this.mostrarHTML(`
       <div class="panel panel-principal">
         <h1 class="titulo"><span class="t-bubu">Bubu</span> <span class="t-y">&</span> <span class="t-dudu">Dudu</span></h1>
         <p class="subtitulo">Stick Fighters</p>
-        <button class="btn grande" data-ir="solo">Niveles en solitario${sub('solo')}</button>
+        <button class="btn grande" data-ir="solo">Nivel solitario${sub('solo')}</button>
         ${tactil ? '' : `<button class="btn grande" data-ir="pareja">Niveles en pareja${sub('pareja')}</button>`}
-        <button class="btn grande" data-ir="versus">Versus${sub(tactil ? 'versusCelular' : 'versus')}</button>
         <button class="btn grande" data-ir="enlinea">🌐 Jugar en línea${sub('enlinea')}</button>
         <div class="fila-botones">
           <button class="btn" data-ir="tienda">🛍 Tienda</button>
@@ -60,41 +62,131 @@ const Menus = {
       </div>
       <div class="version-esquina">v${VERSION_VISIBLE}</div>`);
     this.conectar({
-      solo: () => this.seleccion('solo'),
-      pareja: () => this.seleccion('pareja'),
-      // Versus: en celular solo en línea; en PC/laptop se elige local o en línea
-      versus: () => (tactil ? this.enLineaInicio('', 'versus') : this.elegirVersus()),
-      enlinea: () => this.enLineaInicio('', 'pareja'),
+      solo: () => this.submenuModo('solo'),
+      pareja: () => this.submenuModo('pareja'),
+      enlinea: () => this.submenuModo('enlinea'),
       tienda: () => this.tienda.abrir(() => this.principal()),
       como: () => this.comoJugar(() => this.principal()),
       pantalla: () => pantallaCompleta(),
     });
+    this.enfocarPrimero();
+  },
+
+  // Submenú de cada modo: Normal / Infinito (y Versus en línea). Botón "Atrás" (o Esc).
+  submenuModo(tipo) {
+    const tactil = esDispositivoTactil();
+    const titulos = { solo: 'Nivel solitario', pareja: 'Niveles en pareja', enlinea: '🌐 Jugar en línea' };
+    const notas = { solo: CONFIG.interfaz.textosMenu.solo, pareja: CONFIG.interfaz.textosMenu.pareja, enlinea: CONFIG.interfaz.textosMenu.enlinea };
+    this.mostrarHTML(`
+      <div class="panel panel-submenu">
+        <h2>${titulos[tipo]}</h2>
+        <small class="sub-modo">${notas[tipo]}</small>
+        <button class="btn grande" data-ir="normal">Normal<small class="sub-modo">${CONFIG.interfaz.textosMenu.normal}</small></button>
+        <button class="btn grande" data-ir="infinito">♾ Infinito<small class="sub-modo">${CONFIG.interfaz.textosMenu.infinito}</small></button>
+        ${tipo === 'enlinea' ? `<button class="btn grande" data-ir="versus">⚔ Versus<small class="sub-modo">${CONFIG.interfaz.textosMenu.versusSub}</small></button>` : ''}
+        <button class="btn" data-ir="atras" data-atras="1">← Atrás</button>
+      </div>
+      <div class="version-esquina">v${VERSION_VISIBLE}</div>`);
+    this.conectar({
+      normal: () => (tipo === 'enlinea' ? this.enLineaInicio('', 'pareja') : this.seleccion(tipo)),
+      infinito: () => (tipo === 'enlinea' ? this.enLineaInicio('', 'infinito') : this.seleccion(tipo, true)),
+      // Versus: en celular solo en línea; en PC/laptop se elige local o en línea
+      versus: () => (tactil ? this.enLineaInicio('', 'versus') : this.elegirVersus(() => this.submenuModo('enlinea'))),
+      atras: () => this.principal(),
+    });
+    this.enfocarPrimero();
+  },
+
+  // Récord del modo infinito para mostrar en los menús (por modo: solo, pareja local, en línea)
+  textoRecordInfinito(modo) {
+    const r = (Guardado.datos.recordInfinito || {})[modo] || 0;
+    return r ? `Mejor: oleada ${r}` : 'sin récord todavía';
+  },
+
+  // Empezar una partida en modo infinito (escenario 'infinito-<mundo>', ver js/logica/infinito.js)
+  iniciarInfinito(modo, personajes, mundo) {
+    const id = 'infinito-' + mundo;
+    if (!ESCENARIOS[id]) { this.enLineaToast('El modo infinito llega en la próxima actualización'); return; }
+    if (!Guardado.datos.vioComoJugar) {
+      this.comoJugar(() => { Guardado.datos.vioComoJugar = true; Guardado.guardar(); this.juego.iniciarPartida(modo, personajes, id); }, '¡A jugar!');
+      return;
+    }
+    this.juego.iniciarPartida(modo, personajes, id);
+  },
+
+  // Teclado en los menús: Esc = Atrás; flechas arriba/abajo = moverse entre botones (Enter = elegir)
+  enfocarPrimero() {
+    if (esDispositivoTactil()) return; // en celular no se marca ningún botón
+    const b = this.cont.querySelector('button.btn:not([disabled])');
+    if (b) b.focus({ preventScroll: true });
+  },
+  teclasMenu(e) {
+    if (!this.juego || this.juego.estado !== 'menu' || this.cont.classList.contains('oculto')) return;
+    if (e.code === 'Escape') {
+      const atras = this.cont.querySelector('[data-atras]');
+      if (atras) { e.preventDefault(); atras.click(); }
+      return;
+    }
+    // Enter / Espacio eligen el botón marcado (el juego los usa como teclas y no dejaba que el botón los recibiera)
+    if ((e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') && document.activeElement
+      && document.activeElement.tagName === 'BUTTON' && this.cont.contains(document.activeElement)) {
+      e.preventDefault(); document.activeElement.click(); return;
+    }
+    if (e.code !== 'ArrowDown' && e.code !== 'ArrowUp') return;
+    const botones = [...this.cont.querySelectorAll('button:not([disabled])')];
+    if (!botones.length) return;
+    e.preventDefault();
+    const i = botones.indexOf(document.activeElement);
+    const sig = e.code === 'ArrowDown' ? (i + 1) % botones.length : (i - 1 + botones.length) % botones.length;
+    botones[i < 0 ? 0 : sig].focus({ preventScroll: true });
   },
 
   // PC/laptop: versus local (dos personas en este equipo) o en línea (dos dispositivos)
-  elegirVersus() {
+  elegirVersus(volver = () => this.principal()) {
     this.mostrarHTML(`
       <div class="panel">
         <h2>⚔ Versus</h2>
         <p>Bubu contra Dudu, al mejor de 3 rondas.</p>
         <button class="btn grande" data-ir="local">Local<small class="sub-modo">(2 jugadores en este equipo · sin internet)</small></button>
         <button class="btn grande" data-ir="enlinea">🌐 En línea<small class="sub-modo">(2 dispositivos con internet)</small></button>
-        <button class="btn" data-ir="volver">Volver</button>
+        <button class="btn" data-ir="volver" data-atras="1">← Atrás</button>
       </div>
       <div class="version-esquina">v${VERSION_VISIBLE}</div>`);
     this.conectar({
-      local: () => this.seleccion('versus'),
+      local: () => this.seleccion('versus', false, () => this.elegirVersus(volver)),
       enlinea: () => this.enLineaInicio('', 'versus'),
-      volver: () => this.principal(),
+      volver,
+    });
+    this.enfocarPrimero();
+  },
+
+  // Modo infinito: elegir el escenario entre los mundos desbloqueados (por defecto Isla flotante)
+  mundosInfinito() { return BALANCE.mundos.filter((mu) => PROGRESO.mundoDesbloqueado(mu.id)); },
+  mundoInfinitoElegido() {
+    const id = Guardado.datos.mundoInfinito;
+    return this.mundosInfinito().some((mu) => mu.id === id) ? id : 'isla';
+  },
+  htmlSelectorMundoInfinito(elegido) {
+    return `<div class="fila-botones mundos-infinito">${BALANCE.mundos.map((mu) => {
+      const abierto = PROGRESO.mundoDesbloqueado(mu.id);
+      return `<button class="btn ${mu.id === elegido ? 'verde' : ''}" data-mundo-inf="${mu.id}" ${abierto ? '' : 'disabled'}>${abierto ? '' : '🔒 '}${mu.nombre}</button>`;
+    }).join('')}</div>`;
+  },
+  conectarSelectorMundoInfinito(repintar) {
+    this.cont.querySelectorAll('[data-mundo-inf]').forEach((b) => b.onclick = () => {
+      Guardado.datos.mundoInfinito = b.dataset.mundoInf; Guardado.guardar(); repintar();
     });
   },
 
-  seleccion(modo) {
+  // modo: 'solo' | 'pareja' | 'versus'. infinito: true = modo infinito (se elige mundo, no nivel)
+  seleccion(modo, infinito = false, volver = null) {
+    volver = volver || (() => this.submenuModo(modo));
     const ids = Object.keys(CONFIG.personajes);
     let elegido = 'bubu';
     // Mundo y nivel: por defecto el primer nivel aún no superado
     const sel = this.nuevaSeleccionNivel();
-    const titulos = { solo: 'Niveles en solitario', pareja: 'Niveles en pareja', versus: 'Versus' };
+    const titulos = infinito ? { solo: '♾ Infinito · solitario', pareja: '♾ Infinito · en pareja' }
+      : { solo: 'Nivel solitario', pareja: 'Niveles en pareja', versus: 'Versus' };
     const tactil = esDispositivoTactil();
     const ayuda = modo === 'solo'
       ? (tactil ? 'Joystick: moverse / agacharse · ▲: saltar (2 toques = doble salto) · H1–H4: habilidades · Desliza de un botón al vecino para combinar'
@@ -110,25 +202,29 @@ const Menus = {
           <div class="nombre">${CONFIG.personajes[id].nombre}</div></div>`;
       }).join('');
       this.mostrarHTML(`
-        <div class="panel">
+        <div class="panel ${infinito ? 'panel-sel-infinito' : ''}">
           <h2>${titulos[modo]}</h2>
           <p>${modo === 'solo' ? 'Elige tu personaje' : 'Toca un personaje para que sea el Jugador 1'}</p>
           <div class="tarjetas">${tarjetas}</div>
-          ${modo === 'versus' ? this.htmlOpcionRoboVersus() : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
+          ${modo === 'versus' ? this.htmlOpcionRoboVersus()
+            : infinito ? `<p>Elige el escenario: <small>(${this.textoRecordInfinito(modo)})</small></p>${this.htmlSelectorMundoInfinito(this.mundoInfinitoElegido())}`
+            : `<p>Elige mundo y nivel:</p>${this.htmlSelectorNiveles(sel)}`}
           <p class="ayuda">${ayuda}</p>
           <div class="fila-botones">
-            <button class="btn" data-ir="volver">Volver</button>
+            <button class="btn" data-ir="volver" data-atras="1">← Atrás</button>
             <button class="btn grande verde" data-ir="jugar">¡Jugar!</button>
           </div>
         </div>`);
       this.cont.querySelectorAll('.tarjeta').forEach((t) => t.onclick = () => { elegido = t.dataset.id; pintar(); });
-      if (modo !== 'versus') this.conectarSelectorNiveles(sel, pintar);
-      else this.conectarOpcionRoboVersus(pintar);
+      if (modo === 'versus') this.conectarOpcionRoboVersus(pintar);
+      else if (infinito) this.conectarSelectorMundoInfinito(pintar);
+      else this.conectarSelectorNiveles(sel, pintar);
       this.conectar({
-        volver: () => this.principal(),
+        volver,
         jugar: () => {
           const otro = ids.find((i) => i !== elegido);
           const personajes = modo === 'solo' ? [elegido] : [elegido, otro];
+          if (infinito) { this.iniciarInfinito(modo, personajes, this.mundoInfinitoElegido()); return; }
           // La primera vez se muestra "Cómo jugar" antes de empezar
           if (!Guardado.datos.vioComoJugar) {
             this.comoJugar(() => {
@@ -276,7 +372,9 @@ Object.assign(Menus, {
           <td>${h.danio}${h.area ? ' (área)' : ''}</td></tr>`).join('')}
         </tbody></table>
         <p class="ayuda">Jugador 1: ${c.j1.habilidades.map(teclasTexto).join(' · ')} · Jugador 2: ${c.j2.habilidades.map(teclasTexto).join(' · ')}.
-        Un ataque no interrumpe a otro que ya está en curso.</p>`;
+        Un ataque no interrumpe a otro que ya está en curso.</p>
+        <p class="ayuda"><b>Espada rápida:</b> H1 y H2 salen al instante en cada pulsación, aunque el corte anterior siga en pantalla
+        (hasta ${BALANCE.espadaRapida.maxCortes} de cada una a la vez). Pulsa H2 tres veces y salen tres cortes; cada corte cobra su maná.</p>`;
     }
     if (pestana === 'combos') {
       cuerpo = `<table class="tabla-ayuda numeros">
@@ -300,6 +398,9 @@ Object.assign(Menus, {
             Dura ${b.esferasMana.duracion} s y parpadea antes de desaparecer. Contra un jefe caen más. En pareja, la toma quien la toque primero.</li>
         <li>Al limpiar un tramo (cuando aparece "¡ADELANTE!") recuperas el ${Math.round((b.jugador.curaPorTramo || 0) * 100)}% de tu vida.</li>
         <li>Las habilidades caras rinden más daño por cada punto de maná: guarda maná para la Onda de choque y los combos.</li>
+        <li><b>Modo infinito:</b> oleadas sin fin en el mundo que elijas (de los que tengas abiertos). Cada oleada los enemigos
+            pegan, aguantan y corren un poco más; cada ${BALANCE.infinito ? BALANCE.infinito.jefeCada : 10} oleadas aparece un jefe.
+            Al terminar una oleada recuperas vida. Se guarda tu mejor oleada en solitario, en pareja y en línea.</li>
         <li><b>Revivir (modo pareja):</b> si tu compañero cae, tienes ${CONFIG.revivir.tiempoCaido} s para llegar a su lado y mantener
             la tecla de revivir ${CONFIG.revivir.tiempoRevivir} s. Si te golpean, se interrumpe. Vuelve con el ${Math.round(CONFIG.revivir.vidaAlRevivir * 100)}% de vida.
             Hay ${CONFIG.revivir.maxPorNivel} revivires por nivel.</li>
@@ -315,7 +416,7 @@ Object.assign(Menus, {
           ${Object.entries(pestanas).map(([id, t]) => `<button class="pestana ${id === pestana ? 'activa' : ''}" data-pestana="${id}">${t}</button>`).join('')}
         </div>
         <div class="cuerpo-ayuda">${cuerpo}</div>
-        <button class="btn grande ${textoBoton !== 'Volver' ? 'verde' : ''}" data-ir="cerrar">${textoBoton}</button>
+        <button class="btn grande ${textoBoton !== 'Volver' ? 'verde' : ''}" data-ir="cerrar" ${textoBoton === 'Volver' ? 'data-atras="1"' : ''}>${textoBoton}</button>
       </div>`);
     this.cont.querySelectorAll('[data-pestana]').forEach((p) => p.onclick = () => this.comoJugar(alCerrar, textoBoton, p.dataset.pestana));
     this.conectar({ cerrar: () => alCerrar() });

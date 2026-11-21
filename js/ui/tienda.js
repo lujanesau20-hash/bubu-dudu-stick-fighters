@@ -120,7 +120,7 @@ class TiendaUI {
         </div>
         </div>
         ${enMejoras ? cuerpoMejoras : cuerpoRopa}
-        <button class="btn" data-accion="cerrar">${this.textoBoton}</button>
+        <button class="btn" data-accion="cerrar" data-atras="1">${this.textoBoton}</button>
       </div>`;
 
     this.cont.querySelectorAll('[data-personaje]').forEach((b) => b.onclick = () => { this.personaje = b.dataset.personaje; this.dibujar(); });
