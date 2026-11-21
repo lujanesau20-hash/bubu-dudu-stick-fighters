@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: calibración con simulación — sección 27; antes: 10 niveles por mundo y Jungla — sección 26). **Versión actual: `v1.11`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.11`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: pruebas de cierre — sección 28; antes: calibración — sección 27, 10 niveles por mundo y Jungla — sección 26, esferas de maná, robo de vida y daño por tramo — sección 25). **Versión actual: `v1.12`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.12`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -1563,3 +1563,32 @@ El jefe tiene 10 veces la vida del enemigo de su nivel (en pareja, ×1,6). Cada 
 2. **Robo de vida al 15%:** es muy fuerte, porque cura casi todo el daño. Propuesta: máximo 10% (porcentajes 3, 5, 7, 8, 10) o tope por uso de 10 en lugar de 15.
 3. **Economía:** al final del Mundo 1 se tiene el 41% de las mejoras (16 de 39). Para llegar justo a la mitad habría que bajar todos los precios un 30%.
 4. **Jefe por nivel:** hoy cada mundo tiene jefe solo en el nivel 10, como la Isla. Si se quiere un jefe en otros niveles, basta con `jefe: '<tipo>'` en esa línea de `BALANCE.mundos`.
+
+## 28. Pruebas de cierre (v1.12)
+
+Hechas con navegador automático en tamaño celular horizontal (800×360, táctil) y laptop (1280×800).
+
+### Qué se probó
+- **Esferas de maná:** caen y se recogen en celular y laptop. Probado en solitario, pareja y contra el jefe; en versus no caen. Captura: esfera azul junto a Bubu.
+- **Robo de vida:**
+  - El número verde "+15" aparece sobre Bubu al usar la Onda contra 4 enemigos (tope 15 por uso).
+  - Valores revisados: H2, H3, H4, Torbellino (sin robo), daño sobrante al matar y vida llena.
+- **Tienda:** en celular, la fila "🩸 Robo de vida" muestra 5% → 8% y su precio. Al comprar se guarda.
+- **Selector de mundos:** 5 mundos, con candado y "Termina el Mundo N". Un guardado viejo pasa a los mundos nuevos sin perder nada.
+- **Un nivel completo de cada mundo** (simulación acelerada con el bot, `herramientas/calibrar_bot.js`): los 50 niveles, con victorias en todos los mundos (sección 27).
+- **Versus local:**
+  - El botón "🩸 Robo de vida: Sí/No" cambia la opción y la recuerda.
+  - Al jugar con "No", la pelea empieza sin robo.
+  - Con "Sí", la espada roba 10% (1,8 por 18 de daño).
+- **Sala en línea**, con el líder en laptop y el invitado en celular, con conexión real por PeerJS:
+  - El líder recibe las mejoras del invitado, incluido su robo de vida: nivel 2 = 8%.
+  - En la Jungla 1, el invitado ve el fondo de la Jungla (cargado aparte), los colores propios de los enemigos y las 2 esferas.
+  - Al invitado le llegan los "+N" verdes de su robo de vida.
+  - El contador "Revivir ♥♥" sigue igual.
+  - Versus en línea con el robo desactivado por el líder: la pelea empieza sin robo y sin esferas.
+  - Sin errores en ninguna de las dos pestañas.
+
+### No se pudo probar
+- Con dedos en un celular real ni en dos dispositivos reales.
+- Una partida completa jugada a mano en cada mundo: se usó la simulación acelerada.
+- La dificultad real para una persona: el bot es más torpe que una persona, así que sus números son orientativos.
