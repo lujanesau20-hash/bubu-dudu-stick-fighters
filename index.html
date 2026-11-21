@@ -19,7 +19,7 @@
     //   ?v=... a todos los archivos (JS, CSS e imágenes de los personajes) para que
     //   los celulares bajen los nuevos y no usen copias viejas.
     // =====================================================================
-    var VERSION_VISIBLE = '1.17';
+    var VERSION_VISIBLE = '1.18';
     var VERSION_JUEGO = '2026.11.21-v' + VERSION_VISIBLE;
     document.write('<link rel="stylesheet" href="css/estilo.css?v=' + VERSION_JUEGO + '">');
   </script>
@@ -66,6 +66,7 @@
         'js/logica/niveles_isla.js',  // Mundo 1: Isla Flotante en 10 niveles
         'js/logica/niveles_mundos.js', // Mundos 2 a 5 en 10 niveles (v1.10); el fondo de la Jungla se carga después
         'js/logica/mundo.js',
+        'js/logica/infinito.js',      // modo infinito (v1.18): escenarios 'infinito-<mundo>' y oleadas sin fin
         // Hojas de sprites animadas (las mismas de prueba-personajes.html)
         'js/prueba/animaciones.js',
         'js/prueba/cuadros_datos.js',

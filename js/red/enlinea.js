@@ -883,7 +883,9 @@ const EnLinea = {
     const m = Juego.mundo;
     // Versus: también el ganador y el marcador final (el invitado lo muestra en su pantalla)
     const versus = tipo === 'versus' && m ? { ganador: m.ganador, nombreGanador: CONFIG.personajes[m.jugadores[m.ganador].personaje].nombre, rondas: m.rondas } : {};
-    this.enviar(Object.assign({ t: 'fin', tipo, monedas, escenario: m && m.escenarioId }, versus));
+    // Modo infinito: también la oleada alcanzada (el invitado guarda su propio récord "en línea")
+    const infinito = m && m.escenario && m.escenario.infinito ? { oleada: m.inf ? m.inf.oleada : 0 } : {};
+    this.enviar(Object.assign({ t: 'fin', tipo, monedas, escenario: m && m.escenarioId }, versus, infinito));
   },
   volverAlLobby() { this.enPartida = false; this.enviar({ t: 'lobby' }); Menus.enLineaConectado(); },
 

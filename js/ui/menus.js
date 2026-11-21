@@ -270,6 +270,23 @@ const Menus = {
     this.conectar({ reintentar: () => this.juego.reiniciar(), menu: () => this.juego.irAlMenu() });
   },
 
+  // Fin del modo infinito: oleada alcanzada, monedas ganadas y mejor récord. Reintentar o Menú.
+  // invitado = true: el invitado en línea solo espera (el líder decide el reinicio)
+  finInfinito(oleada, monedas, mejor, nuevo, invitado = false) {
+    this.mostrarHTML(`
+      <div class="panel panel-fin-infinito">
+        <h2 class="rojo">FIN DEL INFINITO</h2>
+        <p class="dato-grande">Llegaste a la <b>oleada ${oleada}</b></p>
+        <p>Monedas ganadas: 🪙 ${monedas}</p>
+        <p class="dorado">${nuevo ? '🏆 ¡Nuevo récord!' : `Mejor récord: oleada ${mejor}`}</p>
+        ${invitado ? '<p class="esperando">⏳ Esperando a que el anfitrión elija qué hacer…</p><button class="btn" data-ir="salir">Salir de la sala</button>'
+          : `<button class="btn grande verde" data-ir="reintentar">Reintentar</button>
+        <button class="btn" data-ir="menu">${typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion ? 'Volver a la sala' : 'Menú'}</button>`}
+      </div>`);
+    this.conectar({ reintentar: () => this.juego.reiniciar(), menu: () => this.juego.irAlMenu(), salir: () => EnLinea.cerrar() });
+    this.enfocarPrimero();
+  },
+
   // siguiente = id del próximo nivel (o null si era el último)
   victoria(monedas, siguiente) {
     const sig = siguiente && ESCENARIOS[siguiente];

@@ -241,6 +241,12 @@ Object.assign(Menus, {
   },
 
   enLineaFinInvitado(d) {
+    if (d.oleada != null) {
+      // Modo infinito: misma pantalla que el líder, pero sin botones (el líder decide el reinicio)
+      const r = guardarRecordInfinito('enlinea', d.oleada);
+      this.finInfinito(d.oleada, d.monedas || 0, r.mejor, r.nuevo, true);
+      return;
+    }
     const gano = d.tipo === 'victoria';
     this.mostrarHTML(`
       <div class="panel panel-enlinea">

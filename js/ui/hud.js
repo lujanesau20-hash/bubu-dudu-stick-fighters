@@ -236,12 +236,21 @@ class HUD {
   // Va debajo de las monedas (o de "Revivir ♥♥" en pareja) y se achica si no cabe entre
   // las barras de vida (con su aviso COMBO) y el botón Pausa. Nunca más chico que en laptop.
   medidaTramo(ctx, m, W, s, esTactil, margen, anchoBarra, apartar, anchoPausa) {
-    if (m.modo === 'versus' || !m.totalTramos || (m.jefe && m.jefe.vivo)) return null;
-    const enJefe = m.escenario.zonaJefe && m.indiceOleada >= m.totalTramos && !m.oleada;
-    const txt = enJefe ? 'Jefe final ➜' : `Tramo ${Math.max(1, m.tramoActual || 0)}/${m.totalTramos}`;
-    const texto = (m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '') + txt;
+    const inf = m.escenario && m.escenario.infinito;
+    if (m.modo === 'versus' || (!m.totalTramos && !inf) || (m.jefe && m.jefe.vivo && !inf)) return null;
+    let texto;
+    if (inf) {
+      // Modo infinito: "Oleada N · Mejor: M" (récord de este equipo para este modo)
+      const rec = (Guardado.datos.recordInfinito || {})[claveRecordInfinito(m.modo)] || 0;
+      texto = `Oleada ${Math.max(1, m.tramoActual || 0)} · Mejor: ${rec}`;
+    } else {
+      const enJefe = m.escenario.zonaJefe && m.indiceOleada >= m.totalTramos && !m.oleada;
+      const txt = enJefe ? 'Jefe final ➜' : `Tramo ${Math.max(1, m.tramoActual || 0)}/${m.totalTramos}`;
+      texto = (m.escenario.nombreCorto ? m.escenario.nombreCorto + ' · ' : '') + txt;
+    }
+    const conJefe = !!(inf && m.jefe && m.jefe.vivo);
     // Se guarda el resultado mientras no cambie el texto ni la pantalla (no se mide en cada cuadro)
-    const clave = `${texto}|${W}|${s}|${esTactil}|${m.modo}|${m.jugadores.length}|${Math.round(apartar)}|${Math.round(anchoPausa)}`;
+    const clave = `${texto}|${conJefe}|${W}|${s}|${esTactil}|${m.modo}|${m.jugadores.length}|${Math.round(apartar)}|${Math.round(anchoPausa)}`;
     if (this._tramoClave === clave) return this._tramoMedida;
     const ct = CONFIG.interfaz.textoTramo;
     const base = 15 * s;
@@ -258,7 +267,8 @@ class HUD {
     const rvAbajo = this.medidaRevivir(s, esTactil).abajo;
     let arriba = margen + (m.modo === 'pareja' ? rvAbajo : 36) * s; // borde de abajo de "Revivir" o de las monedas
     if (esTactil && m.modo === 'pareja') arriba += CONFIG.interfaz.hudCelular.separacionRevivirTramo * s; // celular: más aire
-    const y = Math.max(margen + (m.modo === 'pareja' ? 80 + (rvAbajo - 64) : 58) * s, arriba + tam * 0.8);
+    let y = Math.max(margen + (m.modo === 'pareja' ? 80 + (rvAbajo - 64) : 58) * s, arriba + tam * 0.8);
+    if (conJefe) y += 44 * s; // infinito con jefe: debajo de la barra del jefe
     this._tramoClave = clave;
     this._tramoMedida = { texto, tam, y, mitad: ancho / 2 + tam * 0.2, abajo: y + tam * 0.3 };
     return this._tramoMedida;

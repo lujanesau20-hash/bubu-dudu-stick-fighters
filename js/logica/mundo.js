@@ -112,7 +112,7 @@ class Mundo {
   aplicarDanio(obj, danio, info) {
     if (this.modo === 'versus') danio *= CONFIG.versus.multiplicadorDanio;
     // Enemigos y jefes pegan más en cada tramo (config/balance.js -> danioPorTramo)
-    else if (obj.esJugador && info.atacante && !info.atacante.esJugador) danio = this.danioEnemigo(danio, info.atacante);
+    else if (obj.esJugador && info.atacante && !info.atacante.esJugador) danio = this.danioEnemigo(danio, info.atacante, obj);
     danio = Math.round(danio);
     const flashAntes = obj.anim ? obj.anim.flash : 0;
     const vidaAntes = obj.vida;
@@ -136,7 +136,9 @@ class Mundo {
   }
 
   // Daño de un golpe enemigo según el tramo del nivel (y el extra del mundo, si lo tiene), con tope
-  danioEnemigo(base, atacante) {
+  danioEnemigo(base, atacante, obj) {
+    // Modo infinito: sube con cada oleada, con tope según la vida del jugador (js/logica/infinito.js)
+    if (this.escenario && this.escenario.infinito && this.danioInfinito) return this.danioInfinito(base, atacante, obj);
     if (typeof BALANCE === 'undefined' || !BALANCE.danioPorTramo) return base;
     const bd = BALANCE.danioPorTramo;
     const extraMundo = (this.escenario && this.escenario.danioExtra) || 0;
@@ -546,6 +548,7 @@ class Mundo {
   // ---------- Oleadas y jefe ----------
   actualizarOleadas(dt) {
     const esc = this.escenario;
+    if (esc.infinito) { this.actualizarInfinito(dt); return; } // modo infinito (js/logica/infinito.js)
     const vivos = this.jugadores.filter((j) => j.estado !== 'muerto');
     const xMax = vivos.length ? Math.max(...vivos.map((j) => j.x)) : 0;
     const mult = this.modo === 'pareja' ? CONFIG.multiplicadorPareja.enemigos : 1;
@@ -735,6 +738,7 @@ class Mundo {
 
   // Vida del enemigo normal de este nivel: la del mundo (Cielo..Jungla) o la fórmula de la Isla
   vidaEnemigoNivel() {
+    if (this.escenario.infinito) return this.vidaInf || this.vidaInfinito(1); // modo infinito: según la oleada
     return this.escenario.vidaEnemigo || BALANCE.vidaEnemigo(this.nivel);
   }
 
@@ -749,6 +753,7 @@ class Mundo {
     }
     // Victoria en niveles sin jefe: último tramo limpio
     const esc = this.escenario;
+    if (esc.infinito) return; // modo infinito: no hay victoria, solo se termina al caer todos
     if (!esc.zonaJefe && esc.oleadas.length && this.indiceOleada >= esc.oleadas.length && !this.oleada && !this.enemigos.some((e) => e.vivo)) {
       this.tFinTramos = (this.tFinTramos || 0) + dt;
       if (this.tFinTramos > 1.5 && (this.monedas.length === 0 || this.tFinTramos > 4)) {

@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.17`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.17`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.18`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.18`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`
 
 ---
 
@@ -1751,3 +1751,39 @@ Respaldo: etiqueta `respaldo-antes-menu-nuevo`. Código en `js/ui/menus.js` y `j
 - **Celular horizontal (800×360):** todos los menús nuevos caben sin desplazar (medido: el más alto, la elección de Infinito, ocupa 318 de 360 px).
 - **Sala en línea:** el líder elige entre **🤝 Normal**, **♾ Infinito** (con el mundo) y **⚔ Versus**. El invitado ve el modo elegido (y el mundo, en Infinito). Mensajes `modoSala` y `hola` llevan ahora también `mundo`.
 - **Cómo jugar:** se agregó la espada rápida (pestaña Habilidades) y el modo infinito (pestaña Consejos).
+
+## 34. Modo infinito (v1.18)
+
+Respaldo: etiqueta `respaldo-antes-modo-infinito`. Código nuevo: `js/logica/infinito.js` (se carga después de `mundo.js`). Números: `config/balance.js` → `BALANCE.infinito`.
+
+### Cómo funciona
+- Disponible en **solitario**, **pareja local (PC)** y **pareja en línea**. No en versus.
+- **Escenario:** uno por mundo (`infinito-isla`, `infinito-cielo` … `infinito-jungla`), una arena de 2200 px con 5 plataformas, el fondo, los colores y los enemigos de ese mundo. Se elige entre los mundos desbloqueados (por defecto Isla Flotante).
+- **Mismas reglas del modo normal:** vida, maná, tienda, mejoras, robo de vida, revivir (2 por partida en pareja), pausa, esferas de maná (cada 12 s, +25; con jefe 2/3) y 1 moneda por enemigo.
+- **Oleadas** (`Mundo.actualizarInfinito`): entre oleadas hay 2,5 s de pausa con el cartel "OLEADA N". Al terminar una oleada, cada jugador recupera el 40% de su vida (la misma curación de cada tramo; `curaOleada: null`).
+  - Enemigos por oleada: 4 + 0,6 × (n − 1), máximo 15 (en pareja ×1,5); nunca más de 12 vivos.
+  - A distancia: 15% en la oleada 1, +1,2% por oleada, máximo 45% (y nunca más de 5 vivos). Aves: 1 cada 3 oleadas, máximo 4. Ninjas desde la oleada 4, magos desde la 6 (si el mundo los tiene).
+  - **Daño** (`danioInfinito`): el del enemigo del nivel 1 del mundo, **+2 por oleada hasta la 5 y +1 por oleada desde la 6**, con **tope del 30%** de la vida máxima del jugador (jefes 35%). No usa el daño por tramo.
+  - **Vida:** la del enemigo del nivel 1 del mundo × 1,05 por oleada.
+  - **Velocidad:** +2% por oleada, tope +40% (sobre la velocidad normal de v1.15). Cadencia de arqueros +1,5% por oleada, tope +30%.
+- **Jefe cada 10 oleadas** (10, 20, 30…): el jefe del mundo (Gigante, Arquero Maestro, Mago Cósmico, Ninja Sombra o Rey de la Jungla). Vida = 10 × enemigo de esa oleada × 1,25 por cada jefe anterior (pareja ×1,6); su daño también ×1,25 por jefe. Caen refuerzos como siempre y más esferas. Al derrotarlo: **+60 monedas**.
+- **HUD:** "Oleada N · Mejor: M" en el lugar del texto "Nivel · Tramo" (con jefe, va debajo de su barra).
+- **Fin:** cuando caen todos los jugadores, pantalla "FIN DEL INFINITO" con la oleada alcanzada, las monedas ganadas y el mejor récord (o "¡Nuevo récord!"), y los botones **Reintentar** y **Menú** (en línea, "Volver a la sala"). Récord por modo en `Guardado.datos.recordInfinito` (`solo`, `pareja`, `enlinea`).
+- **En línea:** el líder simula todo. El invitado arma el mismo escenario por su nombre; la oleada viaja en `tramoActual` (ya estaba en los snapshots), y el jefe, las esferas y los enemigos como siempre. El mensaje `fin` lleva `oleada`; el invitado ve la misma pantalla de fin sin botones y guarda su propio récord "en línea". El líder decide el reinicio. La reconexión es la misma de las demás partidas.
+
+### Tabla: enemigo normal de la Isla por oleada
+Daño = golpe del enemigo normal (base 4). Velocidad en px/s (antes de v1.15 era 135).
+
+| Oleada | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 (jefe) | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Enemigos (solo / pareja) | 4/6 | 5/7 | 5/8 | 6/9 | 6/10 | 7/11 | 8/11 | 8/12 | 9/13 | Gigante | 10/15 | 11/15 |
+| Vida | 70 | 74 | 77 | 81 | 85 | 89 | 94 | 98 | 103 | 1090 (pareja 1744) | 114 | 120 |
+| Daño | 4 | 6 | 8 | 10 | 12 | 13 | 14 | 15 | 16 | Gigante ×1 | 18 | 19 |
+| Velocidad | 176 | 179 | 183 | 186 | 190 | 193 | 197 | 200 | 204 | 102 (jefe) | 211 | 214 |
+
+(La tabla completa hasta la oleada 30 está en la sección 36.)
+
+### Probado
+- Simulación de la lógica real hasta la oleada 12, en solitario y en pareja: oleadas, jefe en la 10 (+60 monedas), números de la tabla, sin errores.
+- Solitario por el menú (laptop y celular), pareja local por el menú, fin con Reintentar.
+- Sala en línea (líder laptop, invitado celular): el invitado ve el modo elegido, la oleada, el jefe de la oleada 10, la 11, la pantalla de fin, y el reinicio del líder.

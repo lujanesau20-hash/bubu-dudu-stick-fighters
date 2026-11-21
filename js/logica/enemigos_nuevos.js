@@ -83,7 +83,8 @@ Object.assign(IA_ENEMIGOS, {
         if (e.t <= 0) {
           DISPAROS.flecha(e, m, obj, c.danio);
           e.estado = 'atacar'; e.t = ba.soltar;
-          e.enfriamientoAtaque = m.rng.rango(ba.enfriamiento[0], ba.enfriamiento[1]) + e.desfase;
+          // m.multCadencia: el modo infinito sube la cadencia de los arqueros con cada oleada
+          e.enfriamientoAtaque = (m.rng.rango(ba.enfriamiento[0], ba.enfriamiento[1]) + e.desfase) / (m.multCadencia || 1);
         }
         break;
       case 'atacar':

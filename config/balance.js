@@ -314,6 +314,39 @@ const BALANCE = {
     saltitoAireCada: 0.5,     // H1 en el aire: el saltito solo una vez cada 0.5 s (si no, se podría flotar)
   },
 
+  // ---------- Modo infinito (v1.18): oleadas sin fin (js/logica/infinito.js) ----------
+  // Mismas reglas que el modo normal (vida, maná, tienda, mejoras, revivir, esferas, monedas 1 por enemigo).
+  infinito: {
+    anchoArena: 2200,          // largo del escenario (px); la cámara sigue a los jugadores
+    pausaEntreOleadas: 2.5,    // segundos entre una oleada y la siguiente
+    // Cantidad de enemigos de la oleada n = base + porOleada x (n - 1), con los límites de siempre
+    // (BALANCE.isla.maxPorOleada = 15 por oleada y maxVivos = 12 a la vez). En pareja x1.5 (máx. 15).
+    enemigosBase: 4,
+    enemigosPorOleada: 0.6,
+    tiposDesde: { normal: 1, espadachin: 1, arquero: 1, ninja: 4, mago: 6 }, // oleada desde la que aparece cada tipo (si el mundo lo tiene)
+    // Más arqueros/magos y aves con las oleadas
+    distanciaInicial: 0.15,    // 15% a distancia en la oleada 1
+    distanciaPorOleada: 0.012, // +1,2% por oleada
+    distanciaMax: 0.45,        // como mucho 45% (y nunca más de BALANCE.distancia.maxVivos vivos)
+    avesCada: 3,               // 1 ave cada 3 oleadas (oleada 3: 1, oleada 6: 2...)
+    avesMax: 4,
+    // Daño: el del enemigo del nivel 1 del mundo elegido, +2 por oleada hasta la 5 y +1 por oleada desde la 6
+    danioHasta5: 2,
+    danioDesde6: 1,
+    topeDanio: 0.30,           // un golpe de enemigo normal nunca pasa del 30% de la vida máxima del jugador
+    topeDanioJefe: 0.35,       // jefes: 35%
+    vidaPorOleada: 1.05,       // vida: la del enemigo del nivel 1, x1.05 por oleada
+    velocidadPorOleada: 0.02,  // velocidad: +2% por oleada...
+    velocidadMax: 0.40,        // ...hasta +40% sobre lo normal
+    cadenciaPorOleada: 0.015,  // arqueros disparan +1,5% más seguido por oleada...
+    cadenciaMax: 0.30,         // ...hasta +30%
+    // Jefe cada 10 oleadas: vida = 10 x enemigo de esa oleada (enemigos.multiplicadorJefe), x1.25 por cada jefe
+    jefeCada: 10,
+    jefeFactor: 1.25,          // cada jefe x1.25 más fuerte que el anterior (vida y daño)
+    monedasJefe: 60,
+    curaOleada: null,          // curación al terminar cada oleada; null = la misma de cada tramo (jugador.curaPorTramo)
+  },
+
   // ---------- Cómo se mueven y atacan los enemigos (v1.15) ----------
   // No cambia la vida ni el daño de cada golpe: solo el ritmo y la velocidad.
   comportamiento: {

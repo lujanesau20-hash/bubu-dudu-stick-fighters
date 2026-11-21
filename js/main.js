@@ -103,7 +103,7 @@ const Juego = {
     this.estado = 'carga';
     this.tactil.mostrar(false);
     const esc = this.modo === 'versus' ? ARENAS_VERSUS.isla : ESCENARIOS[this.escenario];
-    Menus.carga(this.modo === 'versus' ? esc.nombre : `Nivel ${this.mundo.nivel} · ${esc.nombre}`);
+    Menus.carga(this.modo === 'versus' || esc.infinito ? esc.nombre : `Nivel ${this.mundo.nivel} · ${esc.nombre}`);
     clearTimeout(this.tCarga);
     this.tCarga = setTimeout(() => {
       if (this.estado !== 'carga') return;
@@ -260,6 +260,13 @@ const Juego = {
     const m = this.mundo;
     if (typeof EnLinea !== 'undefined' && EnLinea.esAnfitrion) EnLinea.avisarFin(tipo, m.monedasGanadas);
     if (tipo !== 'versus') { Guardado.sumarMonedas(m.monedasGanadas); m.monedasGuardadas = true; }
+    // Modo infinito: pantalla propia con la oleada alcanzada y el mejor récord (por modo)
+    if (tipo === 'derrota' && m.escenario.infinito) {
+      const oleada = m.inf ? m.inf.oleada : 0;
+      const r = guardarRecordInfinito(claveRecordInfinito(m.modo), oleada);
+      Menus.finInfinito(oleada, m.monedasGanadas, r.mejor, r.nuevo);
+      return;
+    }
     if (tipo === 'derrota') Menus.gameOver(m.monedasGanadas);
     if (tipo === 'victoria') {
       if (!Guardado.datos.nivelesSuperados.includes(m.escenarioId)) {
@@ -338,5 +345,18 @@ const Juego = {
     ctx.fillText('📶 ' + texto, x, y);
   },
 };
+
+// Récord del modo infinito: uno por modo ('solo', 'pareja' local, 'enlinea'), guardado en este equipo
+function claveRecordInfinito(modo) {
+  return typeof EnLinea !== 'undefined' && EnLinea.activo ? 'enlinea' : modo;
+}
+function guardarRecordInfinito(clave, oleada) {
+  const d = Guardado.datos;
+  d.recordInfinito = d.recordInfinito || {};
+  const antes = d.recordInfinito[clave] || 0;
+  const nuevo = oleada > antes;
+  if (nuevo) { d.recordInfinito[clave] = oleada; Guardado.guardar(); }
+  return { mejor: Math.max(antes, oleada), nuevo };
+}
 
 window.addEventListener('load', () => Juego.init());
