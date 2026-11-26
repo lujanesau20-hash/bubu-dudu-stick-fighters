@@ -79,9 +79,9 @@ function simularPeleaJefe(cantidad = 20, opciones = {}) {
             const r = azar();
             let accion = null;
             if (mana >= 45 && cc[2] <= 0 && dist < 400 && r < 0.7) accion = ['Cataclismo', [2, 3]];
-            else if (mana >= 25 && cc[1] <= 0 && dist < 260 && r < 0.6) accion = ['Torbellino', [1, 2]];
+            else if (mana >= 25 && cc[1] <= 0 && dist < 260 && r < 0.6) accion = ['Torbellino', [0, 3]]; // v1.22: H1+H4
             else if (mana >= 20 && cd[3] <= 0 && dist < 220 && r < 0.7) accion = ['H4', [3]];
-            else if (mana >= 12 && cc[0] <= 0 && r < 0.5) accion = ['Corte volador', [0, 1]];
+            else if (mana >= 12 && cc[0] <= 0 && r < 0.5) accion = ['Corte volador', [0, 2]]; // v1.22: H1+H3
             else if (mana >= 10 && cd[2] <= 0 && dist < 300 && r < 0.5) accion = ['H3', [2]];
             else if (mana >= 4 && dist < 150) accion = ['H2', [1]];
             else if (mana >= 2) accion = ['H1', [0]];

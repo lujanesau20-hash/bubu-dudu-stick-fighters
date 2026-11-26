@@ -44,7 +44,7 @@ function medirRendimiento({ enemigos = 15, cuadros = 240, escenario = 'isla-5', 
       j.enfriamientos.fill(0);
       if (j.enfriamientosCombo) j.enfriamientosCombo.fill(0);
       if (f === 10) c.combo = [2, 3];          // Cataclismo
-      if (f === 130) c.combo = [1, 2];         // Torbellino
+      if (f === 130) c.combo = [0, 3];         // Torbellino (v1.22: H1+H4)
       for (const k in cuenta) cuenta[k] = 0;
       let a = performance.now();
       m.actualizar(1 / 60, [c]);

@@ -1,8 +1,10 @@
 /* =====================================================================
    COMBINACIONES (solo 3)
-   - Táctil: deslizar de un botón al vecino (llega como control.combo).
-   - Teclado: dos teclas vecinas casi a la vez, o una y luego la otra
-     dentro de CONFIG.combos.ventanaMs.
+   v1.22: Corte volador = H1+H3, Torbellino = H1+H4, Cataclismo = H3+H4
+   (config/balance.js -> combos[].par). El básico (H2) no forma combinaciones.
+   - Táctil: dos botones casi a la vez, o deslizar de uno al otro (llega como control.combo).
+   - Teclado: las dos teclas casi a la vez, o una y luego la otra
+     dentro de CONFIG.combos.ventanaMs (120 ms).
    La primera habilidad sale al instante; si llega la segunda a tiempo,
    se convierte en combinación y se devuelve la energía de la primera.
    ===================================================================== */
@@ -20,17 +22,19 @@ const COMBOS = {
     c.habilidades.forEach((p, i) => { if (p) pulsadas.push(i); });
     if (!pulsadas.length) return;
 
-    // Dos teclas vecinas en el mismo instante
+    // Dos teclas de una combinación en el mismo instante
     if (pulsadas.length >= 2) {
-      for (let k = 0; k < pulsadas.length - 1; k++) {
-        if (pulsadas[k + 1] - pulsadas[k] === 1 && this.intentar(j, [pulsadas[k], pulsadas[k + 1]], m, CONFIG.combos.ventanaMs)) return;
+      for (let a = 0; a < pulsadas.length; a++) {
+        for (let b = a + 1; b < pulsadas.length; b++) {
+          if (this.buscar(pulsadas[a], pulsadas[b]) && this.intentar(j, [pulsadas[a], pulsadas[b]], m, CONFIG.combos.ventanaMs)) return;
+        }
       }
     }
 
     for (const i of pulsadas) {
-      // Una tecla y luego la vecina dentro de la ventana
+      // Una tecla y luego su pareja de combinación dentro de la ventana
       const u = j.ultimaHabilidad;
-      if (u && Math.abs(u.indice - i) === 1 && (m.tiempo - u.tiempo) * 1000 <= CONFIG.combos.ventanaMs) {
+      if (u && u.indice !== i && this.buscar(u.indice, i) && (m.tiempo - u.tiempo) * 1000 <= CONFIG.combos.ventanaMs) {
         if (this.intentar(j, [u.indice, i], m, CONFIG.combos.ventanaMs)) return;
       }
       // soloCombos === 'bloqueo': hay un ataque en curso. Si lo puso H1/H2 (espada rápida),
@@ -68,7 +72,7 @@ const COMBOS = {
     return true;
   },
 
-  // H1 + H2: la espada lanza una gran onda de corte a distancia
+  // Corte volador (H1 + H3): la espada lanza una gran onda de corte a distancia
   corteVolador(j, d, m) {
     j.anim.ataque = 1;
     j.animDisparo = { nombre: 'espada', t: m.tiempo };
@@ -85,7 +89,7 @@ const COMBOS = {
     m.emitir('sacudir', { fuerza: 9 });
   },
 
-  // H2 + H3: dash con espada giratoria que daña en 360°
+  // Torbellino relámpago (H1 + H4): dash con espada giratoria que daña en 360°
   torbellino(j, d, m) {
     j.vy = -120;
     j.iniciarAccion({

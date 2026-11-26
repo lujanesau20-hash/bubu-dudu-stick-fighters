@@ -11,6 +11,7 @@ const BALANCE = {
     manaInicial: 50,          // maná al empezar cada nivel/ronda
     manaPorSegundo: 5,        // recuperación con el tiempo
     manaPorGolpe: 2,          // extra por cada golpe que acierta
+    manaPorGolpeBasico: 0,    // v1.22: el básico (gratis) no recarga maná al golpear (si no, el maná sobraba siempre)
     curaPorTramo: 0.4,        // al limpiar un tramo ("¡ADELANTE!") cada jugador vivo recupera 40% de su vida máxima
   },
 
@@ -21,7 +22,8 @@ const BALANCE = {
   habilidades: [
     // v1.21 (controles estilo Mobile Legends): H2 es el ATAQUE BÁSICO, gratis (antes 4 de maná), con límite
     // de velocidad (BALANCE.ritmoAtaque). H1 y H2 ya no frenan a H3/H4 (bloqueo 0; antes 0.30 y 0.35).
-    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 16, bloqueo: 0 },
+    // v1.22: H1 24 de daño y 3 de maná (antes 16 y 2), para que rinda más que el básico gratis
+    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 3,  enfriamiento: 0, danio: 24, bloqueo: 0 },
     { tecla: 'H2', nombre: 'Básico (espada)',     mana: 0,  enfriamiento: 0, danio: 22, bloqueo: 0 },
     // H3 (v1.05): retroceso 0 y aturdimiento 0 contra enemigos y jefes, igual que Corte volador y Torbellino
     // (1 = empujón / pausa de impacto normal; ver la explicación en "combos"). En versus no se usan.
@@ -37,12 +39,20 @@ const BALANCE = {
   //   aturdimiento: 1 = pausa de impacto normal (el mundo se frena un instante), 0 = sin pausa.
   //   Corte volador y Torbellino van en 0: el enemigo sigue caminando o atacando mientras recibe daño.
   combos: [
-    { teclas: 'H1+H2', nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 40, retroceso: 0, aturdimiento: 0 },
-    { teclas: 'H2+H3', nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 84, golpes: 6, area: true, radio: 135, retroceso: 0, aturdimiento: 0 }, // antes 6 s; 14 por golpe
+    // v1.22: con H2 convertido en el básico, los combos se activan con otros botones (par = [habilidad, habilidad],
+    // 0 = H1, 2 = H3, 3 = H4). Mismos nombres, ids y mejoras de la tienda. Corte volador 45 (antes 40) y
+    // Torbellino 96 (antes 84) para que valgan más que usar sus dos habilidades por separado.
+    { teclas: 'H1+H3', par: [0, 2], nombre: 'Corte volador',        mana: 12, enfriamiento: 3,  danio: 45, retroceso: 0, aturdimiento: 0 },
+    { teclas: 'H1+H4', par: [0, 3], nombre: 'Torbellino relámpago', mana: 25, enfriamiento: 10, danio: 96, golpes: 6, area: true, radio: 135, retroceso: 0, aturdimiento: 0 }, // 16 por golpe
     // Cataclismo (v1.03): radio 380 (antes 260; al principio 520) para alcanzar a los magos que se quedan lejos,
     // y en el borde hace 60% (minimoArea; las demás áreas siguen con areaDanio.minimo = 40%)
-    { teclas: 'H3+H4', nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 380, minimoArea: 0.6 }, // antes 10 s
+    { teclas: 'H3+H4', par: [2, 3], nombre: 'Cataclismo',           mana: 45, enfriamiento: 20, danio: 100, area: true, radio: 380, minimoArea: 0.6 }, // antes 10 s
   ],
+
+  // Combinaciones (v1.22): las dos teclas/botones casi a la vez. La primera habilidad sale al
+  // instante; si la segunda llega dentro de esta ventana, se convierte en combinación (y se devuelve
+  // el maná de la primera). Separadas por más de esto, cada una sale sola.
+  ventanaComboMs: 120,
 
   // ---------- Empujón al golpear enemigos ----------
   // H1 y H2: no aturden ni empujan (el enemigo puede seguir atacando).
@@ -421,8 +431,10 @@ BALANCE.factorArea = (fraccion, minimo) => {
     Object.assign(CONFIG.habilidades[i], { energia: h.mana, enfriamiento: h.enfriamiento, danio: h.danio, bloqueo: h.bloqueo,
       retroceso: h.retroceso ?? 1, aturdimiento: h.aturdimiento ?? 1 });
   });
+  CONFIG.combos.ventanaMs = b.ventanaComboMs || CONFIG.combos.ventanaMs;
   b.combos.forEach((c, i) => {
     const d = CONFIG.combos.lista[i];
+    if (c.par) d.habilidades = c.par.slice(); // botones que activan la combinación (v1.22)
     d.energia = c.mana;
     d.enfriamiento = c.enfriamiento;
     d.danio = c.golpes ? c.danio / c.golpes : c.danio; // por golpe

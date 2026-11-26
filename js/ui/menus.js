@@ -189,8 +189,8 @@ const Menus = {
       : { solo: 'Nivel solitario', pareja: 'Niveles en pareja', versus: 'Versus' };
     const tactil = esDispositivoTactil();
     const ayuda = modo === 'solo'
-      ? (tactil ? 'Joystick: moverse / agacharse · ▲: saltar (2 toques = doble salto) · H1–H4: habilidades · Desliza de un botón al vecino para combinar'
-        : 'A/D o ←/→ moverse · W/Espacio saltar (2 veces = doble salto) · S/↓ agacharse · 1-4 o J K L I habilidades · Dos vecinas casi a la vez = combinación')
+      ? (tactil ? 'Joystick: moverse / agacharse · Botón grande: ataque básico (gratis) · H1, H3, H4: habilidades · ▲: saltar · Dos botones casi a la vez = combinación'
+        : 'A/D o ←/→ moverse · W/Espacio saltar (2 veces = doble salto) · S/↓ agacharse · 2 o K ataque básico · 1, 3, 4 (J L I) habilidades · 1+3, 1+4, 3+4 = combinaciones')
       : 'J1: A/D mover · W/Espacio saltar · S agachar · 1-4 habilidades · E revivir<br>J2: ←/→ mover · ↑ saltar · ↓ agachar · 7 8 9 0 (o teclado num. 1-4) habilidades · Shift der./Enter revivir';
 
     const pintar = () => {
@@ -343,8 +343,8 @@ function consejosCortos() {
   return [
     `El maná se recupera ${b.jugador.manaPorSegundo} por segundo y ${b.jugador.manaPorGolpe} más por cada golpe que aciertas.`,
     `Cada ${b.esferasMana.intervalo} s cae una esfera azul: te da ${b.esferasMana.mana} de maná. ¡Recógela antes de ${b.esferasMana.duracion} s!`,
-    `Combina dos habilidades vecinas: ${b.combos.map((c) => `${c.teclas} ${c.nombre}`).join(' · ')}.`,
-    'En celular, desliza el dedo de un botón de habilidad al vecino sin soltar para hacer una combinación.',
+    `Combinaciones: ${b.combos.map((c) => `${c.teclas} ${c.nombre}`).join(' · ')}. Pulsa los dos casi a la vez.`,
+    'El ataque básico (botón grande, tecla de H2) es gratis: salen 2 seguidos y luego unos 2,5 por segundo.',
     `Para revivir a tu compañero, quédate a su lado y mantén la tecla de revivir ${CONFIG.revivir.tiempoRevivir} segundos.`,
     `Las habilidades caras rinden más: ${b.habilidades[3].nombre} hace ${b.habilidades[3].danio} de daño por ${b.habilidades[3].mana} de maná.`,
     'Salta por encima de las ondas del Gigante cuando pisa fuerte el suelo.',
@@ -374,11 +374,13 @@ Object.assign(Menus, {
         <h3>Celular</h3>
         <table class="tabla-ayuda"><tbody>
           <tr><td>Moverse / agacharse</td><td>Joystick a la izquierda (abajo = agacharse)</td></tr>
-          <tr><td>Saltar</td><td>Botón ▲ a la derecha (dos toques = doble salto)</td></tr>
-          <tr><td>Habilidades</td><td>Botones H1 a H4 alrededor del salto</td></tr>
-          <tr><td>Combinaciones</td><td>Desliza el dedo de un botón al vecino sin soltar</td></tr>
+          <tr><td>Ataque básico (H2)</td><td>Botón grande de abajo a la derecha: gratis, sin espera</td></tr>
+          <tr><td>Habilidades</td><td>H1, H3 y H4 en arco alrededor del básico (H4 la más alta)</td></tr>
+          <tr><td>Saltar</td><td>Botón ▲ arriba de las habilidades (dos toques = doble salto)</td></tr>
+          <tr><td>Combinaciones</td><td>Toca los dos botones casi a la vez (o desliza de uno al otro)</td></tr>
+          <tr><td>Enfriamiento</td><td>Una capa oscura gira sobre el botón con los segundos; azul = falta maná</td></tr>
           <tr><td>Revivir</td><td>Mantén el botón ♥ que aparece junto al compañero caído</td></tr>
-          <tr><td>Pantalla completa</td><td>Icono pequeño debajo de "Pausa" o botón en el menú de pausa</td></tr>
+          <tr><td>Pantalla completa</td><td>Icono pequeño al lado de "Pausa" o botón en el menú de pausa</td></tr>
         </tbody></table>`;
     }
     if (pestana === 'habilidades') {
@@ -390,8 +392,10 @@ Object.assign(Menus, {
         </tbody></table>
         <p class="ayuda">Jugador 1: ${c.j1.habilidades.map(teclasTexto).join(' · ')} · Jugador 2: ${c.j2.habilidades.map(teclasTexto).join(' · ')}.
         Un ataque no interrumpe a otro que ya está en curso.</p>
-        <p class="ayuda"><b>Espada rápida:</b> H1 y H2 salen al instante en cada pulsación, aunque el corte anterior siga en pantalla
-        (hasta ${BALANCE.espadaRapida.maxCortes} de cada una a la vez). Pulsa H2 tres veces y salen tres cortes; cada corte cobra su maná.</p>`;
+        <p class="ayuda"><b>Ataque básico (H2):</b> gratis y sin enfriamiento. Cada pulsación sale al instante, con un límite de velocidad:
+        como mucho ${BALANCE.ritmoAtaque[1].ventanas.map(([s, n]) => `${n} en ${String(s).replace('.', ',')} s`).join(' y ')}
+        (dos seguidos al instante y luego unos 2,5 por segundo). Si tocas un poco antes de tiempo, el golpe sale apenas se puede.
+        <b>H1</b> también sale al instante, hasta ${BALANCE.ritmoAtaque[0].ventanas[0][1]} por segundo, y cobra su maná.</p>`;
     }
     if (pestana === 'combos') {
       cuerpo = `<table class="tabla-ayuda numeros">
@@ -401,9 +405,9 @@ Object.assign(Menus, {
         </tbody></table>
         <h3>Cómo activarlas</h3>
         <ul class="lista-ayuda">
-          <li><b>Celular:</b> toca un botón de habilidad y, sin soltar, desliza el dedo al botón vecino.</li>
-          <li><b>PC:</b> pulsa las dos teclas vecinas casi a la vez, o una y luego la otra en menos de ${CONFIG.combos.ventanaMs} ms.</li>
-          <li>Solo se combinan habilidades vecinas: H1+H2, H2+H3 y H3+H4.</li>
+          <li><b>Celular:</b> toca los dos botones casi a la vez (o toca uno y desliza el dedo al otro). Los circulitos junto a los botones se encienden cuando un combo está listo.</li>
+          <li><b>PC:</b> pulsa las dos teclas casi a la vez (menos de ${CONFIG.combos.ventanaMs} ms entre una y otra).</li>
+          <li>El ataque básico (H2) no forma combinaciones.</li>
           <li>Si no tienes el maná suficiente, el ícono se ve apagado y no se activa.</li>
         </ul>`;
     }

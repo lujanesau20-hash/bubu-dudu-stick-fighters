@@ -122,7 +122,12 @@ class Mundo {
     if (a && a.esJugador && info.origen && info.origen.habilidad != null) {
       this.robarVida(a, Math.max(0, Math.min(danio, vidaAntes - Math.max(0, obj.vida))), info.origen);
     }
-    if (a && a.esJugador) a.energia = Math.min(CONFIG.energia.max, a.energia + CONFIG.energia.porGolpe);
+    if (a && a.esJugador) {
+      // El básico (H2, gratis) no recarga maná al golpear (config/balance.js -> jugador.manaPorGolpeBasico)
+      const basico = info.origen && info.origen.habilidad === 1 && typeof BALANCE !== 'undefined' && BALANCE.jugador.manaPorGolpeBasico != null;
+      const gana = basico ? BALANCE.jugador.manaPorGolpeBasico : CONFIG.energia.porGolpe;
+      a.energia = Math.min(CONFIG.energia.max, a.energia + gana);
+    }
     // Pausa de impacto. Contra enemigos, Corte volador y Torbellino no la usan (aturdimiento 0):
     // así el enemigo no se frena a cada golpe. A los jugadores (versus) siempre igual que antes.
     const fa = obj.esJugador ? 1 : (info.aturdimiento ?? 1);

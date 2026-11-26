@@ -70,8 +70,8 @@ function crearBot(semilla) {
           let a = null;
           if (mana >= 45 && cc[2] <= 0 && cerca(400) >= 3 && r < 0.7) a = ['Cataclismo', [2, 3]];
           else if (mana >= 20 && cd[3] <= 0 && cerca(200) >= 2 && r < 0.75) a = ['H4', [3]];
-          else if (mana >= 25 && cc[1] <= 0 && cerca(160) >= 2 && r < 0.5) a = ['Torbellino', [1, 2]];
-          else if (mana >= 12 && cc[0] <= 0 && r < 0.35) a = ['Corte volador', [0, 1]];
+          else if (mana >= 25 && cc[1] <= 0 && cerca(160) >= 2 && r < 0.5) a = ['Torbellino', [0, 3]]; // v1.22: H1+H4
+          else if (mana >= 12 && cc[0] <= 0 && r < 0.35) a = ['Corte volador', [0, 2]]; // v1.22: H1+H3
           else if (mana >= 10 && cd[2] <= 0 && dist < 300 && r < 0.35) a = ['H3', [2]];
           else if (mana >= 4 && dist < 150) a = ['H2', [1]];
           else if (mana >= 2) a = ['H1', [0]];

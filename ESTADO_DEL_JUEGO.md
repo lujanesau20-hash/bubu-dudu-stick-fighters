@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: controles estilo Mobile Legends — sección 37; antes: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 a 36). **Versión actual: `v1.21`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.21`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: combos nuevos y habilidades fuertes — sección 38; antes: controles estilo Mobile Legends — sección 37; enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 a 36). **Versión actual: `v1.22`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.22`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`, `respaldo-antes-controles-ml`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`, `respaldo-antes-controles-ml`, `respaldo-antes-combos-nuevos`
 
 ---
 
@@ -1957,3 +1957,82 @@ Los dos primeros salen casi juntos (espada doble) y después de a dos cada 0,8 s
 | 2000×900 | 190 px | 124 px | 130 px |
 
 Capturas antes y después en 800×360 y 2000×900, en la carpeta de pruebas (no se suben al repositorio).
+
+## 38. Combos nuevos y habilidades fuertes (v1.22)
+
+Respaldo: etiqueta `respaldo-antes-combos-nuevos`.
+
+### Combos (`config/balance.js` → `combos[].par`)
+| Combo | Antes | Ahora | Maná | Enfriamiento |
+|---|---|---|---|---|
+| Corte volador | H1+H2 | **H1+H3** | 12 | 3 s |
+| Torbellino relámpago | H2+H3 | **H1+H4** | 25 | 10 s |
+| Cataclismo | H3+H4 | **H3+H4** | 45 | 20 s |
+
+- Mismos nombres, ids y mejoras de la tienda (mejoras 5, 6 y 7). Solo cambian los botones.
+- **Cómo se activan:** las dos teclas o botones casi a la vez, con una ventana de **120 ms** (`BALANCE.ventanaComboMs`; antes 250).
+  - La primera habilidad sale al instante. Si la segunda llega a tiempo, sale el combo y se devuelve el maná de la primera.
+  - Separadas por más de 120 ms, cada una sale sola.
+  - En celular vale tocar los dos botones con dos dedos, o deslizar de uno al otro.
+  - El básico (H2) no forma combos.
+- **Indicador de combo listo:** en celular, los 3 circulitos junto al arco se encienden cuando hay maná y el combo no está en enfriamiento. En laptop, el cuadro del combo tiene borde amarillo.
+- **Probado** (lógica real):
+
+  | Prueba | Resultado |
+  |---|---|
+  | H1+H3 a la vez | Corte volador |
+  | H1 y H3 a 100 ms | Corte volador |
+  | H1 y H3 a 200 ms | nada (salen las dos solas) |
+  | H1+H4 a la vez | Torbellino |
+  | H4 y H1 a 80 ms | Torbellino |
+  | H3+H4 | Cataclismo |
+  | H1+básico | nada |
+  | básico+H3 | nada |
+
+### Habilidades fuertes: ajustes aplicados (pequeños)
+1. **H1:** daño 16 → **24**, maná 2 → **3**. Antes rendía menos que el básico, que es gratis.
+2. **Corte volador:** daño 40 → **45**. **Torbellino:** 84 → **96** (16 por golpe). Así cada combo vale más que usar sus dos habilidades por separado.
+3. **El básico no recarga maná al golpear** (`jugador.manaPorGolpeBasico: 0`). Si no, al ser gratis y dar +2 por golpe, el maná sobraba siempre. Probado: 13 golpes del básico en 5 s hacen 286 de daño y el maná no se mueve. Las demás habilidades siguen dando +2 por golpe.
+
+Las mejoras de la tienda multiplican el daño nuevo (H1 con todas: 48) y los precios no cambian.
+
+### Tabla (`node herramientas/tabla_habilidades.js`)
+Supuestos para el grupo de 3 enemigos: las áreas hacen en promedio el 70% (Cataclismo, 80%); H3 y Corte volador atraviesan la fila; el básico y H1 golpean a uno.
+
+**Antes (v1.20)**
+
+| Habilidad | Daño | Maná | Enfr. | Ritmo | Daño a 3 | Daño por maná |
+|---|---|---|---|---|---|---|
+| H2 (espada) | 22 | 4 | — | hasta 3 cortes a la vez | 22 | 5,5 |
+| H1 | 16 | 2 | — | hasta 3 a la vez | 16 | 8,0 |
+| H3 | 35 | 10 | 3 s | — | 105 | 10,5 |
+| H4 | 70 | 20 | 7 s | — | 147 | 7,3 |
+| Corte volador (H1+H2) | 40 | 12 | 3 s | — | 120 | 10,0 |
+| Torbellino (H2+H3) | 84 | 25 | 10 s | — | 176 | 7,0 |
+| Cataclismo (H3+H4) | 100 | 45 | 20 s | — | 240 | 5,3 |
+
+**Ahora (v1.22)**
+
+| Habilidad | Daño | Maná | Enfr. | Usos/s máx. | Daño/s a 1 | Daño a 3 | Daño por maná |
+|---|---|---|---|---|---|---|---|
+| Básico (H2) | 22 | 0 | — | 2,5 | 55 | 22 | gratis |
+| H1 | 24 | 3 | — | 3 | 72 | 24 | 8,0 |
+| H3 | 35 | 10 | 3 s | 0,33 | 12 | 105 | 10,5 |
+| H4 | 70 | 20 | 7 s | 0,14 | 10 | 147 | 7,3 |
+| Corte volador (H1+H3) | 45 | 12 | 3 s | 0,33 | 15 | 135 | 11,3 |
+| Torbellino (H1+H4) | 96 | 25 | 10 s | 0,10 | 10 | 202 | 8,1 |
+| Cataclismo (H3+H4) | 100 | 45 | 20 s | 0,05 | 5 | 240 | 5,3 |
+
+- **Escalones**, de menos a más maná: básico 22 → H1 24 → H3 105 → Corte 135 → H4 147 → Torbellino 202 → Cataclismo 240 (daño a un grupo de 3). Todos suben.
+- **Combo contra sus dos habilidades por separado:**
+
+  | Combo | Daño a 3 | Sus dos habilidades por separado |
+  |---|---|---|
+  | Corte volador | 135 | 129 |
+  | Torbellino | 202 | 171 |
+  | Cataclismo | 240 | 252 (mitad de maná) |
+
+### Propuestas (no aplicadas)
+1. **El básico rinde ~55 de daño por segundo, no ~25:** 22 de daño × 2,5 golpes por segundo. Si se quieren unos 25–35 por segundo, habría que bajar su daño a 10–14, pero eso haría los niveles más lentos.
+2. **Cataclismo:** a 3 enemigos rinde menos que H3+H4 (240 contra 252, con 15 más de maná). Su ventaja es el radio grande (380 px: alcanza más enemigos). El pedido dice "radio reducido a la mitad", pero el radio actual es 380 (v1.03 lo subió de 260). Propuesta: daño 100 → 115, o dejarlo así porque contra 5 o más enemigos ya rinde mucho más (400 o más).
+3. **H1 a 72 de daño por segundo** (si se machaca a 3 por segundo) gasta 9 de maná por segundo, más de lo que entra (5 por segundo + 2 por golpe): sirve en ráfagas, no todo el tiempo. Si se quiere más barato, maná 2.
