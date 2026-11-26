@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: pruebas de los controles nuevos — sección 39; antes: combos nuevos — 38, controles estilo Mobile Legends — 37; enemigos, espada rápida, menú nuevo y modo infinito — 31 a 36). **Versión actual: `v1.23`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.23`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: básico con 12 de daño — sección 40; antes: pruebas de los controles nuevos — 39, combos nuevos — 38, controles estilo Mobile Legends — 37; enemigos, espada rápida, menú nuevo y modo infinito — 31 a 36). **Versión actual: `v1.24`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.24`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`, `respaldo-antes-controles-ml`, `respaldo-antes-combos-nuevos`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`, `respaldo-antes-controles-ml`, `respaldo-antes-combos-nuevos`, `respaldo-antes-basico-12`
 
 ---
 
@@ -2033,7 +2033,7 @@ Supuestos para el grupo de 3 enemigos: las áreas hacen en promedio el 70% (Cata
   | Cataclismo | 240 | 252 (mitad de maná) |
 
 ### Propuestas (no aplicadas)
-1. **El básico rinde ~55 de daño por segundo, no ~25:** 22 de daño × 2,5 golpes por segundo. Si se quieren unos 25–35 por segundo, habría que bajar su daño a 10–14, pero eso haría los niveles más lentos.
+1. **El básico rinde ~55 de daño por segundo, no ~25** (**aplicada en v1.24**, sección 40: daño 12): 22 de daño × 2,5 golpes por segundo. Si se quieren unos 25–35 por segundo, habría que bajar su daño a 10–14, pero eso haría los niveles más lentos.
 2. **Cataclismo:** a 3 enemigos rinde menos que H3+H4 (240 contra 252, con 15 más de maná). Su ventaja es el radio grande (380 px: alcanza más enemigos). El pedido dice "radio reducido a la mitad", pero el radio actual es 380 (v1.03 lo subió de 260). Propuesta: daño 100 → 115, o dejarlo así porque contra 5 o más enemigos ya rinde mucho más (400 o más).
 3. **H1 a 72 de daño por segundo** (si se machaca a 3 por segundo) gasta 9 de maná por segundo, más de lo que entra (5 por segundo + 2 por golpe): sirve en ráfagas, no todo el tiempo. Si se quiere más barato, maná 2.
 
@@ -2060,3 +2060,29 @@ Con navegador automático, en celular horizontal (800×360 y 2000×900, táctil)
 ### No se pudo probar
 - Con dedos en un celular real ni en dos dispositivos reales (los toques se simularon con el navegador).
 - Partidas largas jugadas a mano con los controles nuevos.
+
+## 40. Básico con 12 de daño (v1.24)
+
+Respaldo: etiqueta `respaldo-antes-basico-12`. Es la propuesta 1 de la sección 38, elegida por el usuario.
+
+- `BALANCE.habilidades[1].danio`: **12** (antes 22). Lo demás del básico no cambia: gratis, sin enfriamiento y con el mismo límite de velocidad.
+- **Daño por segundo contra un enemigo:** 12 × 2,5 = **30** (antes 55).
+- **Versus:** 12 × 0,8 = **10** por golpe.
+- **Tienda:** la mejora "Espada (H2)" lo sube 20% por nivel, hasta **24** con las 5 compras. Los precios no cambian.
+- **Escalones de daño a 3 enemigos:**
+
+  | Básico | H1 | H3 | Corte volador | H4 | Torbellino | Cataclismo |
+  |---|---|---|---|---|---|---|
+  | **12** | 24 | 105 | 135 | 147 | 202 | 240 |
+
+- **Bot** (3 partidas por nivel, mejoras según las monedas):
+
+  | Nivel | Ganadas | Minutos | Minutos con el básico a 22 |
+  |---|---|---|---|
+  | Isla 1 | 3 de 3 | 2,8 | 2,8 |
+  | Isla 5 | 3 de 3 | 5,9 | 5,7 |
+  | Cielo 3 | 3 de 3 | 4,3 | 4,1 |
+  | Espacio 5 | 3 de 3 | 6,6 | — |
+  | Jungla 5 | 3 de 3 | 6,9 | — |
+
+  Los niveles duran casi lo mismo, porque el bot pelea sobre todo con H1, H3, H4 y los combos.

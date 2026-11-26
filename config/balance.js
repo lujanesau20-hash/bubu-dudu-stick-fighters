@@ -24,7 +24,8 @@ const BALANCE = {
     // de velocidad (BALANCE.ritmoAtaque). H1 y H2 ya no frenan a H3/H4 (bloqueo 0; antes 0.30 y 0.35).
     // v1.22: H1 24 de daño y 3 de maná (antes 16 y 2), para que rinda más que el básico gratis
     { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 3,  enfriamiento: 0, danio: 24, bloqueo: 0 },
-    { tecla: 'H2', nombre: 'Básico (espada)',     mana: 0,  enfriamiento: 0, danio: 22, bloqueo: 0 },
+    // v1.24: básico 12 de daño (antes 22): ~30 de daño por segundo con su límite de velocidad
+    { tecla: 'H2', nombre: 'Básico (espada)',     mana: 0,  enfriamiento: 0, danio: 12, bloqueo: 0 },
     // H3 (v1.05): retroceso 0 y aturdimiento 0 contra enemigos y jefes, igual que Corte volador y Torbellino
     // (1 = empujón / pausa de impacto normal; ver la explicación en "combos"). En versus no se usan.
     { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 35, bloqueo: 0, retroceso: 0, aturdimiento: 0 }, // antes 2 s
