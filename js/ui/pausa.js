@@ -245,8 +245,15 @@ const PantallaCompleta = {
     const mp = mPausa || Pausa.medidasBoton();
     const st = this.icono.style;
     st.width = st.height = lado + 'px';
-    st.right = mp.margen + 'px';
-    st.top = (mp.margen + mp.alto + c.separacion) + 'px';
+    if (celular && c.celularAlLado) {
+      // v1.21: al lado de "Pausa" (a su izquierda), así el HUD de arriba ocupa menos alto
+      const anchoPausa = (Pausa.boton && Pausa.boton.offsetWidth) || mp.ancho;
+      st.right = (mp.margen + anchoPausa + c.separacion) + 'px';
+      st.top = (mp.margen + (mp.alto - lado) / 2) + 'px';
+    } else {
+      st.right = mp.margen + 'px';
+      st.top = (mp.margen + mp.alto + c.separacion) + 'px';
+    }
     st.opacity = c.opacidad;
   },
 

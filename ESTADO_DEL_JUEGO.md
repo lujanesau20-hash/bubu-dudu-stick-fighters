@@ -1,10 +1,10 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 en adelante; antes: robo de vida máximo 10% — sección 30; antes: menos vida en los mundos 2 a 5 — sección 29, pruebas — 28, calibración — 27, 10 niveles y Jungla — 26, esferas, robo y daño por tramo — 25). **Versión actual: `v1.20`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.21-v1.20`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: controles estilo Mobile Legends — sección 37; antes: enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 a 36). **Versión actual: `v1.21`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.21`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
-- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`
+- **Copias de seguridad (etiquetas de git):** `respaldo-antes-tramos`, `respaldo-antes-pausa`, `respaldo-antes-red-ui`, `respaldo-antes-turn`, `respaldo-antes-rendimiento`, `respaldo-antes-reloj-red`, `respaldo-antes-personajes-version`, `respaldo-antes-versus-enlinea`, `respaldo-antes-mejoras-tienda`, `respaldo-antes-cataclismo-radio`, `respaldo-antes-sin-retroceso-combos`, `respaldo-antes-h3-sin-retroceso`, `respaldo-antes-recuperar-animacion`, `respaldo-antes-esferas-mana`, `respaldo-antes-danio-tramo`, `respaldo-antes-diez-niveles`, `respaldo-antes-vida-mundos`, `respaldo-antes-robo-10`, `respaldo-antes-enemigos-rapidos`, `respaldo-antes-espada-rapida`, `respaldo-antes-menu-nuevo`, `respaldo-antes-modo-infinito`, `respaldo-antes-animacion-enemigos`, `respaldo-antes-controles-ml`
 
 ---
 
@@ -1904,3 +1904,56 @@ Laptop 1,83 → 2,11 ms de promedio (p95 2,7 → 2,7). Celular 1,70 → 1,69–1
 
 ### PENDIENTE
 Nada de la tarea quedó sin hacer.
+
+## 37. Controles estilo Mobile Legends y básico gratis (v1.21)
+
+Respaldo: etiqueta `respaldo-antes-controles-ml`.
+
+### Ataque básico (lo que era H2) y límite de velocidad
+- **H2 es el ATAQUE BÁSICO:** no cuesta maná (antes 4), no tiene enfriamiento y hace el mismo daño (22, con las mejoras de la tienda, que sigue llamándolo "Espada (H2)"). Usa la misma tecla de siempre (2 o K; el jugador 2, 8).
+- **Límite de velocidad** (`config/balance.js` → `BALANCE.ritmoAtaque`), con ventanas deslizantes que se cumplen a la vez:
+  - **Básico:** máximo 2 ataques en cualquier ventana de 0,8 s y 3 en cualquier ventana de 1,0 s, con 0,1 s como mínimo entre dos.
+  - **H1:** máximo 3 por segundo, además de su maná.
+  - **Memoria de pulsación:** si se pulsa hasta 0,2 s antes de poder atacar, el ataque sale en el primer momento permitido. Si falta más, la pulsación se descarta.
+  - Reemplaza al tope de "3 cortes a la vez" de v1.16 (`espadaRapida.maxCortes` ya no se usa). La animación sigue 25% más rápida y cada ataque es un golpe propio: un ataque no pega dos veces al mismo enemigo, pero dos ataques distintos sí.
+  - Código: `HABILIDADES.puedeCortar` / `momentoPermitido` y `Jugador.cortesEnEspera`.
+- **H1 y el básico ya no frenan a H3 y H4** (su `bloqueo` pasó a 0; antes 0,30 y 0,35). Si no, machacando el básico, H3 y H4 casi nunca salían.
+- **En línea:** el invitado manda sus pulsaciones como contadores numerados (cada mensaje lleva la cuenta acumulada). El líder las suelta una por una, separadas 0,1 s, y les aplica los mismos límites que al jugador local.
+
+**Medido** (lógica real, 60 pasos por segundo; tiempos de cada ataque desde el primero):
+
+| Prueba | Ataques | Tiempos (s) | Máx. en 0,8 s | Máx. en 1,0 s |
+|---|---|---|---|---|
+| 10 pulsaciones cada 0,1 s | 4 | 0 · 0,1 · 0,8 · 1,0 | 2 | 3 |
+| Machacar 5 s (cada 0,05 s) | 13 | 0 · 0,1 · 0,8 · 1,0 · 1,6 · 1,8 · 2,4 · 2,6 · 3,2 · 3,4 · 4,0 · 4,2 · 4,8 | 2 | 3 |
+| H1 machacando 3 s | 9 | 0 · 0,1 · 0,2 · 1,0 · 1,1 · 1,2 · 2,0 · 2,1 · 2,2 | 3 | 3 |
+
+Los dos primeros salen casi juntos (espada doble) y después de a dos cada 0,8 s: unos 2,5 por segundo sostenidos.
+
+### Botones del celular (`config/interfaz.js` → `botonesML`)
+- **Disposición:**
+  - **Básico** grande en la esquina de abajo a la derecha.
+  - **H1, H3 y H4** en arco a su izquierda y arriba: H1 la más cercana y H4 la más alta.
+  - **Salto** arriba de las habilidades, pegado al borde derecho.
+  - Revivir, a la izquierda del arco.
+  - Todo se mide en fracción del alto de la pantalla, con mínimo y máximo en px. El arco se define por ángulo y distancia al centro del básico.
+  - Lo coloca `ControlesTactiles.medidasBotones` / `colocarBotones`.
+- **Botones:** solo el ícono, sin texto.
+  - **Enfriamiento:** una capa oscura que gira y se vacía, con los segundos en el centro.
+  - **Costo de maná:** insignia azul abajo.
+  - **Sin maná suficiente:** el botón se ve apagado, con tinte azul.
+  - Sin brillos.
+- **Indicadores de combo:** 3 circulitos a la izquierda del arco que se encienden cuando el combo tiene maná y no está en enfriamiento. No se tocan.
+- **Multitoque:** cada dedo se sigue por su identificador. Probado con toques reales: joystick, básico y salto a la vez responden los tres.
+- **HUD de arriba en celular:** ya no tiene los cuadros de habilidades y combos (`hudCelular.sinCajas`). Quedan vida, maná, monedas, "Nivel · Tramo", Pausa y pantalla completa. El icono de pantalla completa va a la **izquierda** de Pausa (`pantallaCompleta.celularAlLado`).
+  - Alto del HUD: 14% en 800×360 (antes 25% por el icono debajo de Pausa) y 12% en 2000×900.
+- **Laptop/PC:** el HUD conserva los cuadros, ahora en este orden: **Básico** (con la tecla de H2 y costo 0), H1, H3 y H4 (`habilidades.ordenHud`). Las teclas no cambiaron.
+- Vale para solitario, pareja local (PC), en línea, infinito y versus (en versus, siempre daño base).
+
+### Medidas (sin solapes ni botones fuera de la pantalla)
+| Pantalla | Básico | H1/H3/H4 | Salto |
+|---|---|---|---|
+| 800×360 | 97 px | 63 px | 72 px |
+| 2000×900 | 190 px | 124 px | 130 px |
+
+Capturas antes y después en 800×360 y 2000×900, en la carpeta de pruebas (no se suben al repositorio).

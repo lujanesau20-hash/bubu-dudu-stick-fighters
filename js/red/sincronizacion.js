@@ -54,8 +54,12 @@ class ControlRemoto {
     e.habilidades = this.pulsos.habilidades.slice();
     // Una pulsación pendiente por paso (así dos pulsaciones seguidas dan dos cortes)
     // separadas por el mínimo entre pulsaciones (config/balance.js -> espadaRapida.intervaloMin)
+    // v1.21: separadas por el mínimo entre ataques (config/balance.js -> ritmoAtaque); el líder
+    // aplica después los mismos límites de velocidad que al jugador local
+    const ra = typeof BALANCE !== 'undefined' && BALANCE.ritmoAtaque;
     const er = typeof BALANCE !== 'undefined' && BALANCE.espadaRapida;
-    const pasos = er ? Math.ceil(er.intervaloMin / (1 / 60) - 1e-6) : 1;
+    const minEntre = ra && ra[1] ? ra[1].minEntre : er ? er.intervaloMin : 1 / 60;
+    const pasos = Math.max(1, Math.ceil(minEntre / (1 / 60) - 1e-6));
     const esp = this.espera || (this.espera = [0, 0, 0, 0]);
     for (let i = 0; i < 4; i++) {
       if (esp[i] > 0) esp[i]--;

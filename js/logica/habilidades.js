@@ -11,17 +11,38 @@ const HABILIDADES = {
     return !!(er && er.habilidades.includes(i));
   },
 
-  // Espada rápida: ¿puede salir otro corte de esta habilidad ahora?
-  // (mínimo entre pulsaciones y máximo de cortes a la vez)
-  // Devuelve 'si', 'doble' (pulsación demasiado pegada a la anterior: se descarta) o 'lleno' (ya hay 3)
+  // Espada rápida: ¿puede salir otro ataque de esta habilidad ahora?
+  // Desde v1.21 manda el límite de velocidad (config/balance.js -> ritmoAtaque): ventanas deslizantes,
+  // mínimo entre ataques y memoria de pulsación. Devuelve:
+  //   'si'      -> sale ahora
+  //   'esperar' -> sale solo en el primer momento permitido (j.corteEnEspera[i] = ese momento)
+  //   'no'      -> falta demasiado: la pulsación se descarta
   puedeCortar(j, i, m) {
-    const er = BALANCE.espadaRapida;
     const ahora = m.tiempoReal ?? m.tiempo; // reloj que no se detiene en la pausa de impacto
     const lista = j.cortes || (j.cortes = [[], [], [], []]);
     const c = lista[i];
-    while (c.length && ahora - c[0] >= er.duracionCorte) c.shift();
-    if (c.length && ahora - c[c.length - 1] < er.intervaloMin - 1e-6) return 'doble';
-    return c.length < er.maxCortes ? 'si' : 'lleno';
+    const r = BALANCE.ritmoAtaque && BALANCE.ritmoAtaque[i];
+    if (!r) return 'si';
+    const largo = Math.max(...r.ventanas.map((v) => v[0]), r.minEntre);
+    while (c.length && ahora - c[0] >= largo) c.shift(); // solo se guarda lo que entra en la ventana más larga
+    const permitido = this.momentoPermitido(c, r, ahora);
+    if (permitido <= ahora + 1e-6) return 'si';
+    if (permitido - ahora <= r.memoria + 1e-6) {
+      (j.corteEnEspera || (j.corteEnEspera = [null, null, null, null]))[i] = permitido;
+      return 'esperar';
+    }
+    return 'no';
+  },
+
+  // Primer momento en que se puede atacar otra vez (cumpliendo todas las reglas a la vez)
+  momentoPermitido(c, r, ahora) {
+    let t = ahora;
+    if (c.length) t = Math.max(t, c[c.length - 1] + r.minEntre);
+    for (const [largo, max] of r.ventanas) {
+      // En la ventana (t - largo, t] no puede haber "max" ataques: el más viejo de los últimos "max" tiene que salir
+      if (c.length >= max) t = Math.max(t, c[c.length - max] + largo);
+    }
+    return t;
   },
 
   usar(j, i, m) {
@@ -29,12 +50,8 @@ const HABILIDADES = {
     if (!h || j.enfriamientos[i] > 0) return false;
     const rapida = this.esRapida(i);
     const puede = rapida ? this.puedeCortar(j, i, m) : 'si';
-    if (puede === 'doble') return false; // doble registro de la misma pulsación
-    if (puede === 'lleno') {
-      // Ya hay 3 cortes: este queda guardado y sale apenas termine uno (Jugador.cortesEnEspera)
-      (j.corteEnEspera || (j.corteEnEspera = [null, null, null, null]))[i] = m.tiempo;
-      return false;
-    }
+    if (puede === 'no') return false;      // demasiado pronto: se descarta
+    if (puede === 'esperar') return false; // queda guardada y sale a tiempo (Jugador.cortesEnEspera)
     if (rapida && j.corteEnEspera) j.corteEnEspera[i] = null;
     if (j.energia < h.energia) { m.emitir('sinEnergia', { jugador: j.indice }); return false; }
     j.energia -= h.energia;

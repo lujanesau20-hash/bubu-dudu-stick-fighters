@@ -151,13 +151,15 @@ class Jugador {
     if (this.aturdido <= 0) this.cortesEnEspera(m);
   }
 
-  // Espada rápida: un corte pulsado demasiado pronto sale apenas se puede (hasta 0.3 s después)
+  // Memoria de pulsación (v1.21): un ataque pulsado un poco antes de poder salir, sale en el
+  // primer momento permitido (ce[i] = ese momento, en el reloj que no se congela)
   cortesEnEspera(m) {
     const ce = this.corteEnEspera;
     if (!ce) return;
+    const ahora = m.tiempoReal ?? m.tiempo;
     for (let i = 0; i < 4; i++) {
-      if (ce[i] == null) continue;
-      if (m.tiempo - ce[i] > 0.3) { ce[i] = null; continue; }
+      if (ce[i] == null || ahora < ce[i] - 1e-6) continue;
+      if (ahora - ce[i] > 0.5) { ce[i] = null; continue; } // nunca salió (p. ej. en medio de un dash)
       const libre = !(this.bloqueoAtaque > 0) || this.bloqueoSoloRapidas;
       if (libre && HABILIDADES.puedeCortar(this, i, m) === 'si') { ce[i] = null; HABILIDADES.usar(this, i, m); }
     }

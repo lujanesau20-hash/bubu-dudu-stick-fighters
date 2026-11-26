@@ -21,16 +21,24 @@ class ControlesTactiles {
 
   construir() {
     const disp = CONFIG.tactil.disposicion;
-    this.cont.innerHTML = `
-      <div class="joy-zona"><div class="joy-base"><div class="joy-palanca"></div></div></div>
-      <div class="zona-botones ${disp}">
-        ${CONFIG.habilidades.map((h, i) => `
-          <div class="btn-hab" data-i="${i}">
+    // v1.21: botones estilo Mobile Legends (config/interfaz.js -> botonesML)
+    this.ml = !!(CONFIG.interfaz && CONFIG.interfaz.botonesML && CONFIG.interfaz.botonesML.activo);
+    const botonHab = (h, i) => this.ml
+      ? `<div class="btn-hab ${i === 1 ? 'basico' : ''}" data-i="${i}">
+            <div class="hab-cd"></div><span class="hab-icono">${h.icono}</span>
+            <span class="hab-num"></span>${h.energia > 0 ? `<span class="hab-mana">${h.energia}</span>` : ''}
+          </div>`
+      : `<div class="btn-hab" data-i="${i}">
             <span class="hab-icono">${h.icono}</span><span class="hab-tecla">H${i + 1}</span>
             <div class="hab-cd"></div>
-          </div>`).join('')}
+          </div>`;
+    this.cont.innerHTML = `
+      <div class="joy-zona"><div class="joy-base"><div class="joy-palanca"></div></div></div>
+      <div class="zona-botones ${this.ml ? 'ml' : disp}">
+        ${CONFIG.habilidades.map(botonHab).join('')}
         <div class="btn-salto">▲</div>
         <div class="btn-revivir oculto">♥<small>REVIVIR</small></div>
+        ${this.ml ? CONFIG.combos.lista.map((c, k) => `<div class="chip-combo" data-k="${k}">${c.icono || '✦'}</div>`).join('') : ''}
       </div>
       <div class="btn-pausa-tactil">II</div>`;
 
@@ -40,7 +48,13 @@ class ControlesTactiles {
     this.botonesHab = [...this.cont.querySelectorAll('.btn-hab')];
     this.btnSalto = this.cont.querySelector('.btn-salto');
     this.btnRevivir = this.cont.querySelector('.btn-revivir');
+    this.chipsCombo = [...this.cont.querySelectorAll('.chip-combo')];
     const btnPausa = this.cont.querySelector('.btn-pausa-tactil');
+    if (this.ml) {
+      this.colocarBotones();
+      window.addEventListener('resize', () => this.colocarBotones());
+      window.addEventListener('orientationchange', () => setTimeout(() => this.colocarBotones(), 300));
+    }
 
     // --- Joystick ---
     // Fijo (config/interfaz.js -> joystickFijo): la base está siempre en el mismo lugar y la
@@ -146,6 +160,47 @@ class ControlesTactiles {
     this.estado.abajo = ny > umbral && (!this.fijo || !jf.agacharSoloAbajo || ny > Math.abs(nx));
   }
 
+  // Botones estilo Mobile Legends (v1.21): calcula el lugar y el tamaño de cada botón en px
+  // según la pantalla (config/interfaz.js -> botonesML). También lo usan las pruebas.
+  medidasBotones(W = window.innerWidth, H = window.innerHeight) {
+    const b = CONFIG.interfaz.botonesML;
+    const tam = (d) => U.clamp(H * d.diametro, d.min, d.max);
+    const dB = tam(b.basico), dH = tam(b.habilidad);
+    const cx = W - H * b.basico.margenDerecha - dB / 2, cy = H - H * b.basico.margenAbajo - dB / 2;
+    const polar = (ang, dist, d) => {
+      const r = (ang * Math.PI) / 180;
+      return { x: cx + Math.cos(r) * dist * dB, y: cy - Math.sin(r) * dist * dB, d };
+    };
+    const lugares = { 1: { x: cx, y: cy, d: dB } };          // básico (H2)
+    lugares[0] = polar(b.arco.H1[0], b.arco.H1[1], dH);       // H1
+    lugares[2] = polar(b.arco.H3[0], b.arco.H3[1], dH);       // H3
+    lugares[3] = polar(b.arco.H4[0], b.arco.H4[1], dH);       // H4
+    // Salto: arriba de las habilidades, pegado al borde derecho
+    const dS = tam(b.salto);
+    const arribaHab = Math.min(lugares[2].y - dH / 2, lugares[3].y - dH / 2);
+    const salto = { x: W - H * b.basico.margenDerecha - dS / 2, y: arribaHab - H * b.salto.separacion - dS / 2, d: dS };
+    const revivir = polar(b.revivir.angulo, b.revivir.distancia, tam(b.revivir));
+    const combos = b.combos.angulos.map((a) => polar(a, b.combos.distancia, tam(b.combos)));
+    return { lugares, salto, revivir, combos };
+  }
+
+  colocarBotones() {
+    if (!this.ml) return;
+    const md = this.medidasBotones();
+    const poner = (el, p) => {
+      if (!el || !p) return;
+      const st = el.style;
+      st.width = st.height = Math.round(p.d) + 'px';
+      st.left = Math.round(p.x - p.d / 2) + 'px'; st.top = Math.round(p.y - p.d / 2) + 'px';
+      st.right = 'auto'; st.bottom = 'auto';
+      st.fontSize = Math.round(p.d * 0.42) + 'px';
+    };
+    this.botonesHab.forEach((el) => poner(el, md.lugares[+el.dataset.i]));
+    poner(this.btnSalto, md.salto);
+    poner(this.btnRevivir, md.revivir);
+    this.chipsCombo.forEach((el, k) => poner(el, md.combos[k]));
+  }
+
   // Joystick fijo: coloca la base y la zona de toque según el tamaño de la pantalla
   colocarJoystick() {
     if (!this.fijo) return;
@@ -192,7 +247,8 @@ class ControlesTactiles {
     const j = +btn.dataset.i;
     if (j === dedo.actual) return;
     const tiempo = performance.now() - dedo.inicio;
-    if (!dedo.comboHecho && Math.abs(j - dedo.actual) === 1 && tiempo <= CONFIG.combos.ventanaTactilMs) {
+    // v1.21: vale cualquier par que forme una combinación (H1+H3, H1+H4, H3+H4), no solo vecinos
+    if (!dedo.comboHecho && COMBOS.buscar(j, dedo.actual) && tiempo <= CONFIG.combos.ventanaTactilMs) {
       this.estado.combo = [Math.min(j, dedo.actual), Math.max(j, dedo.actual)];
       dedo.comboHecho = true;
       this.botonesHab[j].classList.add('combo');
@@ -222,11 +278,27 @@ class ControlesTactiles {
   // Actualiza enfriamientos/energía en los botones y el botón de revivir
   actualizarVisual(jugador, mostrarRevivir) {
     if (!this.activo || !jugador) return;
-    this.botonesHab.forEach((b, i) => {
+    this.botonesHab.forEach((b) => {
+      const i = +b.dataset.i;
       const h = CONFIG.habilidades[i];
-      const cd = jugador.enfriamientos[i] / h.enfriamiento;
-      b.style.setProperty('--cd', Math.max(0, cd).toFixed(3));
-      b.classList.toggle('sin-energia', jugador.energia < h.energia);
+      const resta = jugador.enfriamientos[i];
+      const cd = h.enfriamiento > 0 ? resta / h.enfriamiento : 0;
+      const txtCd = Math.max(0, cd).toFixed(3);
+      if (b._cd !== txtCd) { b._cd = txtCd; b.style.setProperty('--cd', txtCd); }
+      const sin = jugador.energia < h.energia;
+      if (b._sin !== sin) { b._sin = sin; b.classList.toggle('sin-energia', sin); }
+      if (this.ml) {
+        // Estilo Mobile Legends: segundos que faltan en el centro (la capa oscura gira y se vacía)
+        const num = b._num || (b._num = b.querySelector('.hab-num'));
+        const t = resta > 0.05 ? (resta >= 1 ? String(Math.ceil(resta)) : resta.toFixed(1)) : '';
+        if (num && num.textContent !== t) num.textContent = t;
+      }
+    });
+    // Combos disponibles: hay maná y no están en enfriamiento
+    this.chipsCombo.forEach((el, k) => {
+      const def = CONFIG.combos.lista[k];
+      const ok = jugador.energia >= def.energia && !(jugador.enfriamientoCombo > 0) && !(jugador.enfriamientosCombo && jugador.enfriamientosCombo[k] > 0);
+      if (el._ok !== ok) { el._ok = ok; el.classList.toggle('lista', ok); }
     });
     this.btnRevivir.classList.toggle('oculto', !mostrarRevivir);
   }

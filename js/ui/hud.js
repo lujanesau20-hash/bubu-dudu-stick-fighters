@@ -41,6 +41,11 @@ class HUD {
     if (typeof Pausa !== 'undefined' && Pausa.visible && Pausa.medidasBoton) {
       const mb = Pausa.medidasBoton();
       anchoPausa = (mb.ancho + mb.margen + 4) * (W / Math.max(1, window.innerWidth));
+      // Celular: el icono de pantalla completa va al lado de "Pausa" (v1.21)
+      const pc = CONFIG.interfaz.pantallaCompleta;
+      if (esTactil && pc.celularAlLado && typeof PantallaCompleta !== 'undefined' && PantallaCompleta.iconoVisible()) {
+        anchoPausa += (pc.icono.celular + pc.separacion) * (W / Math.max(1, window.innerWidth));
+      }
       if (cp.apartarHudJugador2) apartar = Math.max(0, anchoPausa - margen);
     }
     // Texto "Nivel X · Tramo Y/Z": tamaño y lugar (más grande en celular, sin tocar barras ni Pausa)
@@ -52,7 +57,9 @@ class HUD {
     this.obstaculos = this.medirObstaculos(ctx, m, W, H, s, esTactil, margen);
     if (this.rectsIconos) this.rectsIconos.length = 0; else this.rectsIconos = [];
     // Cuadros de habilidades: la MISMA escala para los dos jugadores (la mayor que quepa en ambos lados)
-    this.layIconos = this.acomodarTodos(m, W, H, s, esTactil, margen, anchoBarra, apartar);
+    // v1.21: en celular no hay cuadros arriba (el enfriamiento se ve en los botones)
+    this._sinCajas = !!(esTactil && CONFIG.interfaz.hudCelular.sinCajas);
+    this.layIconos = this._sinCajas ? null : this.acomodarTodos(m, W, H, s, esTactil, margen, anchoBarra, apartar);
     m.jugadores.forEach((j) => {
       const derecha = j.indice === 1;
       this.barraJugador(ctx, j, derecha ? W - margen - anchoBarra - apartar : margen, margen, anchoBarra, s, derecha, efectos, esTactil, m);
@@ -203,6 +210,7 @@ class HUD {
     // Tamaño y opacidad de los indicadores (config/interfaz.js): más grandes en celular
     const ch = CONFIG.interfaz.habilidades;
     const fila1 = ey + altoEnergia + 8 * s;
+    if (this._sinCajas) { this.fondoIconos = Math.max(this.fondoIconos || 0, ey + altoEnergia + 6 * s); return; }
     // Escala y lugar de las dos filas: se achican o se corren solos si tapan algo
     const lay = (this.layIconos && this.layIconos[j.indice]) || this.acomodarIconos(s * (esTactil ? ch.escalaCelular : ch.escalaLaptop), bx, bw, fila1, derecha);
     const si = lay.si, tam = 30 * si, sep = 7 * si;
@@ -216,8 +224,10 @@ class HUD {
     const posX2 = (k) => lay.x2 + k * (tam + sep); // fila de combos (de izquierda a derecha)
     const nCombos = CONFIG.combos.lista.length;
     const nombreTecla = (i) => (tactilJ1 ? 'H' + (i + 1) : mapa.habilidades[i][0].replace('Digit', '').replace('Numpad', 'N').replace('Key', ''));
-    CONFIG.habilidades.forEach((h, i) => {
-      this.iconoHabilidad(ctx, posX(i), fila1, tam, si, h.icono, h.energia, j.energia,
+    // v1.21: orden Básico (tecla de H2), H1, H3, H4 (config/interfaz.js -> ordenHud)
+    (ch.ordenHud || [0, 1, 2, 3]).forEach((i, pos) => {
+      const h = CONFIG.habilidades[i];
+      this.iconoHabilidad(ctx, posX(pos), fila1, tam, si, h.icono, h.energia, j.energia,
         j.enfriamientos[i], h.enfriamiento, nombreTecla(i));
     });
     CONFIG.combos.lista.forEach((c, k) => {

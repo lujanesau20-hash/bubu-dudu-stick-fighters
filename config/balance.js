@@ -19,8 +19,10 @@ const BALANCE = {
   // bloqueo: segundos en que no se puede lanzar OTRO ataque (un ataque no interrumpe a otro)
   // Daños de v1.02 (antes: 4, 10, 30, 80). La espada de cerca (H2) mata a un enemigo del nivel 1 (70) en 4 golpes.
   habilidades: [
-    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 16, bloqueo: 0.30 },
-    { tecla: 'H2', nombre: 'Espada (tajo)',       mana: 4,  enfriamiento: 0, danio: 22, bloqueo: 0.35 },
+    // v1.21 (controles estilo Mobile Legends): H2 es el ATAQUE BÁSICO, gratis (antes 4 de maná), con límite
+    // de velocidad (BALANCE.ritmoAtaque). H1 y H2 ya no frenan a H3/H4 (bloqueo 0; antes 0.30 y 0.35).
+    { tecla: 'H1', nombre: 'Daga (cuchilla)',     mana: 2,  enfriamiento: 0, danio: 16, bloqueo: 0 },
+    { tecla: 'H2', nombre: 'Básico (espada)',     mana: 0,  enfriamiento: 0, danio: 22, bloqueo: 0 },
     // H3 (v1.05): retroceso 0 y aturdimiento 0 contra enemigos y jefes, igual que Corte volador y Torbellino
     // (1 = empujón / pausa de impacto normal; ver la explicación en "combos"). En versus no se usan.
     { tecla: 'H3', nombre: 'Flash (dash)',        mana: 10, enfriamiento: 3, danio: 35, bloqueo: 0, retroceso: 0, aturdimiento: 0 }, // antes 2 s
@@ -305,6 +307,17 @@ const BALANCE = {
   // Cada pulsación lanza su corte AL INSTANTE, aunque el anterior siga en pantalla.
   // Cada corte tiene su propia zona de golpe: un corte no golpea dos veces al mismo enemigo,
   // pero dos cortes distintos sí. No se juntan: el combo H1+H2 sale igual que antes.
+  // ---------- Límite de velocidad de los ataques rápidos (v1.21) ----------
+  // Por habilidad (0 = H1, 1 = básico/H2). "ventanas": [segundos, máximo de ataques] en cualquier
+  // ventana deslizante de ese largo (se cumplen todas a la vez). "minEntre": mínimo entre dos ataques.
+  // "memoria": si se pulsa hasta este tiempo antes de poder atacar, el ataque sale en el primer
+  // momento permitido (no se pierde). Básico: 2 seguidos al instante y ~2,5 por segundo sostenido.
+  ritmoAtaque: [
+    { ventanas: [[1.0, 3]], minEntre: 0.1, memoria: 0.2 },              // H1: hasta 3 por segundo
+    { ventanas: [[0.8, 2], [1.0, 3]], minEntre: 0.1, memoria: 0.2 },    // básico (H2)
+    null, null,                                                        // H3 y H4: su enfriamiento
+  ],
+
   espadaRapida: {
     habilidades: [0, 1],      // H1 (cuchilla) y H2 (espada)
     maxCortes: 3,             // hasta 3 cortes de cada habilidad a la vez

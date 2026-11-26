@@ -79,6 +79,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; f
 .fila .btn-hab[data-i="2"] { right: 106px; } .fila .btn-hab[data-i="3"] { right: 34px; }
 .btn-revivir { width: 76px; height: 76px; right: 236px; bottom: 190px; background: rgba(105,219,124,0.75); font-size: 26px; }
 .btn-revivir small { font-size: 9px; }
+/* v1.21: botones estilo Mobile Legends. Lugar y tamaño los pone js/entrada/tactil.js (config/interfaz.js -> botonesML) */
+#tactil > .zona-botones.ml { position: absolute; inset: 0; width: auto; height: auto; transform: none; pointer-events: none; }
+.zona-botones.ml > * { pointer-events: auto; }
+.zona-botones.ml .btn-hab { background: rgba(30,40,70,0.62); border: 2px solid rgba(255,255,255,0.75); }
+.zona-botones.ml .btn-hab.basico { background: rgba(255,140,60,0.62); border-width: 3px; }
+.zona-botones.ml .btn-hab .hab-icono { font-size: 1em; position: relative; z-index: 1; }
+.zona-botones.ml .btn-hab .hab-cd { top: 0; height: auto; border-radius: 50%; z-index: 2;
+  background: conic-gradient(rgba(0,0,0,0.62) calc(var(--cd) * 360deg), transparent 0); }
+.zona-botones.ml .btn-hab .hab-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 0.62em; color: #fff; z-index: 3; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.zona-botones.ml .btn-hab .hab-mana { position: absolute; left: 50%; transform: translateX(-50%); bottom: 5%; z-index: 3; font-size: 0.3em; min-width: 1.6em;
+  padding: 0 0.25em; border-radius: 0.8em; background: #1c5fa8; color: #fff; line-height: 1.5; text-align: center; }
+.zona-botones.ml .btn-hab.sin-energia { filter: grayscale(0.7); opacity: 0.65; background: rgba(70,110,210,0.6); }
+.zona-botones.ml .btn-hab.pulsado, .zona-botones.ml .btn-salto.pulsado { transform: scale(0.92); }
+.zona-botones.ml .btn-hab.combo { background: rgba(255,224,102,0.9); box-shadow: none; }
+.zona-botones.ml .btn-salto { font-size: 1em; }
+.chip-combo { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none !important;
+  background: rgba(20,20,40,0.5); border: 2px solid rgba(255,255,255,0.25); opacity: 0.35; }
+.chip-combo.lista { opacity: 1; background: rgba(70,30,80,0.8); border-color: #ffe066; }
 .btn-pausa-tactil { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 46px; height: 40px; border-radius: 10px; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-weight: 900; top: auto; bottom: 12px; }
 
 @media (max-height: 450px) {

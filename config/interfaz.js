@@ -16,6 +16,7 @@ CONFIG.interfaz = {
     achicarHasta: 0.4,     // fracción mínima de la escala de arriba (0.4 = hasta 40%)
     separacionObstaculos: 8, // espacio libre (px de pantalla) alrededor de joystick, botones, Pausa y centro
     altoMaximo: 0.65,      // los cuadros no bajan de este % del alto de la pantalla
+    ordenHud: [1, 0, 2, 3], // v1.21: Básico (H2) primero, luego H1, H3 y H4
   },
 
   // Botón "Pausa" (esquina superior derecha). Medidas en px de pantalla.
@@ -34,6 +35,7 @@ CONFIG.interfaz = {
     opacidad: 0.6,            // discreto
     tecla: 'KeyF',            // laptop: F para entrar y salir
     bloquearHorizontal: true, // celular: al entrar, intenta dejar la pantalla fija en horizontal
+    celularAlLado: true,      // v1.21: en celular el icono va a la IZQUIERDA de "Pausa" (HUD más bajo)
   },
 
   // Aviso al líder "[nombre] quiere pausar" (en línea)
@@ -83,8 +85,29 @@ CONFIG.interfaz = {
   },
 
   // HUD en celular (solo celular; en laptop no cambia nada)
+  // Botones táctiles estilo Mobile Legends (v1.21). Medidas en fracción del ALTO de la pantalla
+  // (con mínimo y máximo en px). Básico grande en la esquina de abajo a la derecha; H1, H3 y H4 en
+  // arco a su izquierda y arriba (H4 la más alta); salto arriba de las habilidades, pegado al borde.
+  botonesML: {
+    activo: true,
+    basico: { diametro: 0.27, min: 84, max: 190, margenDerecha: 0.035, margenAbajo: 0.035 },
+    habilidad: { diametro: 0.175, min: 54, max: 124 },
+    // Arco: [ángulo en grados (180 = izquierda, 90 = arriba), distancia al centro del básico en diámetros del básico]
+    arco: { H1: [180, 1.02], H3: [138, 1.08], H4: [97, 1.08] },
+    salto: { diametro: 0.2, min: 60, max: 130, separacion: 0.03 }, // separación sobre H4 (fracción del alto)
+    revivir: { diametro: 0.17, min: 54, max: 110, angulo: 156, distancia: 2.45 },
+    // Indicadores de combo disponible (pequeños, no se tocan): ángulos y distancia como el arco
+    combos: { diametro: 0.075, min: 22, max: 46, angulos: [172, 151, 130], distancia: 1.78 },
+    separacionMinima: 4,      // px libres entre botones (la prueba avisa si se tocan)
+    sinMana: 'rgba(70,110,210,0.6)', // tinte azul cuando no alcanza el maná
+    opacidadSinMana: 0.65,
+  },
+
   hudCelular: {
-    altoMaximo: 0.25,         // el HUD ocupa como máximo el 25% del alto de la pantalla
+    // v1.21: en celular ya no se dibujan arriba los cuadros de habilidades y combos (el enfriamiento
+    // está en los botones). Solo vida, maná, monedas, "Nivel · Tramo", Pausa y pantalla completa.
+    sinCajas: true,
+    altoMaximo: 0.25,         // el HUD ocupa como máximo el 25% del alto de la pantalla (cuadros, si se dibujan)
     unaFila: true,            // habilidades y combos en una sola fila (los combos al lado)
     separacionGrupos: 12,     // espacio entre las habilidades y los combos (en "si", como los cuadros)
     etiquetaComboAbajo: true, // "H1+H2" debajo del cuadro (no encima del ícono); el maná va en la esquina
