@@ -1,6 +1,6 @@
 # Estado del juego: Bubu & Dudu — Stick Fighters
 
-Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: combos nuevos y habilidades fuertes — sección 38; antes: controles estilo Mobile Legends — sección 37; enemigos, espada rápida, menú nuevo y modo infinito — secciones 31 a 36). **Versión actual: `v1.22`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.22`). Historial corto en `CAMBIOS.md`.
+Documento para entender el proyecto sin haberlo visto antes. Describe cómo está el juego **hoy** (última tarea: pruebas de los controles nuevos — sección 39; antes: combos nuevos — 38, controles estilo Mobile Legends — 37; enemigos, espada rápida, menú nuevo y modo infinito — 31 a 36). **Versión actual: `v1.23`** (`VERSION_VISIBLE` en `index.html`; versión técnica `2026.11.26-v1.23`). Historial corto en `CAMBIOS.md`.
 
 - **Jugar en línea (web pública):** https://lujanesau20-hash.github.io/bubu-dudu-stick-fighters/
 - **Repositorio:** https://github.com/lujanesau20-hash/bubu-dudu-stick-fighters
@@ -2036,3 +2036,27 @@ Supuestos para el grupo de 3 enemigos: las áreas hacen en promedio el 70% (Cata
 1. **El básico rinde ~55 de daño por segundo, no ~25:** 22 de daño × 2,5 golpes por segundo. Si se quieren unos 25–35 por segundo, habría que bajar su daño a 10–14, pero eso haría los niveles más lentos.
 2. **Cataclismo:** a 3 enemigos rinde menos que H3+H4 (240 contra 252, con 15 más de maná). Su ventaja es el radio grande (380 px: alcanza más enemigos). El pedido dice "radio reducido a la mitad", pero el radio actual es 380 (v1.03 lo subió de 260). Propuesta: daño 100 → 115, o dejarlo así porque contra 5 o más enemigos ya rinde mucho más (400 o más).
 3. **H1 a 72 de daño por segundo** (si se machaca a 3 por segundo) gasta 9 de maná por segundo, más de lo que entra (5 por segundo + 2 por golpe): sirve en ráfagas, no todo el tiempo. Si se quiere más barato, maná 2.
+
+## 39. Pruebas de cierre de los controles nuevos (v1.23)
+
+Con navegador automático, en celular horizontal (800×360 y 2000×900, táctil) y en laptop (1280×800).
+
+| Prueba | Resultado |
+|---|---|
+| Botones sin solaparse (800×360 y 2000×900) | 0 solapes, ninguno fuera de la pantalla |
+| Multitoque con toques reales: joystick + básico + salto a la vez | Los tres responden (camina, ataca y salta) |
+| Enfriamiento visible | Capa oscura que gira, segundos en el centro, insignia de maná y tinte azul sin maná |
+| HUD de arriba en celular | Sin cuadros de habilidades; ocupa el 14% del alto (800×360) |
+| Límite del básico (lógica real) | 2 casi juntos y luego de a dos cada 0,8 s; nunca más de 2 en 0,8 s ni más de 3 en 1 s |
+| Los 3 combos | Corte volador (H1+H3), Torbellino (H1+H4), Cataclismo (H3+H4); a 200 ms no salen; el básico no combina |
+| Solitario con el bot (Isla 1, Isla 5, Cielo 3) | 2 de 2 victorias en cada uno |
+| Sala en línea: el invitado (celular) toca el básico 12 veces cada ~50 ms | El líder lo deja salir 6 veces: 0 · 0,17 · 0,8 · 1,0 · 1,6 · 1,8 s (máx. 2 en 0,8 s y 3 en 1 s) |
+| Sala en línea: el invitado toca H1 y H3 con dos dedos | Corte volador en el líder |
+| Versus en línea | El básico del invitado le hace 18 a Bubu (daño base × 0,8); el maná del invitado no baja |
+| Versus local (teclas 2 y 8) | Cada uno le hace 36 al otro (2 golpes de 18) |
+
+**Nota sobre las herramientas:** el bot de `simular_niveles.js` cuenta una habilidad como "usada" si bajó el maná o empezó un enfriamiento. Como el básico no tiene ninguno de los dos, su contador queda en 0 aunque el bot lo pulse.
+
+### No se pudo probar
+- Con dedos en un celular real ni en dos dispositivos reales (los toques se simularon con el navegador).
+- Partidas largas jugadas a mano con los controles nuevos.
